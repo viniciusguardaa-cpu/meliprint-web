@@ -17,18 +17,18 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#4F8CFF] via-[#2F6FED] to-[#255EDB] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+      <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-[#2F6FED] p-4 rounded-full mb-4">
+          <div className="bg-white/20 backdrop-blur-sm p-6 rounded-full mb-6">
             <Logo className="text-white" />
           </div>
-          <p className="text-gray-500 mt-2 text-center">
+          <p className="text-white text-lg mt-2 text-center font-medium">
             Impressão rápida de etiquetas do Mercado Livre
           </p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+          <div className="bg-red-500/20 backdrop-blur-sm border border-red-300/50 text-white px-4 py-3 rounded-lg mb-6">
             Erro na autenticação. Tente novamente.
           </div>
         )}
@@ -36,10 +36,10 @@ export default function Login() {
         <button
           onClick={login}
           disabled={loading}
-          className="w-full bg-[#2F6FED] hover:bg-[#1e4fbd] text-white font-semibold py-4 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-3 disabled:opacity-50"
+          className="w-full bg-white hover:bg-white/90 text-[#2F6FED] font-semibold py-4 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-3 disabled:opacity-50 shadow-lg"
         >
           {loading ? (
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#2F6FED]"></div>
           ) : (
             <>
               <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
@@ -50,7 +50,7 @@ export default function Login() {
           )}
         </button>
 
-        <p className="text-center text-gray-400 text-sm mt-6">
+        <p className="text-center text-white/80 text-sm mt-6">
           Acesse sua conta do Mercado Livre para começar a imprimir etiquetas
         </p>
       </div>
