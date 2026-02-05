@@ -23,6 +23,11 @@ export interface Shipment {
   status: string;
   substatus: string;
   order_id: number;
+  lead_time?: {
+    buffering?: {
+      date?: string;
+    };
+  };
   receiver_address?: {
     city?: { name: string };
     state?: { name: string };
@@ -137,60 +142,47 @@ export async function getUserInfo(accessToken: string): Promise<UserInfo> {
 }
 
 export async function getOrders(accessToken: string, sellerId: number): Promise<Order[]> {
-  // Buscar pedidos recentes (últimos 50)
-  const params = new URLSearchParams({
-    seller: sellerId.toString(),
-    sort: 'date_desc',
-    limit: '50',
-    offset: '0'
-  });
+  const limit = 50;
+  const maxPages = 4;
+  const results: Order[] = [];
 
-  const response = await fetch(`${ML_API_URL}/orders/search?${params.toString()}`, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
+  for (let page = 0; page < maxPages; page++) {
+    const offset = page * limit;
+    const params = new URLSearchParams({
+      seller: sellerId.toString(),
+      sort: 'date_desc',
+      limit: String(limit),
+      offset: String(offset)
+    });
+
+    const response = await fetch(`${ML_API_URL}/orders/search?${params.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to get orders: ${error}`);
     }
-  });
 
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Orders API error:', error);
-    throw new Error('Failed to get orders');
+    const data = await response.json();
+    const pageResults: Order[] = data.results || [];
+    results.push(...pageResults);
+
+    if (pageResults.length < limit) {
+      break;
+    }
   }
 
-  const data = await response.json();
-  console.log(`Found ${data.results?.length || 0} orders`);
-  return data.results || [];
-}
-
-export async function getShipmentsByStatus(accessToken: string, sellerId: number): Promise<number[]> {
-  // Buscar envios com status ready_to_ship e substatus ready_to_print
-  const params = new URLSearchParams({
-    sender_id: sellerId.toString(),
-    status: 'ready_to_ship',
-    substatus: 'ready_to_print',
-    limit: '50'
-  });
-
-  const response = await fetch(`${ML_API_URL}/shipments/search?${params.toString()}`, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
-    }
-  });
-
-  if (!response.ok) {
-    console.error('Shipments search failed, using orders fallback');
-    return [];
-  }
-
-  const data = await response.json();
-  console.log(`Found ${data.results?.length || 0} ready_to_print shipments`);
-  return data.results || [];
+  return results;
 }
 
 export async function getShipment(accessToken: string, shipmentId: number): Promise<Shipment> {
   const response = await fetch(`${ML_API_URL}/shipments/${shipmentId}`, {
     headers: {
-      'Authorization': `Bearer ${accessToken}`
+      'Authorization': `Bearer ${accessToken}`,
+      'x-format-new': 'true'
     }
   });
 

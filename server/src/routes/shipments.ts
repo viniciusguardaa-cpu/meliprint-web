@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getOrders, getShipment, getShipmentsByStatus } from '../services/mercadolivre.js';
+import { getOrders, getShipment } from '../services/mercadolivre.js';
 
 const router = Router();
 
@@ -21,10 +21,6 @@ router.get('/', async (req: Request, res: Response) => {
   }
 
   try {
-    // Buscar IDs de envios ready_to_print diretamente
-    const readyToPrintIds = await getShipmentsByStatus(req.session.accessToken, req.session.userId);
-    console.log('Ready to print IDs:', readyToPrintIds);
-    
     const orders = await getOrders(req.session.accessToken, req.session.userId);
     
     const shipmentsPromises = orders
@@ -33,16 +29,21 @@ router.get('/', async (req: Request, res: Response) => {
         try {
           const shipment = await getShipment(req.session.accessToken!, order.shipping.id);
           
-          // Debug log
-          console.log(`Shipment ${shipment.id}: status=${shipment.status}, substatus=${shipment.substatus}`);
-          
           const items = order.order_items
             .map(item => `${item.quantity}x ${item.item.title}`)
             .join(', ');
 
-          // Só pode imprimir se status é ready_to_ship E substatus NÃO é invoice_pending
-          const canPrint = shipment.status === 'ready_to_ship' && 
-                          shipment.substatus !== 'invoice_pending';
+          const substatus = shipment.substatus;
+          const bufferingDate = shipment.lead_time?.buffering?.date;
+
+          const bufferedCanPrint =
+            substatus === 'buffered' &&
+            (!bufferingDate || new Date(bufferingDate).getTime() <= Date.now());
+
+          const canPrint =
+            shipment.status === 'ready_to_ship' &&
+            substatus !== 'invoice_pending' &&
+            (substatus !== 'buffered' || bufferedCanPrint);
 
           return {
             shipmentId: shipment.id,
@@ -50,7 +51,7 @@ router.get('/', async (req: Request, res: Response) => {
             buyerNickname: order.buyer.nickname,
             items: items.length > 100 ? items.substring(0, 97) + '...' : items,
             status: shipment.status,
-            substatus: shipment.substatus,
+            substatus,
             canPrint,
             city: shipment.receiver_address?.city?.name,
             state: shipment.receiver_address?.state?.name
