@@ -189,3 +189,20 @@ export async function getShipmentLabelsZPL(accessToken: string, shipmentIds: num
 
   return response.text();
 }
+
+export async function getInvoiceData(accessToken: string, shipmentId: number): Promise<any> {
+  const response = await fetch(
+    `${ML_API_URL}/shipments/${shipmentId}/fiscal_documents`,
+    {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    }
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json();
+}

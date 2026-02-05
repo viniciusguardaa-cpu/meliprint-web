@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Printer, LogOut, RefreshCw, Download, CheckSquare, Square, Package } from 'lucide-react';
+import { Printer, LogOut, RefreshCw, Download, CheckSquare, Square, Package, FileText } from 'lucide-react';
 
 interface Shipment {
   shipmentId: number;
@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
+  const [downloadingNF, setDownloadingNF] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export default function Dashboard() {
   };
 
   const printableShipments = shipments.filter(s => s.canPrint);
-  const allPrintableSelected = printableShipments.length > 0 && 
+  const allPrintableSelected = printableShipments.length > 0 &&
     printableShipments.every(s => selected.has(s.shipmentId));
 
   const toggleSelect = (id: number) => {
@@ -66,7 +67,7 @@ export default function Dashboard() {
 
   const handlePrint = async () => {
     if (selected.size === 0) return;
-    
+
     setPrinting(true);
     try {
       const res = await fetch('/api/labels/zpl', {
@@ -89,11 +90,42 @@ export default function Dashboard() {
       window.URL.revokeObjectURL(url);
 
       setSelected(new Set());
+      fetchShipments(); // Recarregar lista após baixar
     } catch (err) {
       setError('Erro ao gerar etiquetas. Tente novamente.');
       console.error(err);
     } finally {
       setPrinting(false);
+    }
+  };
+
+  const handleDownloadNF = async () => {
+    if (selected.size === 0) return;
+
+    setDownloadingNF(true);
+    try {
+      const res = await fetch('/api/labels/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ shipmentIds: Array.from(selected) })
+      });
+
+      if (!res.ok) throw new Error('Falha ao obter NFs');
+
+      const data = await res.json();
+
+      // Abrir links das NFs em novas abas
+      for (const item of data.invoices) {
+        if (item.invoice?.fiscal_document?.pdf_url) {
+          window.open(item.invoice.fiscal_document.pdf_url, '_blank');
+        }
+      }
+    } catch (err) {
+      setError('Erro ao baixar NFs. Tente novamente.');
+      console.error(err);
+    } finally {
+      setDownloadingNF(false);
     }
   };
 
@@ -145,18 +177,32 @@ export default function Dashboard() {
               {allPrintableSelected ? 'Desmarcar Todos' : 'Selecionar Todos'}
             </button>
           </div>
-          <button
-            onClick={handlePrint}
-            disabled={selected.size === 0 || printing}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {printing ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-            Baixar ZPL ({selected.size})
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadNF}
+              disabled={selected.size === 0 || downloadingNF}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {downloadingNF ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <FileText className="w-4 h-4" />
+              )}
+              NF
+            </button>
+            <button
+              onClick={handlePrint}
+              disabled={selected.size === 0 || printing}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {printing ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              Baixar ZPL ({selected.size})
+            </button>
+          </div>
         </div>
 
         {/* Error Message */}
@@ -198,9 +244,8 @@ export default function Dashboard() {
                 {shipments.map((shipment) => (
                   <tr
                     key={shipment.shipmentId}
-                    className={`hover:bg-gray-50 transition-colors ${
-                      !shipment.canPrint ? 'opacity-50' : ''
-                    }`}
+                    className={`hover:bg-gray-50 transition-colors ${!shipment.canPrint ? 'opacity-50' : ''
+                      }`}
                   >
                     <td className="px-4 py-4">
                       <button
