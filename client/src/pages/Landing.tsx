@@ -1,11 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { 
-  Printer, 
-  Zap, 
-  Clock, 
-  Shield, 
-  CheckCircle, 
+import {
+  Printer,
+  Zap,
+  Clock,
+  Shield,
+  CheckCircle,
   ArrowRight,
   Package,
   Download,
@@ -61,7 +61,7 @@ export default function Landing() {
       {/* Header */}
       <header className="bg-white border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <img src="/logo.png" alt="MeliPrint Logo" className="h-10 w-auto" />
+          <img src="/logoazul.png" alt="MeliPrint Logo" className="h-10 w-auto" />
           <div className="flex items-center gap-4">
             {user ? (
               <button
@@ -98,16 +98,16 @@ export default function Landing() {
               <Printer className="w-4 h-4" />
               Para vendedores do Mercado Livre
             </div>
-            
+
             <h1 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
               Imprima etiquetas do <span className="text-[#2F6FED]">Mercado Livre</span> em segundos
             </h1>
-            
+
             <p className="text-xl text-gray-600 mb-8">
-              Acelere seu processo de envio com impressão direta em formato ZPL. 
+              Acelere seu processo de envio com impressão direta em formato ZPL.
               Sem complicação, sem perda de tempo.
             </p>
-            
+
             <div className="flex items-center justify-center gap-4">
               <button
                 onClick={handleCTA}
@@ -208,10 +208,10 @@ export default function Landing() {
                 Pare de perder tempo com etiquetas
               </h2>
               <p className="text-gray-600 mb-8">
-                Sabemos como é frustrante o processo manual de impressão de etiquetas. 
+                Sabemos como é frustrante o processo manual de impressão de etiquetas.
                 Por isso criamos uma solução que funciona direto com sua impressora térmica.
               </p>
-              
+
               <div className="grid sm:grid-cols-2 gap-4">
                 {benefits.map((benefit, index) => (
                   <div key={index} className="flex items-center gap-3">
