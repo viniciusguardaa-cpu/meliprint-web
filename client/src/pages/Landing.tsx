@@ -59,9 +59,9 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <img src="/logoazul.png" alt="MeliPrint Logo" className="h-28 w-auto" />
+      <header className="bg-white/80 backdrop-blur-md border-b sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+          <img src="/logoazul.png" alt="MeliPrint Logo" className="h-12 w-auto" />
           <div className="flex items-center gap-4">
             {user ? (
               <button
@@ -91,77 +91,92 @@ export default function Landing() {
       </header>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-b from-blue-50 to-white py-20">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <Printer className="w-4 h-4" />
-              Para vendedores do Mercado Livre
-            </div>
-
-            <h1 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
-              Imprima etiquetas do <span className="text-[#2F6FED]">Mercado Livre</span> em segundos
-            </h1>
-
-            <p className="text-xl text-gray-600 mb-8">
-              Acelere seu processo de envio com impressão direta em formato ZPL.
-              Sem complicação, sem perda de tempo.
-            </p>
-
-            <div className="flex items-center justify-center gap-4">
-              <button
-                onClick={handleCTA}
-                className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg shadow-blue-200"
-              >
-                Começar Agora
-                <ArrowRight className="w-5 h-5" />
-              </button>
-              <div className="text-left">
-                <div className="text-2xl font-bold text-gray-900">R$ 29,90</div>
-                <div className="text-gray-500 text-sm">por mês</div>
+      <section className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 pt-12 pb-16">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left - Text */}
+            <div>
+              <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-5">
+                <Printer className="w-4 h-4" />
+                Para vendedores do Mercado Livre
               </div>
-            </div>
-          </div>
 
-          {/* Hero Image/Demo */}
-          <div className="mt-16 max-w-4xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-2xl border overflow-hidden">
-              <div className="bg-gray-100 px-4 py-3 flex items-center gap-2 border-b">
-                <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-                <div className="w-3 h-3 rounded-full bg-green-400"></div>
-              </div>
-              <div className="p-6 bg-gray-50">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#2F6FED] rounded-lg flex items-center justify-center">
-                      <Package className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-900">15 envios prontos</div>
-                      <div className="text-sm text-gray-500">Última atualização: agora</div>
-                    </div>
-                  </div>
-                  <button className="bg-[#2F6FED] text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium">
-                    <Download className="w-4 h-4" />
-                    Imprimir Selecionados
-                  </button>
+              <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-5 leading-tight">
+                Imprima etiquetas do <span className="text-[#2F6FED]">Mercado Livre</span> em segundos
+              </h1>
+
+              <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+                Acelere seu processo de envio com impressão direta em formato ZPL.
+                Sem complicação, sem perda de tempo.
+              </p>
+
+              <div className="flex items-center gap-5">
+                <button
+                  onClick={handleCTA}
+                  className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg shadow-blue-200"
+                >
+                  Começar Agora
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+                <div className="text-left">
+                  <div className="text-2xl font-bold text-gray-900">R$ 29,90</div>
+                  <div className="text-gray-500 text-sm">por mês</div>
                 </div>
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-white p-4 rounded-lg border flex items-center gap-4">
-                      <div className="w-5 h-5 border-2 border-[#2F6FED] rounded bg-[#2F6FED] flex items-center justify-center">
-                        <CheckCircle className="w-4 h-4 text-white" />
+              </div>
+
+              <div className="flex items-center gap-6 mt-8 text-sm text-gray-500">
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  Impressões ilimitadas
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  Cancele quando quiser
+                </div>
+              </div>
+            </div>
+
+            {/* Right - Demo */}
+            <div className="relative">
+              <div className="absolute -inset-4 bg-gradient-to-r from-blue-200 to-indigo-200 rounded-3xl blur-2xl opacity-30"></div>
+              <div className="relative bg-white rounded-2xl shadow-2xl border overflow-hidden">
+                <div className="bg-gray-100 px-4 py-2.5 flex items-center gap-2 border-b">
+                  <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                  <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                  <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                </div>
+                <div className="p-5 bg-gray-50">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-[#2F6FED] rounded-lg flex items-center justify-center">
+                        <Package className="w-5 h-5 text-white" />
                       </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">Envio #{4820000 + i}</div>
-                        <div className="text-sm text-gray-500">Comprador{i} • 2x Produto exemplo</div>
+                      <div>
+                        <div className="font-semibold text-gray-900">15 envios prontos</div>
+                        <div className="text-sm text-gray-500">Última atualização: agora</div>
                       </div>
-                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">
-                        Pronto
-                      </span>
                     </div>
-                  ))}
+                    <button className="bg-[#2F6FED] text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium">
+                      <Download className="w-4 h-4" />
+                      Imprimir Selecionados
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="bg-white p-3.5 rounded-lg border flex items-center gap-4">
+                        <div className="w-5 h-5 border-2 border-[#2F6FED] rounded bg-[#2F6FED] flex items-center justify-center">
+                          <CheckCircle className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">Envio #{4820000 + i}</div>
+                          <div className="text-sm text-gray-500">Comprador{i} • 2x Produto exemplo</div>
+                        </div>
+                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">
+                          Pronto
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -170,9 +185,9 @@ export default function Landing() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20">
+      <section className="py-16">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
               Tudo que você precisa para agilizar seus envios
             </h2>
@@ -200,7 +215,7 @@ export default function Landing() {
       </section>
 
       {/* Benefits Section */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
@@ -252,7 +267,7 @@ export default function Landing() {
       </section>
 
       {/* Pricing CTA Section */}
-      <section className="py-20">
+      <section className="py-16">
         <div className="max-w-3xl mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">
             Comece a economizar tempo hoje
@@ -284,7 +299,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="MeliPrint" className="h-8 w-auto brightness-0 invert" />
+              <img src="/logo.png" alt="MeliPrint" className="h-10 w-auto brightness-0 invert" />
             </div>
             <div className="flex items-center gap-6 text-sm">
               <a href="/pricing" className="hover:text-white transition-colors">Preços</a>
