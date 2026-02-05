@@ -23,13 +23,16 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+app.set('trust proxy', 1);
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'meliprint-secret-key',
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
