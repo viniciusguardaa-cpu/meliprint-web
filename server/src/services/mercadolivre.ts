@@ -271,6 +271,26 @@ export async function getShipmentLabelsZPL(accessToken: string, shipmentIds: num
   return response.text();
 }
 
+export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: number[]): Promise<Buffer> {
+  const ids = shipmentIds.slice(0, 50).join(',');
+  const response = await fetch(
+    `${ML_API_URL}/shipment_labels?shipment_ids=${ids}&response_type=pdf`,
+    {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to get labels: ${error}`);
+  }
+
+  const bytes = await response.arrayBuffer();
+  return Buffer.from(bytes);
+}
+
 export async function getInvoiceData(accessToken: string, shipmentId: number): Promise<any> {
   const response = await fetch(
     `${ML_API_URL}/shipments/${shipmentId}/fiscal_documents`,
