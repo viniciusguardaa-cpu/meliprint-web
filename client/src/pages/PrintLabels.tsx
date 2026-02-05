@@ -55,32 +55,49 @@ export default function PrintLabels() {
 
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
           const page = await pdf.getPage(pageNumber);
-          const viewport = page.getViewport({ scale: 2 });
 
           const pageWrap = document.createElement('div');
           pageWrap.className = 'label-page';
-          pageWrap.style.pageBreakAfter = 'always';
-          pageWrap.style.breakAfter = 'page';
-          pageWrap.style.width = '100mm';
-          pageWrap.style.height = '150mm';
-          pageWrap.style.display = 'flex';
-          pageWrap.style.justifyContent = 'center';
-          pageWrap.style.alignItems = 'center';
-          pageWrap.style.padding = '0';
-          pageWrap.style.margin = '0';
-          pageWrap.style.overflow = 'hidden';
-          pageWrap.style.boxSizing = 'border-box';
+          pageWrap.style.cssText = `
+            width: 100mm;
+            height: 150mm;
+            min-width: 100mm;
+            min-height: 150mm;
+            max-width: 100mm;
+            max-height: 150mm;
+            page-break-after: always;
+            break-after: page;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+            box-sizing: border-box;
+            position: relative;
+          `;
 
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
           if (!ctx) continue;
 
+          const scale = 3;
+          const viewport = page.getViewport({ scale });
+
           canvas.width = Math.floor(viewport.width);
           canvas.height = Math.floor(viewport.height);
-          canvas.style.width = '100%';
-          canvas.style.height = '100%';
-          canvas.style.objectFit = 'contain';
-          canvas.style.display = 'block';
+          canvas.style.cssText = `
+            width: 100mm;
+            height: 150mm;
+            max-width: 100mm;
+            max-height: 150mm;
+            object-fit: contain;
+            display: block;
+            margin: 0;
+            padding: 0;
+          `;
 
           pageWrap.appendChild(canvas);
           containerRef.current.appendChild(pageWrap);
