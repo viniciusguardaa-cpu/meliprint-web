@@ -58,13 +58,18 @@ export default function PrintLabels() {
           const viewport = page.getViewport({ scale: 2 });
 
           const pageWrap = document.createElement('div');
+          pageWrap.className = 'label-page';
           pageWrap.style.pageBreakAfter = 'always';
           pageWrap.style.breakAfter = 'page';
+          pageWrap.style.width = '100mm';
+          pageWrap.style.height = '150mm';
           pageWrap.style.display = 'flex';
           pageWrap.style.justifyContent = 'center';
           pageWrap.style.alignItems = 'center';
           pageWrap.style.padding = '0';
           pageWrap.style.margin = '0';
+          pageWrap.style.overflow = 'hidden';
+          pageWrap.style.boxSizing = 'border-box';
 
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
@@ -73,8 +78,8 @@ export default function PrintLabels() {
           canvas.width = Math.floor(viewport.width);
           canvas.height = Math.floor(viewport.height);
           canvas.style.width = '100%';
-          canvas.style.maxWidth = '900px';
-          canvas.style.height = 'auto';
+          canvas.style.height = '100%';
+          canvas.style.objectFit = 'contain';
           canvas.style.display = 'block';
 
           pageWrap.appendChild(canvas);
@@ -130,7 +135,39 @@ export default function PrintLabels() {
 
   return (
     <div className="min-h-screen bg-white">
-      <style>{`@page { margin: 0; } body { margin: 0; } @media print { .no-print { display: none !important; } }`}</style>
+      <style>{`
+        @page {
+          size: 100mm 150mm;
+          margin: 0;
+        }
+        body {
+          margin: 0;
+        }
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+          .label-page {
+            width: 100mm !important;
+            height: 150mm !important;
+            page-break-after: always;
+            break-after: page;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          .label-page:last-child {
+            page-break-after: auto;
+            break-after: auto;
+          }
+        }
+        @media screen {
+          .label-page {
+            border: 1px dashed #ccc;
+            margin-bottom: 16px;
+            background: white;
+          }
+        }
+      `}</style>
 
       <div className="no-print sticky top-0 z-10 bg-white border-b px-4 py-3 flex items-center justify-between">
         <div className="text-sm text-gray-600">

@@ -1,0 +1,302 @@
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { 
+  Printer, 
+  Zap, 
+  Clock, 
+  Shield, 
+  CheckCircle, 
+  ArrowRight,
+  Package,
+  Download,
+  RefreshCw
+} from 'lucide-react';
+
+export default function Landing() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handleCTA = () => {
+    if (user) {
+      navigate('/dashboard');
+    } else {
+      navigate('/pricing');
+    }
+  };
+
+  const features = [
+    {
+      icon: Zap,
+      title: 'Impressão Instantânea',
+      description: 'Gere etiquetas ZPL em segundos, direto para sua impressora térmica.'
+    },
+    {
+      icon: Package,
+      title: 'Seleção em Lote',
+      description: 'Selecione até 50 etiquetas de uma vez e baixe todas juntas.'
+    },
+    {
+      icon: RefreshCw,
+      title: 'Sincronização Automática',
+      description: 'Seus envios são atualizados em tempo real com o Mercado Livre.'
+    },
+    {
+      icon: Shield,
+      title: 'Seguro e Confiável',
+      description: 'Conexão via OAuth oficial do Mercado Livre. Seus dados protegidos.'
+    }
+  ];
+
+  const benefits = [
+    'Economize horas de trabalho manual',
+    'Reduza erros na impressão de etiquetas',
+    'Interface simples e intuitiva',
+    'Suporte a impressoras térmicas ZPL',
+    'Funciona com qualquer navegador',
+    'Acesse de qualquer lugar'
+  ];
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="bg-white border-b sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <img src="/logo.png" alt="MeliPrint Logo" className="h-10 w-auto" />
+          <div className="flex items-center gap-4">
+            {user ? (
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white px-6 py-2 rounded-lg font-medium transition-colors"
+              >
+                Acessar Dashboard
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="text-gray-600 hover:text-gray-900 px-4 py-2 font-medium transition-colors"
+                >
+                  Entrar
+                </button>
+                <button
+                  onClick={() => navigate('/pricing')}
+                  className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Começar Agora
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="bg-gradient-to-b from-blue-50 to-white py-20">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
+              <Printer className="w-4 h-4" />
+              Para vendedores do Mercado Livre
+            </div>
+            
+            <h1 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
+              Imprima etiquetas do <span className="text-[#2F6FED]">Mercado Livre</span> em segundos
+            </h1>
+            
+            <p className="text-xl text-gray-600 mb-8">
+              Acelere seu processo de envio com impressão direta em formato ZPL. 
+              Sem complicação, sem perda de tempo.
+            </p>
+            
+            <div className="flex items-center justify-center gap-4">
+              <button
+                onClick={handleCTA}
+                className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg shadow-blue-200"
+              >
+                Começar Agora
+                <ArrowRight className="w-5 h-5" />
+              </button>
+              <div className="text-left">
+                <div className="text-2xl font-bold text-gray-900">R$ 29,90</div>
+                <div className="text-gray-500 text-sm">por mês</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Hero Image/Demo */}
+          <div className="mt-16 max-w-4xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-2xl border overflow-hidden">
+              <div className="bg-gray-100 px-4 py-3 flex items-center gap-2 border-b">
+                <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                <div className="w-3 h-3 rounded-full bg-green-400"></div>
+              </div>
+              <div className="p-6 bg-gray-50">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-[#2F6FED] rounded-lg flex items-center justify-center">
+                      <Package className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-900">15 envios prontos</div>
+                      <div className="text-sm text-gray-500">Última atualização: agora</div>
+                    </div>
+                  </div>
+                  <button className="bg-[#2F6FED] text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium">
+                    <Download className="w-4 h-4" />
+                    Imprimir Selecionados
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="bg-white p-4 rounded-lg border flex items-center gap-4">
+                      <div className="w-5 h-5 border-2 border-[#2F6FED] rounded bg-[#2F6FED] flex items-center justify-center">
+                        <CheckCircle className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">Envio #{4820000 + i}</div>
+                        <div className="text-sm text-gray-500">Comprador{i} • 2x Produto exemplo</div>
+                      </div>
+                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">
+                        Pronto
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Tudo que você precisa para agilizar seus envios
+            </h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              Desenvolvido por vendedores, para vendedores. Focado em simplicidade e eficiência.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {features.map((feature, index) => (
+              <div key={index} className="text-center p-6">
+                <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <feature.icon className="w-7 h-7 text-[#2F6FED]" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600">
+                  {feature.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Benefits Section */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-6">
+                Pare de perder tempo com etiquetas
+              </h2>
+              <p className="text-gray-600 mb-8">
+                Sabemos como é frustrante o processo manual de impressão de etiquetas. 
+                Por isso criamos uma solução que funciona direto com sua impressora térmica.
+              </p>
+              
+              <div className="grid sm:grid-cols-2 gap-4">
+                {benefits.map((benefit, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    </div>
+                    <span className="text-gray-700">{benefit}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-2xl shadow-xl">
+              <div className="flex items-center gap-3 mb-6">
+                <Clock className="w-8 h-8 text-[#2F6FED]" />
+                <div>
+                  <div className="text-3xl font-bold text-gray-900">5 min</div>
+                  <div className="text-gray-500">tempo médio economizado por envio</div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center py-3 border-b">
+                  <span className="text-gray-600">Processo manual</span>
+                  <span className="text-red-500 font-medium">~7 minutos</span>
+                </div>
+                <div className="flex justify-between items-center py-3 border-b">
+                  <span className="text-gray-600">Com MeliPrint</span>
+                  <span className="text-green-500 font-medium">~2 minutos</span>
+                </div>
+                <div className="flex justify-between items-center py-3">
+                  <span className="text-gray-900 font-medium">50 envios por dia</span>
+                  <span className="text-[#2F6FED] font-bold">4+ horas economizadas</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing CTA Section */}
+      <section className="py-20">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            Comece a economizar tempo hoje
+          </h2>
+          <p className="text-gray-600 mb-8">
+            Teste agora e veja a diferença no seu processo de envio.
+          </p>
+
+          <div className="bg-gradient-to-r from-[#2F6FED] to-[#1e4fbd] p-8 rounded-2xl text-white">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <span className="text-5xl font-bold">R$ 29,90</span>
+              <span className="text-blue-200">/mês</span>
+            </div>
+            <p className="text-blue-100 mb-6">
+              Acesso completo • Impressões ilimitadas • Cancele quando quiser
+            </p>
+            <button
+              onClick={handleCTA}
+              className="bg-white text-[#2F6FED] px-8 py-4 rounded-xl font-semibold text-lg hover:bg-blue-50 transition-colors"
+            >
+              Começar Agora
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-gray-400 py-12">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-2">
+              <img src="/logo.png" alt="MeliPrint" className="h-8 w-auto brightness-0 invert" />
+            </div>
+            <div className="flex items-center gap-6 text-sm">
+              <a href="/pricing" className="hover:text-white transition-colors">Preços</a>
+              <a href="#" className="hover:text-white transition-colors">Termos de Uso</a>
+              <a href="#" className="hover:text-white transition-colors">Privacidade</a>
+            </div>
+            <div className="text-sm">
+              © {new Date().getFullYear()} MeliPrint. Todos os direitos reservados.
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}

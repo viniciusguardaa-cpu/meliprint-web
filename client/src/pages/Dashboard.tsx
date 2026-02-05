@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Printer, LogOut, RefreshCw, CheckSquare, Square, Package } from 'lucide-react';
+import { Printer, LogOut, RefreshCw, CheckSquare, Square, Package, CreditCard } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface Shipment {
   shipmentId: number;
@@ -15,6 +16,7 @@ interface Shipment {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [ready, setReady] = useState<Shipment[]>([]);
   const [reprint, setReprint] = useState<Shipment[]>([]);
@@ -114,6 +116,13 @@ export default function Dashboard() {
           <img src="/logo.png" alt="Printly Logo" className="h-10 w-auto" />
           <div className="flex items-center gap-4">
             <span className="text-white font-medium">{user?.nickname}</span>
+            <button
+              onClick={() => navigate('/subscription')}
+              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <CreditCard className="w-4 h-4" />
+              Assinatura
+            </button>
             <button
               onClick={logout}
               className="bg-[#1e4fbd] hover:bg-[#163a9a] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
