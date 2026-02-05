@@ -110,14 +110,14 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-blue-500 shadow-lg">
+      <header className="bg-[#2F6FED] shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <Logo className="text-white" />
           <div className="flex items-center gap-4">
             <span className="text-white font-medium">{user?.nickname}</span>
             <button
               onClick={logout}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+              className="bg-[#1e4fbd] hover:bg-[#163a9a] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
             >
               <LogOut className="w-4 h-4" />
               Sair
@@ -171,7 +171,7 @@ export default function Dashboard() {
           <button
             onClick={handlePrintAll}
             disabled={selected.size === 0 || printing}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+            className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
           >
             {printing ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -192,7 +192,7 @@ export default function Dashboard() {
         {/* Shipments List */}
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2F6FED]"></div>
           </div>
         ) : visibleShipments.length === 0 ? (
           <div className="bg-white rounded-xl shadow-md p-16 text-center">
@@ -233,7 +233,7 @@ export default function Dashboard() {
                         className="disabled:cursor-not-allowed"
                       >
                         {selected.has(shipment.shipmentId) ? (
-                          <CheckSquare className="w-5 h-5 text-blue-500" />
+                          <CheckSquare className="w-5 h-5 text-[#2F6FED]" />
                         ) : (
                           <Square className="w-5 h-5 text-gray-300" />
                         )}

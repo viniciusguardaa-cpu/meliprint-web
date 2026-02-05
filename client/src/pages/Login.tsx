@@ -16,10 +16,10 @@ export default function Login() {
   }, [user, loading, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#2F6FED] via-[#2F6FED] to-[#1e4fbd] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-blue-500 p-4 rounded-full mb-4">
+          <div className="bg-[#2F6FED] p-4 rounded-full mb-4">
             <Logo className="text-white" />
           </div>
           <p className="text-gray-500 mt-2 text-center">
@@ -36,7 +36,7 @@ export default function Login() {
         <button
           onClick={login}
           disabled={loading}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-4 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-3 disabled:opacity-50"
+          className="w-full bg-[#2F6FED] hover:bg-[#1e4fbd] text-white font-semibold py-4 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-3 disabled:opacity-50"
         >
           {loading ? (
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
