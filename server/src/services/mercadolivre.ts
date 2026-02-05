@@ -100,6 +100,64 @@ export async function exchangeCodeForToken(
   return response.json();
 }
 
+export async function searchShipments(
+  accessToken: string,
+  sellerId: number,
+  status: string,
+  substatus: string
+): Promise<number[]> {
+  const params = new URLSearchParams({
+    seller: sellerId.toString(),
+    status,
+    substatus,
+    limit: '50'
+  });
+
+  const response = await fetch(`${ML_API_URL}/shipments/search?${params.toString()}`, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'x-format-new': 'true'
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to search shipments: ${error}`);
+  }
+
+  const data = await response.json();
+  const results = data.results || [];
+
+  if (!Array.isArray(results)) return [];
+
+  if (results.length === 0) return [];
+
+  if (typeof results[0] === 'number') {
+    return results as number[];
+  }
+
+  if (typeof results[0] === 'object' && results[0] && 'id' in results[0]) {
+    return results.map((r: any) => r.id).filter((id: any) => typeof id === 'number');
+  }
+
+  return [];
+}
+
+export async function getOrder(accessToken: string, orderId: number): Promise<Order> {
+  const response = await fetch(`${ML_API_URL}/orders/${orderId}`, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to get order ${orderId}: ${error}`);
+  }
+
+  return response.json();
+}
+
 export async function refreshAccessToken(
   refreshToken: string,
   clientId: string,
@@ -150,6 +208,7 @@ export async function getOrders(accessToken: string, sellerId: number): Promise<
     const offset = page * limit;
     const params = new URLSearchParams({
       seller: sellerId.toString(),
+      'order.status': 'paid',
       sort: 'date_desc',
       limit: String(limit),
       offset: String(offset)

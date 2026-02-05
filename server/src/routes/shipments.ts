@@ -34,16 +34,10 @@ router.get('/', async (req: Request, res: Response) => {
             .join(', ');
 
           const substatus = shipment.substatus;
-          const bufferingDate = shipment.lead_time?.buffering?.date;
-
-          const bufferedCanPrint =
-            substatus === 'buffered' &&
-            (!bufferingDate || new Date(bufferingDate).getTime() <= Date.now());
 
           const canPrint =
             shipment.status === 'ready_to_ship' &&
-            substatus !== 'invoice_pending' &&
-            (substatus !== 'buffered' || bufferedCanPrint);
+            (substatus === 'ready_to_print' || substatus === 'printed' || substatus === 'reprinted');
 
           return {
             shipmentId: shipment.id,
@@ -63,8 +57,11 @@ router.get('/', async (req: Request, res: Response) => {
       });
 
     const shipments = (await Promise.all(shipmentsPromises)).filter(Boolean) as ShipmentWithOrder[];
-    
-    res.json({ shipments });
+
+    const ready = shipments.filter(s => s.substatus === 'ready_to_print');
+    const reprint = shipments.filter(s => s.substatus === 'printed' || s.substatus === 'reprinted');
+
+    res.json({ ready, reprint });
   } catch (error) {
     console.error('Failed to get shipments:', error);
     res.status(500).json({ error: 'Failed to get shipments' });
