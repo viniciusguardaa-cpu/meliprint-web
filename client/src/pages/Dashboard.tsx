@@ -112,7 +112,7 @@ export default function Dashboard() {
       {/* Header */}
       <header className="bg-blue-500 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Logo className="text-white" showText={false} />
+          <Logo className="text-white" />
           <div className="flex items-center gap-4">
             <span className="text-white font-medium">{user?.nickname}</span>
             <button

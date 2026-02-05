@@ -20,7 +20,7 @@ export default function Login() {
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-blue-500 p-4 rounded-full mb-4">
-            <Logo className="text-white" showText={false} />
+            <Logo className="text-white" />
           </div>
           <p className="text-gray-500 mt-2 text-center">
             Impressão rápida de etiquetas do Mercado Livre
