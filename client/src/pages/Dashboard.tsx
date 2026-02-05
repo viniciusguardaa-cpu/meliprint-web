@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Printer, LogOut, RefreshCw, Download, CheckSquare, Square, Package, FileText, Filter } from 'lucide-react';
+import { Printer, LogOut, RefreshCw, CheckSquare, Square, Package, Filter } from 'lucide-react';
 
 interface Shipment {
   shipmentId: number;
@@ -20,7 +20,6 @@ export default function Dashboard() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
-  const [downloadingNF, setDownloadingNF] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -75,67 +74,56 @@ export default function Dashboard() {
     }
   };
 
-  const handlePrint = async () => {
+  const handlePrintAll = async () => {
     if (selected.size === 0) return;
 
     setPrinting(true);
+
     try {
-      const res = await fetch('/api/labels/zpl', {
+      // 1. Baixar etiquetas ZPL
+      const zplRes = await fetch('/api/labels/zpl', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ shipmentIds: Array.from(selected) })
       });
 
-      if (!res.ok) throw new Error('Falha ao gerar etiquetas');
+      if (zplRes.ok) {
+        const blob = await zplRes.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `etiquetas-${Date.now()}.zpl`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
 
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `etiquetas-${Date.now()}.zpl`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      // 2. Baixar NFs
+      const nfRes = await fetch('/api/labels/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ shipmentIds: Array.from(selected) })
+      });
+
+      if (nfRes.ok) {
+        const data = await nfRes.json();
+        for (const item of data.invoices) {
+          if (item.invoice?.fiscal_document?.pdf_url) {
+            window.open(item.invoice.fiscal_document.pdf_url, '_blank');
+          }
+        }
+      }
 
       setSelected(new Set());
-      fetchShipments(); // Recarregar lista após baixar
+      fetchShipments();
     } catch (err) {
-      setError('Erro ao gerar etiquetas. Tente novamente.');
+      setError('Erro ao imprimir. Tente novamente.');
       console.error(err);
     } finally {
       setPrinting(false);
-    }
-  };
-
-  const handleDownloadNF = async () => {
-    if (selected.size === 0) return;
-
-    setDownloadingNF(true);
-    try {
-      const res = await fetch('/api/labels/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ shipmentIds: Array.from(selected) })
-      });
-
-      if (!res.ok) throw new Error('Falha ao obter NFs');
-
-      const data = await res.json();
-
-      // Abrir links das NFs em novas abas
-      for (const item of data.invoices) {
-        if (item.invoice?.fiscal_document?.pdf_url) {
-          window.open(item.invoice.fiscal_document.pdf_url, '_blank');
-        }
-      }
-    } catch (err) {
-      setError('Erro ao baixar NFs. Tente novamente.');
-      console.error(err);
-    } finally {
-      setDownloadingNF(false);
     }
   };
 
@@ -200,32 +188,18 @@ export default function Dashboard() {
               </select>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleDownloadNF}
-              disabled={selected.size === 0 || downloadingNF}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {downloadingNF ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <FileText className="w-4 h-4" />
-              )}
-              NF
-            </button>
-            <button
-              onClick={handlePrint}
-              disabled={selected.size === 0 || printing}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {printing ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
-              Baixar ZPL ({selected.size})
-            </button>
-          </div>
+          <button
+            onClick={handlePrintAll}
+            disabled={selected.size === 0 || printing}
+            className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+          >
+            {printing ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            ) : (
+              <Printer className="w-5 h-5" />
+            )}
+            Imprimir ({selected.size})
+          </button>
         </div>
 
         {/* Error Message */}
