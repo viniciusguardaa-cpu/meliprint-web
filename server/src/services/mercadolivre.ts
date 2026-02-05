@@ -137,10 +137,12 @@ export async function getUserInfo(accessToken: string): Promise<UserInfo> {
 }
 
 export async function getOrders(accessToken: string, sellerId: number): Promise<Order[]> {
+  // Buscar pedidos com envio ready_to_ship (prontos para despachar)
   const params = new URLSearchParams({
     seller: sellerId.toString(),
-    'order.status': 'paid',
-    sort: 'date_desc'
+    'shipping.status': 'ready_to_ship',
+    sort: 'date_desc',
+    limit: '50'
   });
 
   const response = await fetch(`${ML_API_URL}/orders/search?${params.toString()}`, {
