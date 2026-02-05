@@ -40,8 +40,8 @@ router.get('/', async (req: Request, res: Response) => {
             .map(item => `${item.quantity}x ${item.item.title}`)
             .join(', ');
 
-          // Etiqueta pode ser impressa se substatus é ready_to_print (ainda não baixou)
-          const canPrint = shipment.substatus === 'ready_to_print';
+          // Permitir imprimir qualquer envio com status ready_to_ship
+          const canPrint = shipment.status === 'ready_to_ship';
 
           return {
             shipmentId: shipment.id,
