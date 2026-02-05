@@ -18,10 +18,10 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-[#4F8CFF] via-[#2F6FED] to-[#255EDB] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-12">
-          <div className="mb-8">
-            <img src="/logo.png" alt="Printly Logo" className="h-32 w-auto" />
+          <div className="mb-8 w-full flex justify-center">
+            <img src="/logo.png" alt="Printly Logo" className="w-full max-w-sm h-auto" />
           </div>
-          <p className="text-white text-lg mt-2 text-center font-medium">
+          <p className="text-white text-xl mt-2 text-center font-medium">
             Impressão rápida de etiquetas do Mercado Livre
           </p>
         </div>
