@@ -137,10 +137,9 @@ export async function getUserInfo(accessToken: string): Promise<UserInfo> {
 }
 
 export async function getOrders(accessToken: string, sellerId: number): Promise<Order[]> {
-  // Buscar pedidos com envio ready_to_ship (prontos para despachar)
+  // Buscar todos os pedidos recentes
   const params = new URLSearchParams({
     seller: sellerId.toString(),
-    'shipping.status': 'ready_to_ship',
     sort: 'date_desc',
     limit: '50'
   });
