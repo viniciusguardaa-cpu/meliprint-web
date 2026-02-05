@@ -61,7 +61,7 @@ export default function Landing() {
       {/* Header */}
       <header className="bg-white border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <img src="/logoazul.png" alt="MeliPrint Logo" className="h-10 w-auto" />
+          <img src="/logoazul.png" alt="MeliPrint Logo" className="h-28 w-auto" />
           <div className="flex items-center gap-4">
             {user ? (
               <button
