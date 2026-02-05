@@ -3,6 +3,8 @@ import crypto from 'crypto';
 const ML_API_URL = 'https://api.mercadolibre.com';
 const ML_AUTH_URL = 'https://auth.mercadolivre.com.br';
 
+let shipmentsSearchUnsupported = false;
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;
@@ -106,6 +108,10 @@ export async function searchShipments(
   status: string,
   substatus: string
 ): Promise<number[]> {
+  if (shipmentsSearchUnsupported) {
+    return [];
+  }
+
   const params = new URLSearchParams({
     seller: sellerId.toString(),
     status,
@@ -119,6 +125,11 @@ export async function searchShipments(
       'x-format-new': 'true'
     }
   });
+
+  if (response.status === 404) {
+    shipmentsSearchUnsupported = true;
+    return [];
+  }
 
   if (!response.ok) {
     const error = await response.text();
