@@ -73,67 +73,12 @@ export default function Dashboard() {
   };
 
   const openLabelsPrintWindow = (shipmentIds: number[]) => {
-    const printWindow = window.open('', '_blank');
+    const ids = shipmentIds.join(',');
+    const url = `/print/labels?shipment_ids=${encodeURIComponent(ids)}`;
+    const printWindow = window.open(url, '_blank');
     if (!printWindow) {
       throw new Error('Popup blocked');
     }
-
-    const idsJson = JSON.stringify(shipmentIds);
-    const html = `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Etiquetas</title>
-    <style>
-      html, body { height: 100%; margin: 0; }
-      #frame { width: 100%; height: 100vh; border: 0; }
-      #status { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 12px; }
-      @media print { #status { display: none; } }
-    </style>
-  </head>
-  <body>
-    <div id="status">Carregando etiquetas...</div>
-    <iframe id="frame"></iframe>
-    <script>
-      (async function () {
-        try {
-          const shipmentIds = ${idsJson};
-          const res = await fetch('/api/labels/pdf', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ shipmentIds })
-          });
-          if (!res.ok) {
-            document.getElementById('status').textContent = 'Erro ao carregar etiquetas.';
-            return;
-          }
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          const frame = document.getElementById('frame');
-          frame.onload = function () {
-            try {
-              frame.contentWindow && frame.contentWindow.focus();
-              frame.contentWindow && frame.contentWindow.print();
-            } catch (e) {
-              window.focus();
-              window.print();
-            }
-          };
-          frame.src = url;
-          document.getElementById('status').textContent = 'Abrindo impressão...';
-        } catch (e) {
-          document.getElementById('status').textContent = 'Erro ao carregar etiquetas.';
-        }
-      })();
-    </script>
-  </body>
-</html>`;
-
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
   };
 
   const handlePrintAll = async () => {
@@ -146,23 +91,6 @@ export default function Dashboard() {
 
       // 1. Baixar etiquetas ZPL
       openLabelsPrintWindow(shipmentIds);
-
-      // 2. Baixar NFs
-      const nfRes = await fetch('/api/labels/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ shipmentIds })
-      });
-
-      if (nfRes.ok) {
-        const data = await nfRes.json();
-        for (const item of data.invoices) {
-          if (item.invoice?.fiscal_document?.pdf_url) {
-            window.open(item.invoice.fiscal_document.pdf_url, '_blank');
-          }
-        }
-      }
 
       setSelected(new Set());
       fetchShipments();

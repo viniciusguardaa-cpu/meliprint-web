@@ -30,6 +30,37 @@ router.post('/zpl', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/pdf', async (req: Request, res: Response) => {
+  if (!req.session.accessToken) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  const raw = (req.query.shipment_ids || req.query.shipmentIds || '') as string;
+  const shipmentIds = raw
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
+  if (shipmentIds.length === 0) {
+    return res.status(400).json({ error: 'shipment_ids must be a non-empty comma separated list' });
+  }
+
+  if (shipmentIds.length > 50) {
+    return res.status(400).json({ error: 'Maximum 50 shipments per request' });
+  }
+
+  try {
+    const pdf = await getShipmentLabelsPDF(req.session.accessToken, shipmentIds);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="labels.pdf"');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(pdf);
+  } catch (error) {
+    console.error('Failed to get labels pdf:', error);
+    res.status(500).json({ error: 'Failed to generate labels' });
+  }
+});
+
 router.post('/pdf', async (req: Request, res: Response) => {
   if (!req.session.accessToken) {
     return res.status(401).json({ error: 'Not authenticated' });
