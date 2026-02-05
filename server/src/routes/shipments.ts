@@ -33,6 +33,13 @@ router.get('/', async (req: Request, res: Response) => {
             .map(item => `${item.quantity}x ${item.item.title}`)
             .join(', ');
 
+          // Etiqueta pode ser impressa se status é ready_to_ship OU se substatus indica que está pronta
+          const canPrint = shipment.status === 'ready_to_ship' || 
+                          shipment.substatus === 'ready_to_print' ||
+                          shipment.substatus === 'printed' ||
+                          shipment.substatus === 'buffered' ||
+                          shipment.substatus === 'invoice_pending';
+
           return {
             shipmentId: shipment.id,
             orderId: order.id,
@@ -40,7 +47,7 @@ router.get('/', async (req: Request, res: Response) => {
             items: items.length > 100 ? items.substring(0, 97) + '...' : items,
             status: shipment.status,
             substatus: shipment.substatus,
-            canPrint: shipment.status === 'ready_to_ship' && shipment.substatus === 'ready_to_print',
+            canPrint,
             city: shipment.receiver_address?.city?.name,
             state: shipment.receiver_address?.state?.name
           };
