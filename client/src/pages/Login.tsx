@@ -16,7 +16,7 @@ export default function Login() {
   }, [user, loading, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#2F6FED] via-[#2F6FED] to-[#1e4fbd] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#4F8CFF] via-[#2F6FED] to-[#255EDB] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-[#2F6FED] p-4 rounded-full mb-4">
