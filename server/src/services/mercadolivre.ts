@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import JSZip from 'jszip';
+import { gunzipSync } from 'zlib';
 
 const ML_API_URL = 'https://api.mercadolibre.com';
 const ML_AUTH_URL = 'https://auth.mercadolivre.com.br';
@@ -279,7 +281,34 @@ export async function getShipmentLabelsZPL(accessToken: string, shipmentIds: num
     throw new Error(`Failed to get labels: ${error}`);
   }
 
-  return response.text();
+  const bytes = Buffer.from(await response.arrayBuffer());
+
+  if (bytes.length >= 2 && bytes[0] === 0x50 && bytes[1] === 0x4b) {
+    const zip = await JSZip.loadAsync(bytes);
+    const fileNames = Object.keys(zip.files).filter((name) => !zip.files[name]?.dir);
+    const preferred =
+      fileNames.find((n) => n.toLowerCase().endsWith('.zpl')) ||
+      fileNames.find((n) => n.toLowerCase().endsWith('.txt')) ||
+      fileNames[0];
+
+    if (!preferred) {
+      throw new Error('Failed to extract ZPL: empty ZIP from Mercado Livre');
+    }
+
+    const f = zip.file(preferred);
+    if (!f) {
+      throw new Error(`Failed to extract ZPL: missing file ${preferred} inside ZIP`);
+    }
+
+    return (await f.async('string')).trim();
+  }
+
+  if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+    const unzipped = gunzipSync(bytes);
+    return unzipped.toString('utf8').trim();
+  }
+
+  return bytes.toString('utf8').trim();
 }
 
 export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: number[]): Promise<Buffer> {
