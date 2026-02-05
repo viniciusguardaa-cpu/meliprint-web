@@ -283,73 +283,98 @@ export async function getShipmentLabelsZPL(accessToken: string, shipmentIds: num
   return response.text();
 }
 
-export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: number[]): Promise<Buffer> {
-  console.log('[PDF] Fetching ZPL for shipments:', shipmentIds);
-  const zpl = await getShipmentLabelsZPL(accessToken, shipmentIds);
-  console.log('[PDF] ZPL length:', zpl.length, 'first 200 chars:', zpl.substring(0, 200));
+async function getShipmentLabelsPDFDirect(accessToken: string, shipmentIds: number[]): Promise<Buffer> {
+  const ids = shipmentIds.slice(0, 50).join(',');
+  const response = await fetch(
+    `${ML_API_URL}/shipment_labels?shipment_ids=${ids}&response_type=pdf`,
+    {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    }
+  );
 
-  const labels = zpl
-    .split(/(?=\^XA)/)
-    .map((s) => s.trim())
-    .filter((s) => s.startsWith('^XA') && s.includes('^XZ'));
-
-  console.log('[PDF] Found', labels.length, 'labels in ZPL');
-
-  if (labels.length === 0) {
-    throw new Error('No labels found in ZPL response');
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to get labels PDF: ${error}`);
   }
 
-  const labelPdfs: Buffer[] = [];
+  const bytes = await response.arrayBuffer();
+  return Buffer.from(bytes);
+}
 
-  for (let i = 0; i < labels.length; i++) {
-    const labelZpl = labels[i];
-    console.log(`[PDF] Converting label ${i + 1}/${labels.length} via Labelary (${labelZpl.length} chars)`);
+export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: number[]): Promise<Buffer> {
+  try {
+    console.log('[PDF] Fetching ZPL for shipments:', shipmentIds);
+    const zpl = await getShipmentLabelsZPL(accessToken, shipmentIds);
+    console.log('[PDF] ZPL length:', zpl.length, 'first 200 chars:', zpl.substring(0, 200));
 
-    try {
-      const resp = await fetch('http://api.labelary.com/v1/printers/8dpmm/labels/4x6/0/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/pdf'
-        },
-        body: labelZpl
-      });
+    const labels = zpl
+      .split(/(?=\^XA)/)
+      .map((s) => s.trim())
+      .filter((s) => s.startsWith('^XA') && s.includes('^XZ'));
 
-      if (!resp.ok) {
-        const errText = await resp.text();
-        console.error(`[PDF] Labelary error for label ${i + 1}: status=${resp.status}`, errText);
+    console.log('[PDF] Found', labels.length, 'labels in ZPL');
+
+    if (labels.length === 0) {
+      throw new Error('No labels found in ZPL response');
+    }
+
+    const labelPdfs: Buffer[] = [];
+
+    for (let i = 0; i < labels.length; i++) {
+      const labelZpl = labels[i];
+      console.log(`[PDF] Converting label ${i + 1}/${labels.length} via Labelary (${labelZpl.length} chars)`);
+
+      try {
+        const resp = await fetch('http://api.labelary.com/v1/printers/8dpmm/labels/4x6/0/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/pdf'
+          },
+          body: labelZpl
+        });
+
+        if (!resp.ok) {
+          const errText = await resp.text();
+          console.error(`[PDF] Labelary error for label ${i + 1}: status=${resp.status}`, errText);
+          continue;
+        }
+
+        const buf = await resp.arrayBuffer();
+        console.log(`[PDF] Label ${i + 1} converted, PDF size: ${buf.byteLength} bytes`);
+        labelPdfs.push(Buffer.from(buf));
+      } catch (err) {
+        console.error(`[PDF] Labelary fetch error for label ${i + 1}:`, err);
         continue;
       }
-
-      const buf = await resp.arrayBuffer();
-      console.log(`[PDF] Label ${i + 1} converted, PDF size: ${buf.byteLength} bytes`);
-      labelPdfs.push(Buffer.from(buf));
-    } catch (err) {
-      console.error(`[PDF] Labelary fetch error for label ${i + 1}:`, err);
-      continue;
     }
-  }
 
-  if (labelPdfs.length === 0) {
-    throw new Error('Failed to convert any labels via Labelary');
-  }
-
-  if (labelPdfs.length === 1) {
-    return labelPdfs[0];
-  }
-
-  const merged = await PDFDocument.create();
-  for (const pdfBuf of labelPdfs) {
-    const doc = await PDFDocument.load(pdfBuf);
-    const pages = await merged.copyPages(doc, doc.getPageIndices());
-    for (const page of pages) {
-      merged.addPage(page);
+    if (labelPdfs.length === 0) {
+      throw new Error('Failed to convert any labels via Labelary');
     }
-  }
 
-  const mergedBytes = await merged.save();
-  console.log(`[PDF] Merged ${labelPdfs.length} labels into ${mergedBytes.byteLength} bytes`);
-  return Buffer.from(mergedBytes);
+    if (labelPdfs.length === 1) {
+      return labelPdfs[0];
+    }
+
+    const merged = await PDFDocument.create();
+    for (const pdfBuf of labelPdfs) {
+      const doc = await PDFDocument.load(pdfBuf);
+      const pages = await merged.copyPages(doc, doc.getPageIndices());
+      for (const page of pages) {
+        merged.addPage(page);
+      }
+    }
+
+    const mergedBytes = await merged.save();
+    console.log(`[PDF] Merged ${labelPdfs.length} labels into ${mergedBytes.byteLength} bytes`);
+    return Buffer.from(mergedBytes);
+  } catch (err) {
+    console.error('[PDF] Labelary pipeline failed, falling back to ML PDF:', err);
+    return getShipmentLabelsPDFDirect(accessToken, shipmentIds);
+  }
 }
 
 export async function getInvoiceData(accessToken: string, shipmentId: number): Promise<any> {
