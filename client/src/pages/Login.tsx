@@ -20,9 +20,8 @@ export default function Login() {
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-blue-500 px-6 py-4 rounded-2xl mb-4">
-            <Logo className="text-white" showText={false} />
+            <Logo className="text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800">MeliPrint Web</h1>
           <p className="text-gray-500 mt-2 text-center">
             Impressão rápida de etiquetas do Mercado Livre
           </p>
