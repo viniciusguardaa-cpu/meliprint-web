@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getOrders, getShipment } from '../services/mercadolivre.js';
+import { getOrders, getShipment, getShipmentsByStatus } from '../services/mercadolivre.js';
 
 const router = Router();
 
@@ -21,6 +21,10 @@ router.get('/', async (req: Request, res: Response) => {
   }
 
   try {
+    // Buscar IDs de envios ready_to_print diretamente
+    const readyToPrintIds = await getShipmentsByStatus(req.session.accessToken, req.session.userId);
+    console.log('Ready to print IDs:', readyToPrintIds);
+    
     const orders = await getOrders(req.session.accessToken, req.session.userId);
     
     const shipmentsPromises = orders

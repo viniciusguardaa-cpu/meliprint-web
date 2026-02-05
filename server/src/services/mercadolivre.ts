@@ -137,11 +137,12 @@ export async function getUserInfo(accessToken: string): Promise<UserInfo> {
 }
 
 export async function getOrders(accessToken: string, sellerId: number): Promise<Order[]> {
-  // Buscar todos os pedidos recentes
+  // Buscar pedidos recentes (últimos 50)
   const params = new URLSearchParams({
     seller: sellerId.toString(),
     sort: 'date_desc',
-    limit: '50'
+    limit: '50',
+    offset: '0'
   });
 
   const response = await fetch(`${ML_API_URL}/orders/search?${params.toString()}`, {
@@ -151,10 +152,38 @@ export async function getOrders(accessToken: string, sellerId: number): Promise<
   });
 
   if (!response.ok) {
+    const error = await response.text();
+    console.error('Orders API error:', error);
     throw new Error('Failed to get orders');
   }
 
   const data = await response.json();
+  console.log(`Found ${data.results?.length || 0} orders`);
+  return data.results || [];
+}
+
+export async function getShipmentsByStatus(accessToken: string, sellerId: number): Promise<number[]> {
+  // Buscar envios com status ready_to_ship e substatus ready_to_print
+  const params = new URLSearchParams({
+    sender_id: sellerId.toString(),
+    status: 'ready_to_ship',
+    substatus: 'ready_to_print',
+    limit: '50'
+  });
+
+  const response = await fetch(`${ML_API_URL}/shipments/search?${params.toString()}`, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  });
+
+  if (!response.ok) {
+    console.error('Shipments search failed, using orders fallback');
+    return [];
+  }
+
+  const data = await response.json();
+  console.log(`Found ${data.results?.length || 0} ready_to_print shipments`);
   return data.results || [];
 }
 
