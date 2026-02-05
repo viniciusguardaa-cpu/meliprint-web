@@ -15,6 +15,7 @@ declare module 'express-session' {
     refreshToken?: string;
     userId?: number;
     userNickname?: string;
+    userEmail?: string;
     tokenExpiresAt?: number;
   }
 }
@@ -78,6 +79,7 @@ router.get('/callback', async (req: Request, res: Response) => {
     req.session.refreshToken = tokens.refresh_token;
     req.session.userId = userInfo.id;
     req.session.userNickname = userInfo.nickname;
+    req.session.userEmail = userInfo.email;
     req.session.tokenExpiresAt = Date.now() + tokens.expires_in * 1000;
     delete req.session.codeVerifier;
 

@@ -14,6 +14,11 @@ const router = Router();
 const PLAN_PRICE = 29.90;
 const PLAN_NAME = 'MeliPrint Pro - Mensal';
 
+// Emails with free lifetime access
+const FREE_ACCESS_EMAILS = [
+  'marcos@companhiadopapel.com.br'
+];
+
 function getMercadoPagoClient() {
   const accessToken = process.env.MP_ACCESS_TOKEN;
   if (!accessToken) {
@@ -29,6 +34,19 @@ router.get('/status', async (req: Request, res: Response) => {
   }
 
   try {
+    // Check if user has free lifetime access
+    const userEmail = req.session.userEmail?.toLowerCase();
+    if (userEmail && FREE_ACCESS_EMAILS.includes(userEmail)) {
+      return res.json({
+        hasSubscription: true,
+        status: 'authorized',
+        currentPeriodEnd: null,
+        planName: 'MeliPrint Pro - Vitalício',
+        price: 0,
+        isFreeAccess: true
+      });
+    }
+
     const user = await getUserByMlId(req.session.userId);
     
     if (!user) {
