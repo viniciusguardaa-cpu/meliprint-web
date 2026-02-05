@@ -29,6 +29,9 @@ router.get('/', async (req: Request, res: Response) => {
         try {
           const shipment = await getShipment(req.session.accessToken!, order.shipping.id);
           
+          // Debug log
+          console.log(`Shipment ${shipment.id}: status=${shipment.status}, substatus=${shipment.substatus}`);
+          
           const items = order.order_items
             .map(item => `${item.quantity}x ${item.item.title}`)
             .join(', ');
