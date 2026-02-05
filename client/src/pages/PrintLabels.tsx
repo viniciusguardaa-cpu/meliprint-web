@@ -136,28 +136,75 @@ export default function PrintLabels() {
   return (
     <div className="min-h-screen bg-white">
       <style>{`
-        @page {
-          size: 100mm 150mm;
-          margin: 0;
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
-        body {
-          margin: 0;
+        @page {
+          size: 100mm 150mm !important;
+          margin: 0mm !important;
+          padding: 0mm !important;
         }
         @media print {
-          .no-print {
-            display: none !important;
-          }
-          .label-page {
+          html {
+            margin: 0 !important;
+            padding: 0 !important;
             width: 100mm !important;
             height: 150mm !important;
-            page-break-after: always;
-            break-after: page;
-            page-break-inside: avoid;
-            break-inside: avoid;
+          }
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100mm !important;
+            height: 150mm !important;
+          }
+          .no-print, .no-print * {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+            overflow: hidden !important;
+          }
+          .min-h-screen {
+            min-height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          #label-container {
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .label-page {
+            display: block !important;
+            position: relative !important;
+            width: 100mm !important;
+            height: 150mm !important;
+            min-width: 100mm !important;
+            min-height: 150mm !important;
+            max-width: 100mm !important;
+            max-height: 150mm !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            background: white !important;
           }
           .label-page:last-child {
-            page-break-after: auto;
-            break-after: auto;
+            page-break-after: auto !important;
+            break-after: auto !important;
+          }
+          .label-page canvas {
+            display: block !important;
+            width: 100mm !important;
+            height: 150mm !important;
+            max-width: 100mm !important;
+            max-height: 150mm !important;
+            object-fit: contain !important;
+            margin: 0 auto !important;
           }
         }
         @media screen {
@@ -194,7 +241,7 @@ export default function PrintLabels() {
       {error ? (
         <div className="p-6 text-gray-700">{error}</div>
       ) : (
-        <div ref={containerRef} className="p-0" />
+        <div ref={containerRef} id="label-container" className="p-0" />
       )}
 
       {invoices.length > 0 && (
