@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Printer, LogOut, RefreshCw, Download, CheckSquare, Square, Package, FileText } from 'lucide-react';
+import { Printer, LogOut, RefreshCw, Download, CheckSquare, Square, Package, FileText, Filter } from 'lucide-react';
 
 interface Shipment {
   shipmentId: number;
@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [printing, setPrinting] = useState(false);
   const [downloadingNF, setDownloadingNF] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchShipments();
@@ -43,7 +44,16 @@ export default function Dashboard() {
     }
   };
 
-  const printableShipments = shipments.filter(s => s.canPrint);
+  // Filtrar por status selecionado
+  const filteredShipments = shipments.filter(s => {
+    if (statusFilter === 'all') return true;
+    return s.substatus === statusFilter || s.status === statusFilter;
+  });
+
+  // Obter lista única de status para o dropdown
+  const uniqueStatuses = [...new Set(shipments.map(s => s.substatus || s.status))];
+
+  const printableShipments = filteredShipments.filter(s => s.canPrint);
   const allPrintableSelected = printableShipments.length > 0 &&
     printableShipments.every(s => selected.has(s.shipmentId));
 
@@ -176,6 +186,19 @@ export default function Dashboard() {
               )}
               {allPrintableSelected ? 'Desmarcar Todos' : 'Selecionar Todos'}
             </button>
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-500" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg border-0 focus:ring-2 focus:ring-yellow-500"
+              >
+                <option value="all">Todos os Status</option>
+                {uniqueStatuses.map(status => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -217,7 +240,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-center py-16">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>
           </div>
-        ) : shipments.length === 0 ? (
+        ) : filteredShipments.length === 0 ? (
           <div className="bg-white rounded-xl shadow-md p-16 text-center">
             <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-600 mb-2">
@@ -241,7 +264,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {shipments.map((shipment) => (
+                {filteredShipments.map((shipment) => (
                   <tr
                     key={shipment.shipmentId}
                     className={`hover:bg-gray-50 transition-colors ${!shipment.canPrint ? 'opacity-50' : ''

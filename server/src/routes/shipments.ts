@@ -57,10 +57,7 @@ router.get('/', async (req: Request, res: Response) => {
         }
       });
 
-    const allShipments = (await Promise.all(shipmentsPromises)).filter(Boolean) as ShipmentWithOrder[];
-    
-    // Filtrar apenas etiquetas prontas para impressão (não impressas)
-    const shipments = allShipments.filter(s => s.canPrint);
+    const shipments = (await Promise.all(shipmentsPromises)).filter(Boolean) as ShipmentWithOrder[];
     
     res.json({ shipments });
   } catch (error) {
