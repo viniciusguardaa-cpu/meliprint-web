@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { PDFDocument } from 'pdf-lib';
 
 const ML_API_URL = 'https://api.mercadolibre.com';
 const ML_AUTH_URL = 'https://auth.mercadolivre.com.br';
@@ -283,23 +284,54 @@ export async function getShipmentLabelsZPL(accessToken: string, shipmentIds: num
 }
 
 export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: number[]): Promise<Buffer> {
-  const ids = shipmentIds.slice(0, 50).join(',');
-  const response = await fetch(
-    `${ML_API_URL}/shipment_labels?shipment_ids=${ids}&response_type=pdf`,
-    {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
+  // Get ZPL labels from Mercado Livre
+  const zpl = await getShipmentLabelsZPL(accessToken, shipmentIds);
+  
+  // Split ZPL into individual labels (each label starts with ^XA and ends with ^XZ)
+  const labels = zpl.split(/(?=\^XA)/g).filter(l => l.trim().length > 0);
+  
+  // Convert each ZPL label to PDF using Labelary API (4x6 inches = 10x15cm)
+  const pdfBuffers: Buffer[] = [];
+  
+  for (const label of labels) {
+    const labelaryResponse = await fetch(
+      'http://api.labelary.com/v1/printers/8dpmm/labels/4x6/0/',
+      {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/pdf',
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: label
       }
+    );
+    
+    if (labelaryResponse.ok) {
+      const pdfBytes = await labelaryResponse.arrayBuffer();
+      pdfBuffers.push(Buffer.from(pdfBytes));
     }
-  );
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to get labels: ${error}`);
   }
-
-  const bytes = await response.arrayBuffer();
-  return Buffer.from(bytes);
+  
+  // Merge all PDFs into one
+  if (pdfBuffers.length === 0) {
+    throw new Error('No labels generated');
+  }
+  
+  if (pdfBuffers.length === 1) {
+    return pdfBuffers[0];
+  }
+  
+  // Merge multiple PDFs using pdf-lib
+  const mergedPdf = await PDFDocument.create();
+  
+  for (const pdfBuffer of pdfBuffers) {
+    const pdf = await PDFDocument.load(pdfBuffer);
+    const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+    pages.forEach(page => mergedPdf.addPage(page));
+  }
+  
+  const mergedBytes = await mergedPdf.save();
+  return Buffer.from(mergedBytes);
 }
 
 export async function getInvoiceData(accessToken: string, shipmentId: number): Promise<any> {
