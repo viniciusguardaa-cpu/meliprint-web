@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Printer } from 'lucide-react';
+import Logo from '../components/Logo';
 
 export default function Login() {
   const { user, loading, login } = useAuth();
@@ -19,8 +19,8 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-blue-500 p-4 rounded-full mb-4">
-            <Printer className="w-12 h-12 text-white" />
+          <div className="bg-blue-500 px-6 py-4 rounded-2xl mb-4">
+            <Logo className="text-white" showText={false} />
           </div>
           <h1 className="text-3xl font-bold text-gray-800">MeliPrint Web</h1>
           <p className="text-gray-500 mt-2 text-center">
