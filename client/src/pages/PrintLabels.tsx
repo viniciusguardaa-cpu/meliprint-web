@@ -140,7 +140,7 @@ export default function PrintLabels() {
           <button
             onClick={() => window.print()}
             disabled={!printReady}
-            className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
           >
             Imprimir
           </button>
