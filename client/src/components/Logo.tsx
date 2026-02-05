@@ -8,7 +8,7 @@ export default function Logo({ className = '' }: LogoProps) {
       <img
         src="/logo.svg"
         alt="Printly Logo"
-        className="h-10 w-auto"
+        className="h-8 w-auto"
       />
     </div>
   );
