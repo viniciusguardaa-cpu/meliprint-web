@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import Logo from '../components/Logo';
 
 export default function Login() {
   const { user, loading, login } = useAuth();
@@ -18,9 +17,9 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#4F8CFF] via-[#2F6FED] to-[#255EDB] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="flex flex-col items-center mb-8">
-          <div className="bg-white/20 backdrop-blur-sm p-6 rounded-full mb-6">
-            <Logo className="text-white" />
+        <div className="flex flex-col items-center mb-12">
+          <div className="mb-8">
+            <img src="/logo.png" alt="Printly Logo" className="h-32 w-auto" />
           </div>
           <p className="text-white text-lg mt-2 text-center font-medium">
             Impressão rápida de etiquetas do Mercado Livre
