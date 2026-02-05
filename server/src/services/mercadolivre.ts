@@ -284,53 +284,56 @@ export async function getShipmentLabelsZPL(accessToken: string, shipmentIds: num
 }
 
 export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: number[]): Promise<Buffer> {
-  // Get ZPL labels from Mercado Livre
   const zpl = await getShipmentLabelsZPL(accessToken, shipmentIds);
-  
-  // Split ZPL into individual labels (each label starts with ^XA and ends with ^XZ)
-  const labels = zpl.split(/(?=\^XA)/g).filter(l => l.trim().length > 0);
-  
-  // Convert each ZPL label to PDF using Labelary API (4x6 inches = 10x15cm)
-  const pdfBuffers: Buffer[] = [];
-  
-  for (const label of labels) {
-    const labelaryResponse = await fetch(
-      'http://api.labelary.com/v1/printers/8dpmm/labels/4x6/0/',
-      {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/pdf',
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: label
-      }
-    );
-    
-    if (labelaryResponse.ok) {
-      const pdfBytes = await labelaryResponse.arrayBuffer();
-      pdfBuffers.push(Buffer.from(pdfBytes));
+
+  const labels = zpl
+    .split(/(?=\^XA)/)
+    .map((s) => s.trim())
+    .filter((s) => s.startsWith('^XA') && s.includes('^XZ'));
+
+  if (labels.length === 0) {
+    throw new Error('No labels found in ZPL response');
+  }
+
+  const labelPdfs: Buffer[] = [];
+
+  for (const labelZpl of labels) {
+    const resp = await fetch('http://api.labelary.com/v1/printers/8dpmm/labels/4x6/0/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/pdf'
+      },
+      body: labelZpl
+    });
+
+    if (!resp.ok) {
+      console.error('Labelary error:', await resp.text());
+      continue;
+    }
+
+    const buf = await resp.arrayBuffer();
+    labelPdfs.push(Buffer.from(buf));
+  }
+
+  if (labelPdfs.length === 0) {
+    throw new Error('Failed to convert any labels');
+  }
+
+  if (labelPdfs.length === 1) {
+    return labelPdfs[0];
+  }
+
+  const merged = await PDFDocument.create();
+  for (const pdfBuf of labelPdfs) {
+    const doc = await PDFDocument.load(pdfBuf);
+    const pages = await merged.copyPages(doc, doc.getPageIndices());
+    for (const page of pages) {
+      merged.addPage(page);
     }
   }
-  
-  // Merge all PDFs into one
-  if (pdfBuffers.length === 0) {
-    throw new Error('No labels generated');
-  }
-  
-  if (pdfBuffers.length === 1) {
-    return pdfBuffers[0];
-  }
-  
-  // Merge multiple PDFs using pdf-lib
-  const mergedPdf = await PDFDocument.create();
-  
-  for (const pdfBuffer of pdfBuffers) {
-    const pdf = await PDFDocument.load(pdfBuffer);
-    const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-    pages.forEach(page => mergedPdf.addPage(page));
-  }
-  
-  const mergedBytes = await mergedPdf.save();
+
+  const mergedBytes = await merged.save();
   return Buffer.from(mergedBytes);
 }
 
