@@ -33,12 +33,8 @@ router.get('/', async (req: Request, res: Response) => {
             .map(item => `${item.quantity}x ${item.item.title}`)
             .join(', ');
 
-          // Etiqueta pode ser impressa se status é ready_to_ship OU se substatus indica que está pronta
-          const canPrint = shipment.status === 'ready_to_ship' || 
-                          shipment.substatus === 'ready_to_print' ||
-                          shipment.substatus === 'printed' ||
-                          shipment.substatus === 'buffered' ||
-                          shipment.substatus === 'invoice_pending';
+          // Etiqueta pode ser impressa se substatus é ready_to_print (ainda não baixou)
+          const canPrint = shipment.substatus === 'ready_to_print';
 
           return {
             shipmentId: shipment.id,
