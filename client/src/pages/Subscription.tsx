@@ -2,20 +2,19 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
-import { CreditCard, Calendar, AlertTriangle, CheckCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { CreditCard, Calendar, AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
+import Header from '../components/Header';
+import toast from 'react-hot-toast';
 
 export default function Subscription() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  useAuth();
   const { subscription, loading } = useSubscription();
   const [canceling, setCanceling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const handleCancel = async () => {
     setCanceling(true);
-    setError(null);
 
     try {
       const res = await fetch('/api/subscription/cancel', {
@@ -29,13 +28,13 @@ export default function Subscription() {
         throw new Error(data.error || 'Erro ao cancelar assinatura');
       }
 
-      setSuccess('Assinatura cancelada com sucesso. Você ainda terá acesso até o fim do período atual.');
+      toast.success('Assinatura cancelada. Acesso mantido até o fim do período.');
       setShowCancelModal(false);
-      
+
       // Redirect after a delay
       setTimeout(() => navigate('/pricing'), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao cancelar');
+      toast.error(err instanceof Error ? err.message : 'Erro ao cancelar');
     } finally {
       setCanceling(false);
     }
@@ -53,28 +52,14 @@ export default function Subscription() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2F6FED]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-[#2F6FED] shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <img src="/logo.png" alt="MeliPrint Logo" className="h-10 w-auto" />
-          <div className="flex items-center gap-4">
-            <span className="text-white font-medium">{user?.nickname}</span>
-            <button
-              onClick={logout}
-              className="bg-[#1e4fbd] hover:bg-[#163a9a] text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Sair
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header showDashboard />
 
       <main className="max-w-2xl mx-auto px-4 py-8">
         {/* Back button */}
@@ -88,23 +73,8 @@ export default function Subscription() {
 
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Minha Assinatura</h1>
 
-        {/* Success message */}
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-3">
-            <CheckCircle className="w-5 h-5 flex-shrink-0" />
-            {success}
-          </div>
-        )}
-
-        {/* Error message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-            {error}
-          </div>
-        )}
-
         {subscription?.hasSubscription ? (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
+          <div className="bg-white rounded-xl shadow-md overflow-hidden animate-fade-in">
             {/* Status badge */}
             <div className="bg-green-500 text-white text-center py-2 text-sm font-semibold">
               ASSINATURA ATIVA
@@ -115,7 +85,7 @@ export default function Subscription() {
               <div className="flex items-center justify-between mb-6 pb-6 border-b">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">
-                    {subscription.planName || 'MeliPrint Pro'}
+                    {subscription.planName || 'Printly Pro'}
                   </h2>
                   <p className="text-gray-500">Plano mensal</p>
                 </div>
@@ -172,11 +142,11 @@ export default function Subscription() {
               Sem assinatura ativa
             </h2>
             <p className="text-gray-500 mb-6">
-              Assine para ter acesso completo ao MeliPrint
+              Assine para ter acesso completo ao Printly
             </p>
             <button
               onClick={() => navigate('/pricing')}
-              className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white font-semibold py-3 px-8 rounded-lg transition-colors"
+              className="bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
             >
               Ver planos
             </button>
@@ -198,7 +168,7 @@ export default function Subscription() {
             </div>
 
             <p className="text-gray-600 mb-6">
-              Tem certeza que deseja cancelar sua assinatura? Você perderá acesso às funcionalidades 
+              Tem certeza que deseja cancelar sua assinatura? Você perderá acesso às funcionalidades
               premium ao final do período atual.
             </p>
 

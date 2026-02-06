@@ -15,11 +15,11 @@ export default function Login() {
   }, [user, loading, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#4F8CFF] via-[#2F6FED] to-[#255EDB] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-brand-400 via-brand-500 to-brand-700 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-12">
           <div className="mb-8 w-full flex justify-center">
-            <img src="/logo.png" alt="Printly Logo" className="w-full max-w-sm h-auto" />
+            <img src="/logo.png" alt="Printly" className="w-full max-w-sm h-auto" />
           </div>
           <p className="text-white text-xl mt-2 text-center font-medium">
             Impressão rápida de etiquetas do Mercado Livre
@@ -35,10 +35,10 @@ export default function Login() {
         <button
           onClick={login}
           disabled={loading}
-          className="w-full bg-white hover:bg-white/90 text-[#2F6FED] font-semibold py-4 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-3 disabled:opacity-50 shadow-lg"
+          className="w-full bg-white hover:bg-white/90 text-brand-500 font-semibold py-4 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-3 disabled:opacity-50 shadow-lg"
         >
           {loading ? (
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#2F6FED]"></div>
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand-500"></div>
           ) : (
             <>
               <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">

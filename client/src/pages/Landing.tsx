@@ -61,12 +61,12 @@ export default function Landing() {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-          <img src="/logoazul.png" alt="MeliPrint Logo" className="h-12 w-auto" />
+          <img src="/logoazul.png" alt="Printly" className="h-12 w-auto" />
           <div className="flex items-center gap-4">
             {user ? (
               <button
                 onClick={() => navigate('/dashboard')}
-                className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                className="bg-brand-500 hover:bg-brand-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
               >
                 Acessar Dashboard
               </button>
@@ -80,7 +80,7 @@ export default function Landing() {
                 </button>
                 <button
                   onClick={() => navigate('/pricing')}
-                  className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                  className="bg-brand-500 hover:bg-brand-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
                 >
                   Começar Agora
                 </button>
@@ -102,7 +102,7 @@ export default function Landing() {
               </div>
 
               <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-5 leading-tight">
-                Imprima etiquetas do <span className="text-[#2F6FED]">Mercado Livre</span> em segundos
+                Imprima etiquetas do <span className="text-brand-500">Mercado Livre</span> em segundos
               </h1>
 
               <p className="text-lg text-gray-600 mb-8 leading-relaxed">
@@ -113,7 +113,7 @@ export default function Landing() {
               <div className="flex items-center gap-5">
                 <button
                   onClick={handleCTA}
-                  className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg shadow-blue-200"
+                  className="bg-brand-500 hover:bg-brand-600 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg shadow-blue-200"
                 >
                   Começar Agora
                   <ArrowRight className="w-5 h-5" />
@@ -148,7 +148,7 @@ export default function Landing() {
                 <div className="p-5 bg-gray-50">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-[#2F6FED] rounded-lg flex items-center justify-center">
+                      <div className="w-10 h-10 bg-brand-500 rounded-lg flex items-center justify-center">
                         <Package className="w-5 h-5 text-white" />
                       </div>
                       <div>
@@ -156,7 +156,7 @@ export default function Landing() {
                         <div className="text-sm text-gray-500">Última atualização: agora</div>
                       </div>
                     </div>
-                    <button className="bg-[#2F6FED] text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium">
+                    <button className="bg-brand-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium">
                       <Download className="w-4 h-4" />
                       Imprimir Selecionados
                     </button>
@@ -164,7 +164,7 @@ export default function Landing() {
                   <div className="space-y-2">
                     {[1, 2, 3].map((i) => (
                       <div key={i} className="bg-white p-3.5 rounded-lg border flex items-center gap-4">
-                        <div className="w-5 h-5 border-2 border-[#2F6FED] rounded bg-[#2F6FED] flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-brand-500 rounded bg-brand-500 flex items-center justify-center">
                           <CheckCircle className="w-4 h-4 text-white" />
                         </div>
                         <div className="flex-1">
@@ -200,7 +200,7 @@ export default function Landing() {
             {features.map((feature, index) => (
               <div key={index} className="text-center p-6">
                 <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <feature.icon className="w-7 h-7 text-[#2F6FED]" />
+                  <feature.icon className="w-7 h-7 text-brand-500" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   {feature.title}
@@ -241,7 +241,7 @@ export default function Landing() {
 
             <div className="bg-white p-8 rounded-2xl shadow-xl">
               <div className="flex items-center gap-3 mb-6">
-                <Clock className="w-8 h-8 text-[#2F6FED]" />
+                <Clock className="w-8 h-8 text-brand-500" />
                 <div>
                   <div className="text-3xl font-bold text-gray-900">5 min</div>
                   <div className="text-gray-500">tempo médio economizado por envio</div>
@@ -253,12 +253,12 @@ export default function Landing() {
                   <span className="text-red-500 font-medium">~7 minutos</span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b">
-                  <span className="text-gray-600">Com MeliPrint</span>
+                  <span className="text-gray-600">Com Printly</span>
                   <span className="text-green-500 font-medium">~2 minutos</span>
                 </div>
                 <div className="flex justify-between items-center py-3">
                   <span className="text-gray-900 font-medium">50 envios por dia</span>
-                  <span className="text-[#2F6FED] font-bold">4+ horas economizadas</span>
+                  <span className="text-brand-500 font-bold">4+ horas economizadas</span>
                 </div>
               </div>
             </div>
@@ -276,7 +276,7 @@ export default function Landing() {
             Teste agora e veja a diferença no seu processo de envio.
           </p>
 
-          <div className="bg-gradient-to-r from-[#2F6FED] to-[#1e4fbd] p-8 rounded-2xl text-white">
+          <div className="bg-gradient-to-r from-brand-500 to-brand-600 p-8 rounded-2xl text-white">
             <div className="flex items-center justify-center gap-2 mb-4">
               <span className="text-5xl font-bold">R$ 29,90</span>
               <span className="text-blue-200">/mês</span>
@@ -286,7 +286,7 @@ export default function Landing() {
             </p>
             <button
               onClick={handleCTA}
-              className="bg-white text-[#2F6FED] px-8 py-4 rounded-xl font-semibold text-lg hover:bg-blue-50 transition-colors"
+              className="bg-white text-brand-500 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-blue-50 transition-colors"
             >
               Começar Agora
             </button>
@@ -299,7 +299,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="MeliPrint" className="h-10 w-auto brightness-0 invert" />
+              <img src="/logo.png" alt="Printly" className="h-10 w-auto brightness-0 invert" />
             </div>
             <div className="flex items-center gap-6 text-sm">
               <a href="/pricing" className="hover:text-white transition-colors">Preços</a>
@@ -307,7 +307,7 @@ export default function Landing() {
               <a href="#" className="hover:text-white transition-colors">Privacidade</a>
             </div>
             <div className="text-sm">
-              © {new Date().getFullYear()} MeliPrint. Todos os direitos reservados.
+              © {new Date().getFullYear()} Printly. Todos os direitos reservados.
             </div>
           </div>
         </div>

@@ -7,7 +7,7 @@ export default function Logo({ className = '' }: LogoProps) {
     <div className={`flex items-center ${className}`}>
       <img
         src="/logo.png"
-        alt="Printly Logo"
+        alt="Printly"
         className="h-8 w-auto"
       />
     </div>

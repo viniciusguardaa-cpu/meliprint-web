@@ -111,7 +111,7 @@ export default function PrintLabels() {
           <button
             onClick={() => window.print()}
             disabled={!printReady}
-            className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+            className="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
           >
             Imprimir
           </button>
@@ -155,7 +155,7 @@ export default function PrintLabels() {
                   href={x.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="block text-[#2F6FED] underline text-sm"
+                  className="block text-brand-500 underline text-sm"
                 >
                   NF do envio {x.shipmentId}
                 </a>

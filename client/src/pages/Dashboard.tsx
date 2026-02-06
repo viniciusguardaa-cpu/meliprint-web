@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Printer, LogOut, RefreshCw, CheckSquare, Square, Package, CreditCard } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Printer, RefreshCw, CheckSquare, Square, Package } from 'lucide-react';
+import Header from '../components/Header';
+import toast from 'react-hot-toast';
 
 interface Shipment {
   shipmentId: number;
@@ -16,15 +17,13 @@ interface Shipment {
 }
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  useAuth();
   const [ready, setReady] = useState<Shipment[]>([]);
   const [reprint, setReprint] = useState<Shipment[]>([]);
   const [tab, setTab] = useState<'ready' | 'reprint'>('ready');
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchShipments();
@@ -32,7 +31,6 @@ export default function Dashboard() {
 
   const fetchShipments = async () => {
     setLoading(true);
-    setError(null);
     try {
       const res = await fetch('/api/shipments', { credentials: 'include' });
       if (!res.ok) throw new Error('Falha ao carregar envios');
@@ -40,7 +38,7 @@ export default function Dashboard() {
       setReady(data.ready || []);
       setReprint(data.reprint || []);
     } catch (err) {
-      setError('Erro ao carregar envios. Tente novamente.');
+      toast.error('Erro ao carregar envios. Tente novamente.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -98,9 +96,9 @@ export default function Dashboard() {
       fetchShipments();
     } catch (err) {
       if (err instanceof Error && err.message === 'Popup blocked') {
-        setError('Permita popups no navegador para abrir a tela de impressão.');
+        toast.error('Permita popups no navegador para abrir a tela de impressão.');
       } else {
-        setError('Erro ao imprimir. Tente novamente.');
+        toast.error('Erro ao imprimir. Tente novamente.');
       }
       console.error(err);
     } finally {
@@ -110,34 +108,12 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-[#2F6FED] shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <img src="/logo.png" alt="Printly Logo" className="h-10 w-auto" />
-          <div className="flex items-center gap-4">
-            <span className="text-white font-medium">{user?.nickname}</span>
-            <button
-              onClick={() => navigate('/subscription')}
-              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-            >
-              <CreditCard className="w-4 h-4" />
-              Assinatura
-            </button>
-            <button
-              onClick={logout}
-              className="bg-[#1e4fbd] hover:bg-[#163a9a] text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Sair
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header showSubscription />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Actions Bar */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-6 flex items-center justify-between">
+        <div className="bg-white rounded-xl shadow-md p-4 mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             <button
               onClick={fetchShipments}
@@ -179,7 +155,7 @@ export default function Dashboard() {
           <button
             onClick={handlePrintAll}
             disabled={selected.size === 0 || printing}
-            className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+            className="bg-brand-500 hover:bg-brand-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
           >
             {printing ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -190,20 +166,27 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-            {error}
-          </div>
-        )}
-
         {/* Shipments List */}
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2F6FED]"></div>
+          <div className="bg-white rounded-xl shadow-md overflow-hidden animate-fade-in">
+            <div className="bg-gray-50 border-b px-4 py-3 flex gap-4">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="h-4 bg-gray-200 rounded w-20 animate-pulse" />
+              ))}
+            </div>
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="flex items-center gap-4 px-4 py-4 border-b border-gray-100">
+                <div className="w-5 h-5 bg-gray-200 rounded animate-pulse" />
+                <div className="h-4 bg-gray-200 rounded w-24 animate-pulse" />
+                <div className="h-4 bg-gray-200 rounded w-32 animate-pulse" />
+                <div className="h-4 bg-gray-200 rounded w-40 animate-pulse flex-1" />
+                <div className="h-4 bg-gray-200 rounded w-28 animate-pulse" />
+                <div className="h-5 bg-gray-200 rounded-full w-16 animate-pulse" />
+              </div>
+            ))}
           </div>
         ) : visibleShipments.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-md p-16 text-center">
+          <div className="bg-white rounded-xl shadow-md p-16 text-center animate-fade-in">
             <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-600 mb-2">
               Nenhum envio encontrado
@@ -215,69 +198,71 @@ export default function Dashboard() {
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase"></th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Envio</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Comprador</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Itens</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Destino</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {visibleShipments.map((shipment) => (
-                  <tr
-                    key={shipment.shipmentId}
-                    className={`hover:bg-gray-50 transition-colors ${!shipment.canPrint ? 'opacity-50' : ''
-                      }`}
-                  >
-                    <td className="px-4 py-4">
-                      <button
-                        onClick={() => toggleSelect(shipment.shipmentId)}
-                        disabled={!shipment.canPrint}
-                        className="disabled:cursor-not-allowed"
-                      >
-                        {selected.has(shipment.shipmentId) ? (
-                          <CheckSquare className="w-5 h-5 text-[#2F6FED]" />
-                        ) : (
-                          <Square className="w-5 h-5 text-gray-300" />
-                        )}
-                      </button>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="font-mono text-sm text-gray-600">
-                        #{shipment.shipmentId}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 font-medium text-gray-800">
-                      {shipment.buyerNickname}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-600 max-w-xs truncate">
-                      {shipment.items}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-600">
-                      {shipment.city && shipment.state
-                        ? `${shipment.city}, ${shipment.state}`
-                        : '-'}
-                    </td>
-                    <td className="px-4 py-4">
-                      {shipment.canPrint ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Pronto
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                          {shipment.substatus || shipment.status}
-                        </span>
-                      )}
-                    </td>
+          <div className="bg-white rounded-xl shadow-md overflow-hidden animate-fade-in">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px]">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase"></th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Envio</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Comprador</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Itens</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Destino</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {visibleShipments.map((shipment) => (
+                    <tr
+                      key={shipment.shipmentId}
+                      className={`hover:bg-gray-50 transition-colors ${!shipment.canPrint ? 'opacity-50' : ''
+                        }`}
+                    >
+                      <td className="px-4 py-4">
+                        <button
+                          onClick={() => toggleSelect(shipment.shipmentId)}
+                          disabled={!shipment.canPrint}
+                          className="disabled:cursor-not-allowed"
+                        >
+                          {selected.has(shipment.shipmentId) ? (
+                            <CheckSquare className="w-5 h-5 text-brand-500" />
+                          ) : (
+                            <Square className="w-5 h-5 text-gray-300" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="font-mono text-sm text-gray-600">
+                          #{shipment.shipmentId}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 font-medium text-gray-800">
+                        {shipment.buyerNickname}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-600 max-w-xs truncate">
+                        {shipment.items}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-600">
+                        {shipment.city && shipment.state
+                          ? `${shipment.city}, ${shipment.state}`
+                          : '-'}
+                      </td>
+                      <td className="px-4 py-4">
+                        {shipment.canPrint ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Pronto
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                            {shipment.substatus || shipment.status}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Check, Zap, Printer, Clock, Shield } from 'lucide-react';
+import Header from '../components/Header';
 
 export default function Pricing() {
   const { user } = useAuth();
@@ -47,29 +48,7 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
-      {/* Header */}
-      <header className="bg-[#2F6FED] shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <a href="/">
-            <img src="/logo.png" alt="MeliPrint Logo" className="h-10 w-auto" />
-          </a>
-          {user ? (
-            <a
-              href="/dashboard"
-              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Dashboard
-            </a>
-          ) : (
-            <a
-              href="/login"
-              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Entrar
-            </a>
-          )}
-        </div>
-      </header>
+      <Header showDashboard />
 
       <main className="max-w-4xl mx-auto px-4 py-16">
         {/* Hero */}
@@ -84,9 +63,9 @@ export default function Pricing() {
 
         {/* Pricing Card */}
         <div className="max-w-md mx-auto">
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden border-2 border-[#2F6FED]">
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden border-2 border-brand-500">
             {/* Badge */}
-            <div className="bg-[#2F6FED] text-white text-center py-2 text-sm font-semibold">
+            <div className="bg-brand-500 text-white text-center py-2 text-sm font-semibold">
               PLANO MENSAL
             </div>
 
@@ -124,7 +103,7 @@ export default function Pricing() {
               <button
                 onClick={handleSubscribe}
                 disabled={loading}
-                className="w-full bg-[#2F6FED] hover:bg-[#1e4fbd] text-white font-semibold py-4 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-4 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>

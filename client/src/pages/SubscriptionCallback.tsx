@@ -24,7 +24,7 @@ export default function SubscriptionCallback() {
               credentials: 'include'
             });
             const retryData = await retryRes.json();
-            
+
             if (retryData.hasSubscription) {
               setStatus('success');
               setTimeout(() => navigate('/dashboard'), 2000);
@@ -46,7 +46,7 @@ export default function SubscriptionCallback() {
       <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4 text-center">
         {status === 'loading' && (
           <>
-            <Loader2 className="w-16 h-16 text-[#2F6FED] mx-auto mb-4 animate-spin" />
+            <Loader2 className="w-16 h-16 text-brand-500 mx-auto mb-4 animate-spin" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
               Processando assinatura...
             </h1>
@@ -63,7 +63,7 @@ export default function SubscriptionCallback() {
               Assinatura ativada!
             </h1>
             <p className="text-gray-600 mb-6">
-              Obrigado! Você agora tem acesso completo ao MeliPrint.
+              Obrigado! Você agora tem acesso completo ao Printly.
             </p>
             <p className="text-sm text-gray-500">
               Redirecionando para o dashboard...
@@ -78,7 +78,7 @@ export default function SubscriptionCallback() {
               Algo deu errado
             </h1>
             <p className="text-gray-600 mb-6">
-              Não conseguimos confirmar sua assinatura. Se você completou o pagamento, 
+              Não conseguimos confirmar sua assinatura. Se você completou o pagamento,
               aguarde alguns minutos e tente acessar novamente.
             </p>
             <div className="flex gap-3 justify-center">
@@ -90,7 +90,7 @@ export default function SubscriptionCallback() {
               </a>
               <a
                 href="/dashboard"
-                className="bg-[#2F6FED] hover:bg-[#1e4fbd] text-white px-6 py-3 rounded-lg transition-colors"
+                className="bg-brand-500 hover:bg-brand-600 text-white px-6 py-3 rounded-lg transition-colors"
               >
                 Ir para Dashboard
               </a>
