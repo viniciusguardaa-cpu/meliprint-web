@@ -25,7 +25,7 @@ router.get('/', async (req: Request, res: Response) => {
     const sellerId = req.session.userId;
 
     const buildFromShipmentIds = async (shipmentIds: number[]): Promise<ShipmentWithOrder[]> => {
-      const uniqueIds = [...new Set(shipmentIds)].slice(0, 100);
+      const uniqueIds = [...new Set(shipmentIds)];
       const rows = await Promise.all(
         uniqueIds.map(async (shipmentId): Promise<ShipmentWithOrder | null> => {
           try {

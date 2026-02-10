@@ -5,7 +5,6 @@ import { gunzipSync } from 'zlib';
 const ML_API_URL = 'https://api.mercadolibre.com';
 const ML_AUTH_URL = 'https://auth.mercadolivre.com.br';
 
-let shipmentsSearchUnsupported = false;
 
 export interface TokenResponse {
   access_token: string;
@@ -110,50 +109,53 @@ export async function searchShipments(
   status: string,
   substatus: string
 ): Promise<number[]> {
-  if (shipmentsSearchUnsupported) {
-    return [];
-  }
+  const limit = 50;
+  const maxPages = 20;
+  const allIds: number[] = [];
 
-  const params = new URLSearchParams({
-    seller: sellerId.toString(),
-    status,
-    substatus,
-    limit: '50'
-  });
+  for (let page = 0; page < maxPages; page++) {
+    const offset = page * limit;
+    const params = new URLSearchParams({
+      seller: sellerId.toString(),
+      status,
+      substatus,
+      limit: String(limit),
+      offset: String(offset)
+    });
 
-  const response = await fetch(`${ML_API_URL}/shipments/search?${params.toString()}`, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'x-format-new': 'true'
+    const response = await fetch(`${ML_API_URL}/shipments/search?${params.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'x-format-new': 'true'
+      }
+    });
+
+    if (response.status === 404) {
+      return [];
     }
-  });
 
-  if (response.status === 404) {
-    shipmentsSearchUnsupported = true;
-    return [];
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to search shipments: ${error}`);
+    }
+
+    const data = await response.json();
+    const results = data.results || [];
+
+    if (!Array.isArray(results) || results.length === 0) break;
+
+    if (typeof results[0] === 'number') {
+      allIds.push(...(results as number[]));
+    } else if (typeof results[0] === 'object' && results[0] && 'id' in results[0]) {
+      allIds.push(...results.map((r: any) => r.id).filter((id: any) => typeof id === 'number'));
+    } else {
+      break;
+    }
+
+    if (results.length < limit) break;
   }
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to search shipments: ${error}`);
-  }
-
-  const data = await response.json();
-  const results = data.results || [];
-
-  if (!Array.isArray(results)) return [];
-
-  if (results.length === 0) return [];
-
-  if (typeof results[0] === 'number') {
-    return results as number[];
-  }
-
-  if (typeof results[0] === 'object' && results[0] && 'id' in results[0]) {
-    return results.map((r: any) => r.id).filter((id: any) => typeof id === 'number');
-  }
-
-  return [];
+  return allIds;
 }
 
 export async function getOrder(accessToken: string, orderId: number): Promise<Order> {
@@ -214,7 +216,7 @@ export async function getUserInfo(accessToken: string): Promise<UserInfo> {
 
 export async function getOrders(accessToken: string, sellerId: number): Promise<Order[]> {
   const limit = 50;
-  const maxPages = 4;
+  const maxPages = 20;
   const results: Order[] = [];
 
   for (let page = 0; page < maxPages; page++) {
