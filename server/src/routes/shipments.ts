@@ -23,6 +23,8 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const accessToken = req.session.accessToken;
     const sellerId = req.session.userId;
+    const dateFrom = req.query.date_from as string | undefined;
+    const dateTo = req.query.date_to as string | undefined;
 
     const buildFromShipmentIds = async (shipmentIds: number[]): Promise<ShipmentWithOrder[]> => {
       const uniqueIds = [...new Set(shipmentIds)];
@@ -79,7 +81,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Source 2: orders/search API (always run to catch anything search missed)
     try {
-      const orders = await getOrders(accessToken, sellerId);
+      const orders = await getOrders(accessToken, sellerId, dateFrom, dateTo);
       const orderShipmentIds = orders
         .filter(order => order.shipping?.id)
         .map(order => order.shipping.id);

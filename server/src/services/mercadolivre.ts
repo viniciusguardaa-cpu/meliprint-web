@@ -214,42 +214,60 @@ export async function getUserInfo(accessToken: string): Promise<UserInfo> {
   return response.json();
 }
 
-export async function getOrders(accessToken: string, sellerId: number): Promise<Order[]> {
+export async function getOrders(
+  accessToken: string,
+  sellerId: number,
+  dateFrom?: string,
+  dateTo?: string
+): Promise<Order[]> {
   const limit = 50;
   const maxPages = 20;
-  const results: Order[] = [];
+  const allResults: Order[] = [];
+  const seenIds = new Set<number>();
 
-  for (let page = 0; page < maxPages; page++) {
-    const offset = page * limit;
-    const params = new URLSearchParams({
-      seller: sellerId.toString(),
-      'order.status': 'paid',
-      sort: 'date_desc',
-      limit: String(limit),
-      offset: String(offset)
-    });
+  const orderStatuses = ['paid', 'payment_in_process'];
 
-    const response = await fetch(`${ML_API_URL}/orders/search?${params.toString()}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
+  for (const orderStatus of orderStatuses) {
+    for (let page = 0; page < maxPages; page++) {
+      const offset = page * limit;
+      const params = new URLSearchParams({
+        seller: sellerId.toString(),
+        'order.status': orderStatus,
+        sort: 'date_desc',
+        limit: String(limit),
+        offset: String(offset)
+      });
+
+      if (dateFrom) params.set('order.date_created.from', dateFrom);
+      if (dateTo) params.set('order.date_created.to', dateTo);
+
+      const response = await fetch(`${ML_API_URL}/orders/search?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(`[orders] Failed for status=${orderStatus} page=${page}: ${error}`);
+        break;
       }
-    });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to get orders: ${error}`);
-    }
+      const data = await response.json();
+      const pageResults: Order[] = data.results || [];
 
-    const data = await response.json();
-    const pageResults: Order[] = data.results || [];
-    results.push(...pageResults);
+      for (const order of pageResults) {
+        if (!seenIds.has(order.id)) {
+          seenIds.add(order.id);
+          allResults.push(order);
+        }
+      }
 
-    if (pageResults.length < limit) {
-      break;
+      if (pageResults.length < limit) break;
     }
   }
 
-  return results;
+  return allResults;
 }
 
 export async function getShipment(accessToken: string, shipmentId: number): Promise<Shipment> {

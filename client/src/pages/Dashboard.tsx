@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Printer, RefreshCw, CheckSquare, Square, Package } from 'lucide-react';
+import { Printer, RefreshCw, CheckSquare, Square, Package, Calendar } from 'lucide-react';
 import Header from '../components/Header';
 import toast from 'react-hot-toast';
 
@@ -16,6 +16,25 @@ interface Shipment {
   state?: string;
 }
 
+function formatDateParam(dateStr: string): string {
+  return `${dateStr}T00:00:00.000-03:00`;
+}
+
+function formatDateParamEnd(dateStr: string): string {
+  return `${dateStr}T23:59:59.999-03:00`;
+}
+
+function todayStr(): string {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function daysAgoStr(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function Dashboard() {
   useAuth();
   const [ready, setReady] = useState<Shipment[]>([]);
@@ -24,15 +43,20 @@ export default function Dashboard() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
+  const [dateFrom, setDateFrom] = useState(daysAgoStr(7));
+  const [dateTo, setDateTo] = useState(todayStr());
 
   useEffect(() => {
     fetchShipments();
-  }, []);
+  }, [dateFrom, dateTo]);
 
   const fetchShipments = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/shipments', { credentials: 'include' });
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('date_from', formatDateParam(dateFrom));
+      if (dateTo) params.set('date_to', formatDateParamEnd(dateTo));
+      const res = await fetch(`/api/shipments?${params.toString()}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Falha ao carregar envios');
       const data = await res.json();
       setReady(data.ready || []);
@@ -114,7 +138,23 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Actions Bar */}
         <div className="bg-white rounded-xl shadow-md p-4 mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <span className="text-gray-400 text-sm">até</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
             <button
               onClick={fetchShipments}
               disabled={loading}
