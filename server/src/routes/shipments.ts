@@ -62,66 +62,40 @@ router.get('/', async (req: Request, res: Response) => {
       return rows.filter(Boolean) as ShipmentWithOrder[];
     };
 
-    let ready: ShipmentWithOrder[] = [];
-    let reprint: ShipmentWithOrder[] = [];
+    const allShipmentIds = new Set<number>();
 
+    // Source 1: shipments/search API
     try {
       const [readyIds, printedIds, reprintedIds] = await Promise.all([
         searchShipments(accessToken, sellerId, 'ready_to_ship', 'ready_to_print'),
         searchShipments(accessToken, sellerId, 'ready_to_ship', 'printed'),
         searchShipments(accessToken, sellerId, 'ready_to_ship', 'reprinted')
       ]);
-
-      const rows = await buildFromShipmentIds([...readyIds, ...printedIds, ...reprintedIds]);
-      ready = rows.filter((s) => s.substatus === 'ready_to_print');
-      reprint = rows.filter((s) => s.substatus === 'printed' || s.substatus === 'reprinted');
+      for (const id of [...readyIds, ...printedIds, ...reprintedIds]) allShipmentIds.add(id);
+      console.log(`[shipments] search API returned ${allShipmentIds.size} unique IDs`);
     } catch (error) {
-      console.error('Shipments search failed, falling back to orders scan:', error);
+      console.error('[shipments] search API failed:', error);
     }
 
-    if (ready.length === 0 && reprint.length === 0) {
+    // Source 2: orders/search API (always run to catch anything search missed)
+    try {
       const orders = await getOrders(accessToken, sellerId);
-
-      const shipmentsPromises = orders
+      const orderShipmentIds = orders
         .filter(order => order.shipping?.id)
-        .map(async (order): Promise<ShipmentWithOrder | null> => {
-          try {
-            const shipment = await getShipment(accessToken!, order.shipping.id);
-
-            const items = order.order_items
-              .map(item => `${item.quantity}x ${item.item.title}`)
-              .join(', ');
-
-            const substatus = shipment.substatus;
-            const canPrint =
-              shipment.status === 'ready_to_ship' &&
-              (substatus === 'ready_to_print' || substatus === 'printed' || substatus === 'reprinted');
-
-            return {
-              shipmentId: shipment.id,
-              orderId: order.id,
-              buyerNickname: order.buyer.nickname,
-              items: items.length > 100 ? items.substring(0, 97) + '...' : items,
-              status: shipment.status,
-              substatus,
-              canPrint,
-              city: shipment.receiver_address?.city?.name,
-              state: shipment.receiver_address?.state?.name
-            };
-          } catch (error) {
-            console.error(`Failed to get shipment ${order.shipping.id}:`, error);
-            return null;
-          }
-        });
-
-      const rows = (await Promise.all(shipmentsPromises)).filter(Boolean) as ShipmentWithOrder[];
-
-      ready = rows.filter((s) => s.substatus === 'ready_to_print');
-      reprint = rows.filter((s) => s.substatus === 'printed' || s.substatus === 'reprinted');
+        .map(order => order.shipping.id);
+      const beforeCount = allShipmentIds.size;
+      for (const id of orderShipmentIds) allShipmentIds.add(id);
+      console.log(`[shipments] orders scan added ${allShipmentIds.size - beforeCount} new IDs (total: ${allShipmentIds.size})`);
+    } catch (error) {
+      console.error('[shipments] orders scan failed:', error);
     }
 
-    ready = ready.filter((s) => s.canPrint);
-    reprint = reprint.filter((s) => s.canPrint);
+    // Build shipment details from all collected IDs
+    const allRows = await buildFromShipmentIds([...allShipmentIds]);
+    console.log(`[shipments] built ${allRows.length} rows, printable: ${allRows.filter(r => r.canPrint).length}`);
+
+    let ready = allRows.filter((s) => s.canPrint && s.substatus === 'ready_to_print');
+    let reprint = allRows.filter((s) => s.canPrint && (s.substatus === 'printed' || s.substatus === 'reprinted'));
 
     res.json({ ready, reprint });
   } catch (error) {
