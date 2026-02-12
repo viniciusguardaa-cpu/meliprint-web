@@ -286,7 +286,7 @@ export async function getShipment(accessToken: string, shipmentId: number): Prom
 }
 
 export async function getShipmentLabelsZPL(accessToken: string, shipmentIds: number[]): Promise<string> {
-  const ids = shipmentIds.slice(0, 50).join(',');
+  const ids = shipmentIds.join(',');
   const response = await fetch(
     `${ML_API_URL}/shipment_labels?shipment_ids=${ids}&response_type=zpl2`,
     {

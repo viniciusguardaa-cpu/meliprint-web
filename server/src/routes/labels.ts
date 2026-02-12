@@ -14,10 +14,6 @@ router.post('/zpl', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'shipmentIds must be a non-empty array' });
   }
 
-  if (shipmentIds.length > 50) {
-    return res.status(400).json({ error: 'Maximum 50 shipments per request' });
-  }
-
   try {
     const zpl = await getShipmentLabelsZPL(req.session.accessToken, shipmentIds);
     
@@ -45,10 +41,6 @@ router.get('/pdf', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'shipment_ids must be a non-empty comma separated list' });
   }
 
-  if (shipmentIds.length > 50) {
-    return res.status(400).json({ error: 'Maximum 50 shipments per request' });
-  }
-
   try {
     const pdf = await getShipmentLabelsPDF(req.session.accessToken, shipmentIds);
     res.setHeader('Content-Type', 'application/pdf');
@@ -70,10 +62,6 @@ router.post('/pdf', async (req: Request, res: Response) => {
 
   if (!Array.isArray(shipmentIds) || shipmentIds.length === 0) {
     return res.status(400).json({ error: 'shipmentIds must be a non-empty array' });
-  }
-
-  if (shipmentIds.length > 50) {
-    return res.status(400).json({ error: 'Maximum 50 shipments per request' });
   }
 
   try {
