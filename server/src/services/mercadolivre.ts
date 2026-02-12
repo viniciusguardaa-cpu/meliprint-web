@@ -331,11 +331,7 @@ export async function getShipmentLabelsZPL(accessToken: string, shipmentIds: num
   return bytes.toString('utf8').trim();
 }
 
-export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: number[]): Promise<Buffer> {
-  console.log('[PDF] Fetching ZPL for shipments:', shipmentIds);
-  const zpl = await getShipmentLabelsZPL(accessToken, shipmentIds);
-  console.log('[PDF] ZPL length:', zpl.length, 'first 200 chars:', zpl.substring(0, 200));
-
+async function convertZplToPdf(zpl: string): Promise<Buffer> {
   const resp = await fetch('https://api.labelary.com/v1/printers/8dpmm/labels/4x6/', {
     method: 'POST',
     headers: {
@@ -348,18 +344,50 @@ export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: num
 
   if (!resp.ok) {
     const errText = await resp.text();
-    console.error('[PDF] Labelary error (multi-label):', resp.status, errText);
+    console.error('[PDF] Labelary error:', resp.status, errText);
     throw new Error(`Labelary conversion failed: status=${resp.status}`);
   }
 
-  const total = resp.headers.get('x-total-count');
-  const warnings = resp.headers.get('x-warnings');
-  if (total) console.log('[PDF] Labelary X-Total-Count:', total);
-  if (warnings) console.log('[PDF] Labelary X-Warnings:', warnings);
+  return Buffer.from(await resp.arrayBuffer());
+}
 
-  const pdfBytes = await resp.arrayBuffer();
-  console.log('[PDF] Labelary PDF bytes:', pdfBytes.byteLength);
-  return Buffer.from(pdfBytes);
+export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: number[]): Promise<Buffer> {
+  const BATCH_SIZE = 5;
+  const batches: number[][] = [];
+  for (let i = 0; i < shipmentIds.length; i += BATCH_SIZE) {
+    batches.push(shipmentIds.slice(i, i + BATCH_SIZE));
+  }
+
+  console.log(`[PDF] Processing ${shipmentIds.length} shipments in ${batches.length} batches`);
+
+  const pdfBuffers: Buffer[] = [];
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    console.log(`[PDF] Batch ${i + 1}/${batches.length}: shipments ${batch.join(',')}`);
+    const zpl = await getShipmentLabelsZPL(accessToken, batch);
+    const pdf = await convertZplToPdf(zpl);
+    pdfBuffers.push(pdf);
+  }
+
+  if (pdfBuffers.length === 1) {
+    return pdfBuffers[0];
+  }
+
+  // Merge all PDFs using pdf-lib
+  const { PDFDocument } = await import('pdf-lib');
+  const merged = await PDFDocument.create();
+
+  for (const buf of pdfBuffers) {
+    const doc = await PDFDocument.load(buf);
+    const pages = await merged.copyPages(doc, doc.getPageIndices());
+    for (const page of pages) {
+      merged.addPage(page);
+    }
+  }
+
+  const mergedBytes = await merged.save();
+  console.log(`[PDF] Merged PDF: ${mergedBytes.byteLength} bytes, ${merged.getPageCount()} pages`);
+  return Buffer.from(mergedBytes);
 }
 
 export async function getInvoiceData(accessToken: string, shipmentId: number): Promise<any> {
