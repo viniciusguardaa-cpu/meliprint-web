@@ -116,7 +116,7 @@ export async function searchShipments(
   for (let page = 0; page < maxPages; page++) {
     const offset = page * limit;
     const params = new URLSearchParams({
-      seller: sellerId.toString(),
+      sender_id: sellerId.toString(),
       status,
       substatus,
       limit: String(limit),
@@ -136,10 +136,14 @@ export async function searchShipments(
 
     if (!response.ok) {
       const error = await response.text();
+      console.error(`[searchShipments] ${status}/${substatus} page=${page}: ${response.status} ${error.substring(0, 200)}`);
       throw new Error(`Failed to search shipments: ${error}`);
     }
 
     const data = await response.json();
+    if (page === 0) {
+      console.log(`[searchShipments] ${status}/${substatus}: total=${data.paging?.total || 0} results=${(data.results || []).length}`);
+    }
     const results = data.results || [];
 
     if (!Array.isArray(results) || results.length === 0) break;
