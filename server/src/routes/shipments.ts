@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getOrder, getOrders, getShipment, searchShipments, Order } from '../services/mercadolivre.js';
+import { getOrder, getOrders, getShipment, searchShipments, Order, Shipment } from '../services/mercadolivre.js';
 
 const router = Router();
 
@@ -15,20 +15,23 @@ interface ShipmentWithOrder {
   state?: string;
 }
 
-const PRINTABLE_SUBSTATUSES = new Set([
-  'ready_to_print',
-  'printed',
-  'reprinted',
-  'stale',
-  'ready_to_deliver',
-  'invoice_pending',
-]);
-
 const BATCH_SIZE = 5;
 const BATCH_DELAY_MS = 300;
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isWithinRange(date: Date, from?: string, to?: string): boolean {
+  if (from) {
+    const df = new Date(from);
+    if (!Number.isNaN(df.getTime()) && date < df) return false;
+  }
+  if (to) {
+    const dt = new Date(to);
+    if (!Number.isNaN(dt.getTime()) && date > dt) return false;
+  }
+  return true;
 }
 
 async function processBatchWithDelay<T, R>(
@@ -60,69 +63,91 @@ router.get('/', async (req: Request, res: Response) => {
     const dateFrom = req.query.date_from as string | undefined;
     const dateTo = req.query.date_to as string | undefined;
 
-    // Step 1: Collect shipment IDs from searchShipments
+    // Step 1: Source of truth - all ready_to_ship shipments
     const searchIds = new Set<number>();
     try {
-      const [readyIds, printedIds, reprintedIds] = await Promise.all([
-        searchShipments(accessToken, sellerId, 'ready_to_ship', 'ready_to_print'),
-        searchShipments(accessToken, sellerId, 'ready_to_ship', 'printed'),
-        searchShipments(accessToken, sellerId, 'ready_to_ship', 'reprinted')
-      ]);
-      for (const id of [...readyIds, ...printedIds, ...reprintedIds]) searchIds.add(id);
-      console.log(`[shipments] search API: ready_to_print=${readyIds.length} printed=${printedIds.length} reprinted=${reprintedIds.length} total=${searchIds.size}`);
+      const readyToShipIds = await searchShipments(accessToken, sellerId, 'ready_to_ship');
+      for (const id of readyToShipIds) searchIds.add(id);
+      console.log(`[shipments] search API: ready_to_ship total=${searchIds.size}`);
     } catch (error) {
       console.error('[shipments] search API failed:', error);
     }
 
-    // Step 2: Get orders (we already have buyer/items data from these)
-    const ordersByShipmentId = new Map<number, Order>();
-    try {
-      const orders = await getOrders(accessToken, sellerId, dateFrom, dateTo);
-      for (const order of orders) {
-        if (order.shipping?.id) {
-          ordersByShipmentId.set(order.shipping.id, order);
+    // Step 2: Fallback IDs from orders (helps if search endpoint returns empty)
+    const fallbackIds = new Set<number>();
+    if (searchIds.size === 0) {
+      try {
+        const orders = await getOrders(accessToken, sellerId, dateFrom, dateTo);
+        for (const order of orders) {
+          if (order.shipping?.id) fallbackIds.add(order.shipping.id);
         }
+        console.log(`[shipments] fallback orders scan: ${orders.length} orders, ${fallbackIds.size} shipment IDs`);
+      } catch (error) {
+        console.error('[shipments] fallback orders scan failed:', error);
       }
-      const noShipId = orders.filter(o => !o.shipping?.id).length;
-      console.log(`[shipments] orders scan: ${orders.length} orders, ${ordersByShipmentId.size} with shipping IDs, ${noShipId} without`);
-    } catch (error) {
-      console.error('[shipments] orders scan failed:', error);
     }
 
-    // Step 3: Merge IDs - searchShipments + orders
-    const allShipmentIds = new Set<number>([...searchIds, ...ordersByShipmentId.keys()]);
+    const allShipmentIds = new Set<number>([...searchIds, ...fallbackIds]);
     console.log(`[shipments] total unique IDs to resolve: ${allShipmentIds.size}`);
 
-    // Step 4: Only fetch getShipment for status/substatus (NOT getOrder again)
-    // Process in small batches with delay to avoid ML rate limiting
-    const failedIds: number[] = [];
-
-    async function resolveShipment(shipmentId: number): Promise<ShipmentWithOrder | null> {
-      const shipment = await getShipment(accessToken!, shipmentId);
-
-      const substatus = shipment.substatus || '';
-      const canPrint =
-        shipment.status === 'ready_to_ship' &&
-        PRINTABLE_SUBSTATUSES.has(substatus);
-
-      // Track all ready_to_ship substatuses for diagnostics
-      if (shipment.status === 'ready_to_ship' && !canPrint) {
-        console.log(`[shipments] ready_to_ship but NOT printable: ${shipmentId} substatus=${substatus}`);
-      }
-
-      // Skip non-printable shipments early (saves getOrder calls)
-      if (!canPrint) return null;
-
-      // Use cached order data from getOrders if available, otherwise fetch
-      let order = ordersByShipmentId.get(shipmentId);
-      if (!order && shipment.order_id) {
+    // Step 3: Resolve shipments
+    const failedShipmentIds: number[] = [];
+    const shipments = await processBatchWithDelay(
+      [...allShipmentIds],
+      BATCH_SIZE,
+      BATCH_DELAY_MS,
+      async (shipmentId): Promise<Shipment | null> => {
         try {
-          order = await getOrder(accessToken!, shipment.order_id);
+          const shipment = await getShipment(accessToken, shipmentId);
+          if (shipment.status !== 'ready_to_ship') return null;
+          return shipment;
         } catch {
-          // If we can't get order details, still show the shipment
+          try {
+            await sleep(500);
+            const shipment = await getShipment(accessToken, shipmentId);
+            if (shipment.status !== 'ready_to_ship') return null;
+            return shipment;
+          } catch {
+            failedShipmentIds.push(shipmentId);
+            return null;
+          }
         }
       }
+    );
 
+    if (failedShipmentIds.length > 0) {
+      console.error(`[shipments] ${failedShipmentIds.length} shipments failed after retry: ${failedShipmentIds.join(',')}`);
+    }
+
+    // Step 4: Fetch orders for resolved shipments
+    const orderIds = Array.from(
+      new Set(shipments.map((s) => s.order_id).filter((id): id is number => Number.isFinite(id) && id > 0))
+    );
+
+    const ordersById = new Map<number, Order>();
+    const failedOrderIds: number[] = [];
+    await processBatchWithDelay(
+      orderIds,
+      BATCH_SIZE,
+      BATCH_DELAY_MS,
+      async (orderId): Promise<null> => {
+        try {
+          const order = await getOrder(accessToken, orderId);
+          ordersById.set(orderId, order);
+          return null;
+        } catch {
+          failedOrderIds.push(orderId);
+          return null;
+        }
+      }
+    );
+
+    if (failedOrderIds.length > 0) {
+      console.error(`[shipments] ${failedOrderIds.length} orders failed: ${failedOrderIds.slice(0, 20).join(',')}`);
+    }
+
+    let rows: ShipmentWithOrder[] = shipments.map((shipment) => {
+      const order = ordersById.get(shipment.order_id);
       const items = order
         ? order.order_items.map(item => `${item.quantity}x ${item.item.title}`).join(', ')
         : '';
@@ -133,40 +158,29 @@ router.get('/', async (req: Request, res: Response) => {
         buyerNickname: order?.buyer?.nickname || '-',
         items: items.length > 100 ? items.substring(0, 97) + '...' : items,
         status: shipment.status,
-        substatus,
-        canPrint,
+        substatus: shipment.substatus || '',
+        canPrint: true,
         city: shipment.receiver_address?.city?.name,
         state: shipment.receiver_address?.state?.name
       };
+    });
+
+    // Step 5: Optional date filter (based on order.date_created when available)
+    if (dateFrom || dateTo) {
+      rows = rows.filter((r) => {
+        const order = ordersById.get(r.orderId);
+        const created = (order as any)?.date_created as string | undefined;
+        if (!created) return true;
+        const d = new Date(created);
+        if (Number.isNaN(d.getTime())) return true;
+        return isWithinRange(d, dateFrom, dateTo);
+      });
     }
 
-    const allRows = await processBatchWithDelay(
-      [...allShipmentIds],
-      BATCH_SIZE,
-      BATCH_DELAY_MS,
-      async (shipmentId): Promise<ShipmentWithOrder | null> => {
-        try {
-          return await resolveShipment(shipmentId);
-        } catch {
-          // Retry once after a delay
-          try {
-            await sleep(500);
-            return await resolveShipment(shipmentId);
-          } catch (error: any) {
-            failedIds.push(shipmentId);
-            return null;
-          }
-        }
-      }
-    );
+    console.log(`[shipments] ready_to_ship rows=${rows.length} shipments_failed=${failedShipmentIds.length}`);
 
-    if (failedIds.length > 0) {
-      console.error(`[shipments] ${failedIds.length} shipments failed after retry: ${failedIds.join(',')}`);
-    }
-    console.log(`[shipments] printable=${allRows.length} failed=${failedIds.length} (from ${allShipmentIds.size} total IDs)`);
-
-    const ready = allRows.filter((s) => s.substatus === 'ready_to_print');
-    const reprint = allRows.filter((s) => s.substatus !== 'ready_to_print');
+    const ready = rows.filter((s) => s.substatus === 'ready_to_print');
+    const reprint = rows.filter((s) => s.substatus !== 'ready_to_print');
 
     console.log(`[shipments] ready=${ready.length} reprint=${reprint.length}`);
     res.json({ ready, reprint });

@@ -107,59 +107,84 @@ export async function searchShipments(
   accessToken: string,
   sellerId: number,
   status: string,
-  substatus: string
+  substatus?: string
 ): Promise<number[]> {
   const limit = 50;
   const maxPages = 20;
-  const allIds: number[] = [];
+  const buildKey = (idParamName: string) => {
+    const ss = substatus ? substatus : '*';
+    return `${idParamName} ${status}/${ss}`;
+  };
 
-  for (let page = 0; page < maxPages; page++) {
-    const offset = page * limit;
-    const params = new URLSearchParams({
-      sender_id: sellerId.toString(),
-      status,
-      substatus,
-      limit: String(limit),
-      offset: String(offset)
-    });
+  const runSearch = async (idParamName: 'sender_id' | 'seller'): Promise<number[]> => {
+    const allIds: number[] = [];
 
-    const response = await fetch(`${ML_API_URL}/shipments/search?${params.toString()}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'x-format-new': 'true'
+    for (let page = 0; page < maxPages; page++) {
+      const offset = page * limit;
+      const params = new URLSearchParams({
+        [idParamName]: sellerId.toString(),
+        status,
+        limit: String(limit),
+        offset: String(offset)
+      });
+
+      if (substatus) params.set('substatus', substatus);
+
+      const response = await fetch(`${ML_API_URL}/shipments/search?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'x-format-new': 'true'
+        }
+      });
+
+      if (response.status === 404) {
+        return [];
       }
-    });
 
-    if (response.status === 404) {
-      return [];
+      if (!response.ok) {
+        const error = await response.text();
+        console.error(`[searchShipments] ${buildKey(idParamName)} page=${page}: ${response.status} ${error.substring(0, 200)}`);
+        throw new Error(`Failed to search shipments: ${error}`);
+      }
+
+      const data = await response.json();
+      if (page === 0) {
+        console.log(`[searchShipments] ${buildKey(idParamName)}: total=${data.paging?.total || 0} results=${(data.results || []).length}`);
+      }
+      const results = data.results || [];
+
+      if (!Array.isArray(results) || results.length === 0) break;
+
+      if (typeof results[0] === 'number') {
+        allIds.push(...(results as number[]));
+      } else if (typeof results[0] === 'object' && results[0] && 'id' in results[0]) {
+        allIds.push(...results.map((r: any) => r.id).filter((id: any) => typeof id === 'number'));
+      } else {
+        break;
+      }
+
+      if (results.length < limit) break;
     }
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error(`[searchShipments] ${status}/${substatus} page=${page}: ${response.status} ${error.substring(0, 200)}`);
-      throw new Error(`Failed to search shipments: ${error}`);
-    }
+    return allIds;
+  };
 
-    const data = await response.json();
-    if (page === 0) {
-      console.log(`[searchShipments] ${status}/${substatus}: total=${data.paging?.total || 0} results=${(data.results || []).length}`);
-    }
-    const results = data.results || [];
-
-    if (!Array.isArray(results) || results.length === 0) break;
-
-    if (typeof results[0] === 'number') {
-      allIds.push(...(results as number[]));
-    } else if (typeof results[0] === 'object' && results[0] && 'id' in results[0]) {
-      allIds.push(...results.map((r: any) => r.id).filter((id: any) => typeof id === 'number'));
-    } else {
-      break;
-    }
-
-    if (results.length < limit) break;
+  let ids: number[] = [];
+  try {
+    ids = await runSearch('sender_id');
+  } catch (error) {
+    console.error('[searchShipments] sender_id failed:', error);
   }
 
-  return allIds;
+  if (ids.length === 0) {
+    try {
+      ids = await runSearch('seller');
+    } catch (error) {
+      console.error('[searchShipments] seller failed:', error);
+    }
+  }
+
+  return ids;
 }
 
 export async function getOrder(accessToken: string, orderId: number): Promise<Order> {
@@ -339,23 +364,40 @@ export async function getShipmentLabelsZPL(accessToken: string, shipmentIds: num
 }
 
 async function convertZplToPdf(zpl: string): Promise<Buffer> {
-  const resp = await fetch('https://api.labelary.com/v1/printers/8dpmm/labels/4x6/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Accept': 'application/pdf',
-      'X-Linter': 'On'
-    },
-    body: zpl
-  });
+  const maxAttempts = 5;
 
-  if (!resp.ok) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const resp = await fetch('https://api.labelary.com/v1/printers/8dpmm/labels/4x6/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/pdf',
+        'X-Linter': 'On'
+      },
+      body: zpl
+    });
+
+    if (resp.ok) {
+      return Buffer.from(await resp.arrayBuffer());
+    }
+
     const errText = await resp.text();
     console.error('[PDF] Labelary error:', resp.status, errText);
-    throw new Error(`Labelary conversion failed: status=${resp.status}`);
+
+    const canRetry = resp.status === 429 || (resp.status >= 500 && resp.status < 600);
+    if (!canRetry || attempt === maxAttempts) {
+      throw new Error(`Labelary conversion failed: status=${resp.status}`);
+    }
+
+    const retryAfter = resp.headers.get('retry-after');
+    const retryAfterSeconds = retryAfter ? Number(retryAfter) : NaN;
+    const backoffMs = Number.isFinite(retryAfterSeconds)
+      ? Math.max(0, retryAfterSeconds) * 1000
+      : Math.min(15000, 1000 * 2 ** (attempt - 1));
+    await new Promise(resolve => setTimeout(resolve, backoffMs));
   }
 
-  return Buffer.from(await resp.arrayBuffer());
+  throw new Error('Labelary conversion failed: max retries reached');
 }
 
 export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: number[]): Promise<Buffer> {

@@ -24,17 +24,6 @@ function formatDateParamEnd(dateStr: string): string {
   return `${dateStr}T23:59:59.999-03:00`;
 }
 
-function todayStr(): string {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
-}
-
-function daysAgoStr(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
 export default function Dashboard() {
   useAuth();
   const [ready, setReady] = useState<Shipment[]>([]);
@@ -43,8 +32,8 @@ export default function Dashboard() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
-  const [dateFrom, setDateFrom] = useState(daysAgoStr(7));
-  const [dateTo, setDateTo] = useState(todayStr());
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
     fetchShipments();
