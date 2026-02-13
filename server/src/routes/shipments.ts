@@ -93,55 +93,70 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Step 4: Only fetch getShipment for status/substatus (NOT getOrder again)
     // Process in small batches with delay to avoid ML rate limiting
+    const failedIds: number[] = [];
+
+    async function resolveShipment(shipmentId: number): Promise<ShipmentWithOrder | null> {
+      const shipment = await getShipment(accessToken!, shipmentId);
+
+      const substatus = shipment.substatus || '';
+      const canPrint =
+        shipment.status === 'ready_to_ship' &&
+        PRINTABLE_SUBSTATUSES.has(substatus);
+
+      // Skip non-printable shipments early (saves getOrder calls)
+      if (!canPrint) return null;
+
+      // Use cached order data from getOrders if available, otherwise fetch
+      let order = ordersByShipmentId.get(shipmentId);
+      if (!order && shipment.order_id) {
+        try {
+          order = await getOrder(accessToken!, shipment.order_id);
+        } catch {
+          // If we can't get order details, still show the shipment
+        }
+      }
+
+      const items = order
+        ? order.order_items.map(item => `${item.quantity}x ${item.item.title}`).join(', ')
+        : '';
+
+      return {
+        shipmentId: shipment.id,
+        orderId: order?.id || shipment.order_id || 0,
+        buyerNickname: order?.buyer?.nickname || '-',
+        items: items.length > 100 ? items.substring(0, 97) + '...' : items,
+        status: shipment.status,
+        substatus,
+        canPrint,
+        city: shipment.receiver_address?.city?.name,
+        state: shipment.receiver_address?.state?.name
+      };
+    }
+
     const allRows = await processBatchWithDelay(
       [...allShipmentIds],
       BATCH_SIZE,
       BATCH_DELAY_MS,
       async (shipmentId): Promise<ShipmentWithOrder | null> => {
         try {
-          const shipment = await getShipment(accessToken!, shipmentId);
-
-          const substatus = shipment.substatus || '';
-          const canPrint =
-            shipment.status === 'ready_to_ship' &&
-            PRINTABLE_SUBSTATUSES.has(substatus);
-
-          // Skip non-printable shipments early (saves getOrder calls)
-          if (!canPrint) return null;
-
-          // Use cached order data from getOrders if available, otherwise fetch
-          let order = ordersByShipmentId.get(shipmentId);
-          if (!order && shipment.order_id) {
-            try {
-              order = await getOrder(accessToken!, shipment.order_id);
-            } catch {
-              // If we can't get order details, still show the shipment
-            }
+          return await resolveShipment(shipmentId);
+        } catch {
+          // Retry once after a delay
+          try {
+            await sleep(500);
+            return await resolveShipment(shipmentId);
+          } catch (error: any) {
+            failedIds.push(shipmentId);
+            return null;
           }
-
-          const items = order
-            ? order.order_items.map(item => `${item.quantity}x ${item.item.title}`).join(', ')
-            : '';
-
-          return {
-            shipmentId: shipment.id,
-            orderId: order?.id || shipment.order_id || 0,
-            buyerNickname: order?.buyer?.nickname || '-',
-            items: items.length > 100 ? items.substring(0, 97) + '...' : items,
-            status: shipment.status,
-            substatus,
-            canPrint,
-            city: shipment.receiver_address?.city?.name,
-            state: shipment.receiver_address?.state?.name
-          };
-        } catch (error: any) {
-          console.error(`[shipments] FAILED ${shipmentId}: ${error.message?.substring(0, 80) || error}`);
-          return null;
         }
       }
     );
 
-    console.log(`[shipments] printable=${allRows.length} (from ${allShipmentIds.size} total IDs)`);
+    if (failedIds.length > 0) {
+      console.error(`[shipments] ${failedIds.length} shipments failed after retry: ${failedIds.join(',')}`);
+    }
+    console.log(`[shipments] printable=${allRows.length} failed=${failedIds.length} (from ${allShipmentIds.size} total IDs)`);
 
     const ready = allRows.filter((s) => s.substatus === 'ready_to_print');
     const reprint = allRows.filter((s) => s.substatus !== 'ready_to_print');
