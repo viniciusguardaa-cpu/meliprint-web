@@ -225,9 +225,10 @@ export async function getOrders(
   const allResults: Order[] = [];
   const seenIds = new Set<number>();
 
-  const orderStatuses = ['paid', 'payment_in_process'];
+  const orderStatuses = ['paid', 'payment_in_process', 'confirmed', 'payment_required'];
 
   for (const orderStatus of orderStatuses) {
+    const statusStartCount = allResults.length;
     for (let page = 0; page < maxPages; page++) {
       const offset = page * limit;
       const params = new URLSearchParams({
@@ -265,8 +266,10 @@ export async function getOrders(
 
       if (pageResults.length < limit) break;
     }
+    console.log(`[orders] status=${orderStatus}: ${allResults.length - statusStartCount} orders`);
   }
 
+  console.log(`[orders] total unique orders: ${allResults.length}`);
   return allResults;
 }
 
