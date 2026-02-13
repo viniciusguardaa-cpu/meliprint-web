@@ -21,6 +21,7 @@ const PRINTABLE_SUBSTATUSES = new Set([
   'reprinted',
   'stale',
   'ready_to_deliver',
+  'invoice_pending',
 ]);
 
 const BATCH_SIZE = 5;

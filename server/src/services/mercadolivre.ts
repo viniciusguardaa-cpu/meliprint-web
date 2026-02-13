@@ -365,6 +365,9 @@ export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: num
 
   const pdfBuffers: Buffer[] = [];
   for (let i = 0; i < batches.length; i++) {
+    if (i > 0) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
     const batch = batches[i];
     console.log(`[PDF] Batch ${i + 1}/${batches.length}: shipments ${batch.join(',')}`);
     const zpl = await getShipmentLabelsZPL(accessToken, batch);
