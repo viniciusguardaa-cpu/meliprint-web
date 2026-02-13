@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getOrder, getOrders, getShipment, searchShipments } from '../services/mercadolivre.js';
+import { getOrder, getOrders, getShipment, searchShipments, Order } from '../services/mercadolivre.js';
 
 const router = Router();
 
@@ -23,13 +23,22 @@ const PRINTABLE_SUBSTATUSES = new Set([
   'ready_to_deliver',
 ]);
 
-async function processBatch<T, R>(
+const BATCH_SIZE = 5;
+const BATCH_DELAY_MS = 300;
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function processBatchWithDelay<T, R>(
   items: T[],
   batchSize: number,
+  delayMs: number,
   fn: (item: T) => Promise<R | null>
 ): Promise<R[]> {
   const results: R[] = [];
   for (let i = 0; i < items.length; i += batchSize) {
+    if (i > 0) await sleep(delayMs);
     const batch = items.slice(i, i + batchSize);
     const batchResults = await Promise.all(batch.map(fn));
     for (const r of batchResults) {
@@ -50,58 +59,74 @@ router.get('/', async (req: Request, res: Response) => {
     const dateFrom = req.query.date_from as string | undefined;
     const dateTo = req.query.date_to as string | undefined;
 
-    const allShipmentIds = new Set<number>();
-
-    // Source 1: shipments/search API (no date filter, catches all active shipments)
+    // Step 1: Collect shipment IDs from searchShipments
+    const searchIds = new Set<number>();
     try {
       const [readyIds, printedIds, reprintedIds] = await Promise.all([
         searchShipments(accessToken, sellerId, 'ready_to_ship', 'ready_to_print'),
         searchShipments(accessToken, sellerId, 'ready_to_ship', 'printed'),
         searchShipments(accessToken, sellerId, 'ready_to_ship', 'reprinted')
       ]);
-      for (const id of [...readyIds, ...printedIds, ...reprintedIds]) allShipmentIds.add(id);
-      console.log(`[shipments] search API: ready_to_print=${readyIds.length} printed=${printedIds.length} reprinted=${reprintedIds.length} total=${allShipmentIds.size}`);
+      for (const id of [...readyIds, ...printedIds, ...reprintedIds]) searchIds.add(id);
+      console.log(`[shipments] search API: ready_to_print=${readyIds.length} printed=${printedIds.length} reprinted=${reprintedIds.length} total=${searchIds.size}`);
     } catch (error) {
       console.error('[shipments] search API failed:', error);
     }
 
-    // Source 2: orders/search API (with date filter, always run)
+    // Step 2: Get orders (we already have buyer/items data from these)
+    const ordersByShipmentId = new Map<number, Order>();
     try {
       const orders = await getOrders(accessToken, sellerId, dateFrom, dateTo);
-      const orderShipmentIds = orders
-        .filter(order => order.shipping?.id)
-        .map(order => order.shipping.id);
-      const beforeCount = allShipmentIds.size;
-      for (const id of orderShipmentIds) allShipmentIds.add(id);
-      console.log(`[shipments] orders scan: ${orders.length} orders, added ${allShipmentIds.size - beforeCount} new IDs (total: ${allShipmentIds.size})`);
+      for (const order of orders) {
+        if (order.shipping?.id) {
+          ordersByShipmentId.set(order.shipping.id, order);
+        }
+      }
+      console.log(`[shipments] orders scan: ${orders.length} orders, ${ordersByShipmentId.size} with shipping IDs`);
     } catch (error) {
       console.error('[shipments] orders scan failed:', error);
     }
 
-    console.log(`[shipments] resolving ${allShipmentIds.size} shipment IDs...`);
+    // Step 3: Merge IDs - searchShipments + orders
+    const allShipmentIds = new Set<number>([...searchIds, ...ordersByShipmentId.keys()]);
+    console.log(`[shipments] total unique IDs to resolve: ${allShipmentIds.size}`);
 
-    // Build shipment details in controlled batches of 10 to avoid ML rate limiting
-    const allRows = await processBatch(
+    // Step 4: Only fetch getShipment for status/substatus (NOT getOrder again)
+    // Process in small batches with delay to avoid ML rate limiting
+    const allRows = await processBatchWithDelay(
       [...allShipmentIds],
-      10,
+      BATCH_SIZE,
+      BATCH_DELAY_MS,
       async (shipmentId): Promise<ShipmentWithOrder | null> => {
         try {
           const shipment = await getShipment(accessToken!, shipmentId);
-          const order = await getOrder(accessToken!, shipment.order_id);
-
-          const items = order.order_items
-            .map(item => `${item.quantity}x ${item.item.title}`)
-            .join(', ');
 
           const substatus = shipment.substatus || '';
           const canPrint =
             shipment.status === 'ready_to_ship' &&
             PRINTABLE_SUBSTATUSES.has(substatus);
 
+          // Skip non-printable shipments early (saves getOrder calls)
+          if (!canPrint) return null;
+
+          // Use cached order data from getOrders if available, otherwise fetch
+          let order = ordersByShipmentId.get(shipmentId);
+          if (!order && shipment.order_id) {
+            try {
+              order = await getOrder(accessToken!, shipment.order_id);
+            } catch {
+              // If we can't get order details, still show the shipment
+            }
+          }
+
+          const items = order
+            ? order.order_items.map(item => `${item.quantity}x ${item.item.title}`).join(', ')
+            : '';
+
           return {
             shipmentId: shipment.id,
-            orderId: order.id,
-            buyerNickname: order.buyer.nickname,
+            orderId: order?.id || shipment.order_id || 0,
+            buyerNickname: order?.buyer?.nickname || '-',
             items: items.length > 100 ? items.substring(0, 97) + '...' : items,
             status: shipment.status,
             substatus,
@@ -110,24 +135,18 @@ router.get('/', async (req: Request, res: Response) => {
             state: shipment.receiver_address?.state?.name
           };
         } catch (error: any) {
-          console.error(`[shipments] FAILED shipment ${shipmentId}: ${error.message || error}`);
+          console.error(`[shipments] FAILED ${shipmentId}: ${error.message?.substring(0, 80) || error}`);
           return null;
         }
       }
     );
 
-    // Log all status/substatus combinations for debugging
-    const statusMap: Record<string, number> = {};
-    for (const row of allRows) {
-      const key = `${row.status}/${row.substatus}`;
-      statusMap[key] = (statusMap[key] || 0) + 1;
-    }
-    console.log(`[shipments] status breakdown:`, statusMap);
-    console.log(`[shipments] total=${allRows.length} printable=${allRows.filter(r => r.canPrint).length} failed=${allShipmentIds.size - allRows.length}`);
+    console.log(`[shipments] printable=${allRows.length} (from ${allShipmentIds.size} total IDs)`);
 
-    const ready = allRows.filter((s) => s.canPrint && s.substatus === 'ready_to_print');
-    const reprint = allRows.filter((s) => s.canPrint && s.substatus !== 'ready_to_print');
+    const ready = allRows.filter((s) => s.substatus === 'ready_to_print');
+    const reprint = allRows.filter((s) => s.substatus !== 'ready_to_print');
 
+    console.log(`[shipments] ready=${ready.length} reprint=${reprint.length}`);
     res.json({ ready, reprint });
   } catch (error) {
     console.error('Failed to get shipments:', error);
