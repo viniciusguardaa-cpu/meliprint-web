@@ -82,7 +82,8 @@ router.get('/', async (req: Request, res: Response) => {
           ordersByShipmentId.set(order.shipping.id, order);
         }
       }
-      console.log(`[shipments] orders scan: ${orders.length} orders, ${ordersByShipmentId.size} with shipping IDs`);
+      const noShipId = orders.filter(o => !o.shipping?.id).length;
+      console.log(`[shipments] orders scan: ${orders.length} orders, ${ordersByShipmentId.size} with shipping IDs, ${noShipId} without`);
     } catch (error) {
       console.error('[shipments] orders scan failed:', error);
     }
@@ -102,6 +103,11 @@ router.get('/', async (req: Request, res: Response) => {
       const canPrint =
         shipment.status === 'ready_to_ship' &&
         PRINTABLE_SUBSTATUSES.has(substatus);
+
+      // Track all ready_to_ship substatuses for diagnostics
+      if (shipment.status === 'ready_to_ship' && !canPrint) {
+        console.log(`[shipments] ready_to_ship but NOT printable: ${shipmentId} substatus=${substatus}`);
+      }
 
       // Skip non-printable shipments early (saves getOrder calls)
       if (!canPrint) return null;
