@@ -338,21 +338,25 @@ export async function getShipmentLabelsZPL(accessToken: string, shipmentIds: num
   if (bytes.length >= 2 && bytes[0] === 0x50 && bytes[1] === 0x4b) {
     const zip = await JSZip.loadAsync(bytes);
     const fileNames = Object.keys(zip.files).filter((name) => !zip.files[name]?.dir);
-    const preferred =
-      fileNames.find((n) => n.toLowerCase().endsWith('.zpl')) ||
-      fileNames.find((n) => n.toLowerCase().endsWith('.txt')) ||
-      fileNames[0];
-
-    if (!preferred) {
+    
+    if (fileNames.length === 0) {
       throw new Error('Failed to extract ZPL: empty ZIP from Mercado Livre');
     }
 
-    const f = zip.file(preferred);
-    if (!f) {
-      throw new Error(`Failed to extract ZPL: missing file ${preferred} inside ZIP`);
+    const zpls: string[] = [];
+    for (const name of fileNames) {
+      if (name.toLowerCase().endsWith('.zpl') || name.toLowerCase().endsWith('.txt')) {
+        const content = await zip.file(name)?.async('string');
+        if (content) zpls.push(content.trim());
+      }
     }
 
-    return (await f.async('string')).trim();
+    if (zpls.length === 0) {
+      const content = await zip.file(fileNames[0])?.async('string');
+      return content ? content.trim() : '';
+    }
+
+    return zpls.join('\n\n');
   }
 
   if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
@@ -401,7 +405,7 @@ async function convertZplToPdf(zpl: string): Promise<Buffer> {
 }
 
 export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: number[]): Promise<Buffer> {
-  const BATCH_SIZE = 5;
+  const BATCH_SIZE = 50;
   const batches: number[][] = [];
   for (let i = 0; i < shipmentIds.length; i += BATCH_SIZE) {
     batches.push(shipmentIds.slice(i, i + BATCH_SIZE));
@@ -412,7 +416,7 @@ export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: num
   const pdfBuffers: Buffer[] = [];
   for (let i = 0; i < batches.length; i++) {
     if (i > 0) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
     const batch = batches[i];
     console.log(`[PDF] Batch ${i + 1}/${batches.length}: shipments ${batch.join(',')}`);
