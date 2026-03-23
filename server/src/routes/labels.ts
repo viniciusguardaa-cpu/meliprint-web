@@ -42,14 +42,17 @@ router.get('/pdf', async (req: Request, res: Response) => {
   }
 
   try {
+    console.log(`[labels/pdf GET] Generating PDF for ${shipmentIds.length} shipments: ${shipmentIds.join(',')}`);
     const pdf = await getShipmentLabelsPDF(req.session.accessToken, shipmentIds);
+    console.log(`[labels/pdf GET] PDF generated successfully, size: ${pdf.length} bytes`);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline; filename="labels.pdf"');
     res.setHeader('Cache-Control', 'no-store');
     res.send(pdf);
   } catch (error) {
-    console.error('Failed to get labels pdf:', error);
-    res.status(500).json({ error: 'Failed to generate labels' });
+    console.error('[labels/pdf GET] Failed to get labels pdf:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: 'Failed to generate labels', details: errorMessage });
   }
 });
 
