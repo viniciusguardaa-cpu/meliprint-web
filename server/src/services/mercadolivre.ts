@@ -188,7 +188,7 @@ export async function searchShipments(
 }
 
 export async function getOrder(accessToken: string, orderId: number): Promise<Order> {
-  const response = await fetch(`${ML_API_URL}/orders/${orderId}`, {
+  const response = await fetch(`${ML_API_URL}/orders/${orderId}?with_buyer=true`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`
     }
