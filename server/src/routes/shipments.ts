@@ -159,7 +159,7 @@ router.get('/', async (req: Request, res: Response) => {
         items: items.length > 100 ? items.substring(0, 97) + '...' : items,
         status: shipment.status,
         substatus: shipment.substatus || '',
-        canPrint: true,
+        canPrint: shipment.substatus !== 'invoice_pending',
         city: shipment.receiver_address?.city?.name,
         state: shipment.receiver_address?.state?.name
       };
