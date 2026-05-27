@@ -429,7 +429,7 @@ async function convertZplToPdf(zpl: string): Promise<Buffer> {
 }
 
 export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: number[]): Promise<Buffer> {
-  const BATCH_SIZE = 50;
+  const BATCH_SIZE = 20;
   const batches: number[][] = [];
   for (let i = 0; i < shipmentIds.length; i += BATCH_SIZE) {
     batches.push(shipmentIds.slice(i, i + BATCH_SIZE));
