@@ -329,8 +329,32 @@ export async function getShipmentLabelsZPL(accessToken: string, shipmentIds: num
   );
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to get labels: ${error}`);
+    const errorText = await response.text();
+    let printableIds: number[] | null = null;
+    try {
+      const errorJson = JSON.parse(errorText);
+      if (errorJson.failed_shipments && Array.isArray(errorJson.failed_shipments)) {
+        const failedIds = new Set(
+          errorJson.failed_shipments
+            .filter((f: any) => f.cause === 'NOT_PRINTABLE_STATUS')
+            .map((f: any) => Number(f.shipment_id))
+        );
+        const filtered = shipmentIds.filter(id => !failedIds.has(id));
+        if (filtered.length > 0) {
+          printableIds = filtered;
+        } else {
+          console.log(`[ZPL] All ${shipmentIds.length} shipments are non-printable, skipping batch`);
+          return '';
+        }
+      }
+    } catch {
+      // errorText is not parseable JSON — fall through to original error
+    }
+    if (printableIds !== null) {
+      console.log(`[ZPL] Skipping ${shipmentIds.length - printableIds.length} non-printable shipments, retrying with ${printableIds.length}`);
+      return getShipmentLabelsZPL(accessToken, printableIds);
+    }
+    throw new Error(`Failed to get labels: ${errorText}`);
   }
 
   const bytes = Buffer.from(await response.arrayBuffer());
@@ -421,8 +445,16 @@ export async function getShipmentLabelsPDF(accessToken: string, shipmentIds: num
     const batch = batches[i];
     console.log(`[PDF] Batch ${i + 1}/${batches.length}: shipments ${batch.join(',')}`);
     const zpl = await getShipmentLabelsZPL(accessToken, batch);
+    if (!zpl.trim()) {
+      console.log(`[PDF] Batch ${i + 1}/${batches.length}: all shipments non-printable, skipping`);
+      continue;
+    }
     const pdf = await convertZplToPdf(zpl);
     pdfBuffers.push(pdf);
+  }
+
+  if (pdfBuffers.length === 0) {
+    throw new Error('Nenhum envio disponível para impressão (status não imprimível)');
   }
 
   if (pdfBuffers.length === 1) {
