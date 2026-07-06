@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, DollarSign, TrendingDown, RefreshCw, Lock } from 'lucide-react';
+import { Users, DollarSign, TrendingDown, RefreshCw, Lock, Gift, Trash2, Plus } from 'lucide-react';
 
 interface Subscriber {
   user_id: number;
@@ -21,6 +21,13 @@ interface Stats {
   activeSubscriptions: number;
   mrr: number;
   cancelledSubscriptions: number;
+}
+
+interface FreeAccessEntry {
+  id: number;
+  email: string;
+  note: string | null;
+  created_at: string;
 }
 
 const ACTIVE_STATUSES = ['authorized', 'active'];
@@ -59,8 +66,14 @@ export default function Admin() {
 
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [freeAccess, setFreeAccess] = useState<FreeAccessEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'active' | 'cancelled' | 'none'>('all');
+
+  const [grantEmail, setGrantEmail] = useState('');
+  const [grantNote, setGrantNote] = useState('');
+  const [granting, setGranting] = useState(false);
+  const [grantError, setGrantError] = useState<string | null>(null);
 
   const fetchData = async (key: string) => {
     setLoading(true);
@@ -68,32 +81,75 @@ export default function Admin() {
     try {
       const headers = { 'x-admin-key': key };
 
-      const [statsRes, subsRes] = await Promise.all([
+      const [statsRes, subsRes, freeRes] = await Promise.all([
         fetch('/api/admin/stats', { headers }),
-        fetch('/api/admin/subscribers', { headers })
+        fetch('/api/admin/subscribers', { headers }),
+        fetch('/api/admin/free-access', { headers })
       ]);
 
-      if (statsRes.status === 401 || subsRes.status === 401) {
+      if (statsRes.status === 401 || subsRes.status === 401 || freeRes.status === 401) {
         setAuthError('Chave de admin inválida.');
         sessionStorage.removeItem('adminKey');
         setAdminKey('');
         return;
       }
 
-      if (!statsRes.ok || !subsRes.ok) {
+      if (!statsRes.ok || !subsRes.ok || !freeRes.ok) {
         throw new Error('Falha ao carregar dados');
       }
 
       const statsData = await statsRes.json();
       const subsData = await subsRes.json();
+      const freeData = await freeRes.json();
 
       setStats(statsData);
       setSubscribers(subsData.subscribers || []);
+      setFreeAccess(freeData.freeAccess || []);
       sessionStorage.setItem('adminKey', key);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Erro ao carregar dados');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGrantAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!grantEmail.trim()) return;
+
+    setGranting(true);
+    setGrantError(null);
+
+    try {
+      const res = await fetch('/api/admin/free-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+        body: JSON.stringify({ email: grantEmail.trim(), note: grantNote.trim() || undefined })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao liberar acesso');
+
+      setFreeAccess((prev) => [data.entry, ...prev.filter((f) => f.email !== data.entry.email)]);
+      setGrantEmail('');
+      setGrantNote('');
+    } catch (err) {
+      setGrantError(err instanceof Error ? err.message : 'Erro ao liberar acesso');
+    } finally {
+      setGranting(false);
+    }
+  };
+
+  const handleRevokeAccess = async (id: number) => {
+    try {
+      const res = await fetch(`/api/admin/free-access/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-key': adminKey }
+      });
+      if (!res.ok) throw new Error('Erro ao revogar acesso');
+      setFreeAccess((prev) => prev.filter((f) => f.id !== id));
+    } catch (err) {
+      setGrantError(err instanceof Error ? err.message : 'Erro ao revogar acesso');
     }
   };
 
@@ -213,15 +269,78 @@ export default function Admin() {
           </div>
         </div>
 
+        {/* Free access section */}
+        <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Gift className="w-5 h-5 text-brand-500" />
+            <h2 className="text-lg font-bold text-gray-900">Liberar empresa sem cobrança</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            O email informado deve ser o mesmo cadastrado na conta do Mercado Livre da empresa.
+            Assim que ela fizer login, terá acesso total sem precisar pagar.
+          </p>
+
+          <form onSubmit={handleGrantAccess} className="flex flex-col sm:flex-row gap-3 mb-4">
+            <input
+              type="email"
+              required
+              value={grantEmail}
+              onChange={(e) => setGrantEmail(e.target.value)}
+              placeholder="email@empresa.com"
+              className="flex-1 bg-gray-100 border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <input
+              type="text"
+              value={grantNote}
+              onChange={(e) => setGrantNote(e.target.value)}
+              placeholder="Observação (opcional)"
+              className="flex-1 bg-gray-100 border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <button
+              type="submit"
+              disabled={granting}
+              className="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold transition-colors disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" />
+              Liberar
+            </button>
+          </form>
+
+          {grantError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg mb-4 text-sm">
+              {grantError}
+            </div>
+          )}
+
+          {freeAccess.length > 0 && (
+            <div className="divide-y divide-gray-100 border-t">
+              {freeAccess.map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="font-medium text-gray-800 text-sm">{entry.email}</p>
+                    {entry.note && <p className="text-xs text-gray-500">{entry.note}</p>}
+                  </div>
+                  <button
+                    onClick={() => handleRevokeAccess(entry.id)}
+                    className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                    title="Revogar acesso gratuito"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Filter tabs */}
         <div className="flex items-center gap-2 mb-4">
           {(['all', 'active', 'cancelled', 'none'] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === f ? 'bg-brand-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f ? 'bg-brand-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+                }`}
             >
               {f === 'all' ? 'Todos' : f === 'active' ? 'Ativos' : f === 'cancelled' ? 'Cancelados' : 'Sem assinatura'}
             </button>

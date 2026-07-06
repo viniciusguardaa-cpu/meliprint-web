@@ -74,7 +74,17 @@ export async function initDatabase() {
     await client.query(`
       CREATE INDEX IF NOT EXISTS "IDX_users_ml_user_id" ON "users" ("ml_user_id");
     `);
-    
+
+    // Create free_access table (manual courtesy access, granted from the admin panel)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "free_access" (
+        "id" SERIAL PRIMARY KEY,
+        "email" VARCHAR(255) UNIQUE NOT NULL,
+        "note" VARCHAR(255),
+        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     console.log('✅ Database initialized');
   } finally {
     client.release();
@@ -152,6 +162,37 @@ export async function getSubscriptionByPreapprovalId(mpPreapprovalId: string) {
     [mpPreapprovalId]
   );
   return result.rows[0] || null;
+}
+
+// Free access operations (courtesy access granted manually from the admin panel)
+export async function isFreeAccessEmail(email: string): Promise<boolean> {
+  const result = await pool.query(
+    `SELECT 1 FROM "free_access" WHERE LOWER("email") = LOWER($1) LIMIT 1`,
+    [email]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function getFreeAccessList() {
+  const result = await pool.query(
+    `SELECT * FROM "free_access" ORDER BY "created_at" DESC`
+  );
+  return result.rows;
+}
+
+export async function addFreeAccess(email: string, note?: string) {
+  const result = await pool.query(
+    `INSERT INTO "free_access" ("email", "note")
+     VALUES ($1, $2)
+     ON CONFLICT ("email") DO UPDATE SET "note" = EXCLUDED."note"
+     RETURNING *`,
+    [email.toLowerCase(), note || null]
+  );
+  return result.rows[0];
+}
+
+export async function removeFreeAccess(id: number) {
+  await pool.query(`DELETE FROM "free_access" WHERE "id" = $1`, [id]);
 }
 
 // Admin operations

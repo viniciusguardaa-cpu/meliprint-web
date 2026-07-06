@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { getUserByMlId, getActiveSubscription } from '../db.js';
-import { FREE_ACCESS_EMAILS } from '../config.js';
+import { getUserByMlId, getActiveSubscription, isFreeAccessEmail } from '../db.js';
 
 export async function requireActiveSubscription(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
@@ -9,7 +8,7 @@ export async function requireActiveSubscription(req: Request, res: Response, nex
 
   try {
     const userEmail = req.session.userEmail?.toLowerCase();
-    if (userEmail && FREE_ACCESS_EMAILS.includes(userEmail)) {
+    if (userEmail && await isFreeAccessEmail(userEmail)) {
       return next();
     }
 

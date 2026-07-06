@@ -6,9 +6,9 @@ import {
   getActiveSubscription,
   createSubscription,
   updateSubscriptionByPreapprovalId,
-  getSubscriptionByPreapprovalId
+  getSubscriptionByPreapprovalId,
+  isFreeAccessEmail
 } from '../db.js';
-import { FREE_ACCESS_EMAILS } from '../config.js';
 
 const router = Router();
 
@@ -32,7 +32,7 @@ router.get('/status', async (req: Request, res: Response) => {
   try {
     // Check if user has free lifetime access
     const userEmail = req.session.userEmail?.toLowerCase();
-    if (userEmail && FREE_ACCESS_EMAILS.includes(userEmail)) {
+    if (userEmail && await isFreeAccessEmail(userEmail)) {
       return res.json({
         hasSubscription: true,
         status: 'authorized',
