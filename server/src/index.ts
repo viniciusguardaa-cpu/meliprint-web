@@ -83,6 +83,9 @@ app.use('/api/subscription/webhook', webhookLimiter);
 app.use('/api/subscription/checkout', checkoutLimiter);
 app.use('/api/subscription', generalLimiter, subscriptionRoutes);
 app.use('/api/admin', generalLimiter, adminRoutes);
+app.get('/api/_debug/version', (_req, res) => {
+  res.json({ build: 'admin-panel-v1', time: new Date().toISOString() });
+});
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
