@@ -4,7 +4,9 @@ const { Pool } = pg;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  // Railway's managed Postgres does not have SSL enabled (neither internal nor public proxy),
+  // so forcing SSL here causes "server does not support SSL connections" errors.
+  ssl: false,
   // Scaled for ~1000 users
   max: 20,                      // Maximum connections in pool
   idleTimeoutMillis: 30000,     // Close idle connections after 30s
