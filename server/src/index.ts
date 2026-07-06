@@ -24,6 +24,7 @@ import authRoutes from './routes/auth.js';
 import shipmentsRoutes from './routes/shipments.js';
 import labelsRoutes from './routes/labels.js';
 import subscriptionRoutes from './routes/subscription.js';
+import adminRoutes from './routes/admin.js';
 import { generalLimiter, authLimiter, labelsLimiter, checkoutLimiter, webhookLimiter } from './middleware/rateLimiter.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -81,6 +82,7 @@ app.use('/api/labels', labelsLimiter, labelsRoutes);
 app.use('/api/subscription/webhook', webhookLimiter);
 app.use('/api/subscription/checkout', checkoutLimiter);
 app.use('/api/subscription', generalLimiter, subscriptionRoutes);
+app.use('/api/admin', generalLimiter, adminRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {

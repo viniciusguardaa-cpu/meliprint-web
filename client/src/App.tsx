@@ -6,6 +6,7 @@ import Pricing from './pages/Pricing';
 import SubscriptionCallback from './pages/SubscriptionCallback';
 import Subscription from './pages/Subscription';
 import Landing from './pages/Landing';
+import Admin from './pages/Admin';
 import { useAuth } from './hooks/useAuth';
 import { useSubscription } from './hooks/useSubscription';
 
@@ -55,6 +56,7 @@ function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/admin" element={<Admin />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route
         path="/subscription/callback"

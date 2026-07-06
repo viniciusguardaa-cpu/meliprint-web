@@ -152,4 +152,43 @@ export async function getSubscriptionByPreapprovalId(mpPreapprovalId: string) {
   return result.rows[0] || null;
 }
 
+// Admin operations
+export async function getAllSubscribers() {
+  const result = await pool.query(
+    `SELECT
+       u."id" AS user_id,
+       u."ml_user_id",
+       u."nickname",
+       u."email",
+       u."created_at" AS user_created_at,
+       s."status",
+       s."plan_id",
+       s."price",
+       s."current_period_start",
+       s."current_period_end",
+       s."mp_preapproval_id",
+       s."created_at" AS subscription_created_at
+     FROM "users" u
+     LEFT JOIN LATERAL (
+       SELECT * FROM "subscriptions"
+       WHERE "user_id" = u."id"
+       ORDER BY "created_at" DESC
+       LIMIT 1
+     ) s ON true
+     ORDER BY u."created_at" DESC`
+  );
+  return result.rows;
+}
+
+export async function getAdminStats() {
+  const result = await pool.query(
+    `SELECT
+       (SELECT COUNT(*) FROM "users") AS total_users,
+       (SELECT COUNT(*) FROM "subscriptions" WHERE "status" IN ('authorized', 'active')) AS active_subscriptions,
+       (SELECT COALESCE(SUM("price"), 0) FROM "subscriptions" WHERE "status" IN ('authorized', 'active')) AS mrr,
+       (SELECT COUNT(*) FROM "subscriptions" WHERE "status" = 'cancelled') AS cancelled_subscriptions`
+  );
+  return result.rows[0];
+}
+
 export default pool;
