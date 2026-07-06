@@ -101,12 +101,17 @@ export default function Dashboard() {
 
     try {
       const shipmentIds = Array.from(selected);
+      const selectedSet = new Set(shipmentIds);
 
-      // 1. Baixar etiquetas ZPL
+      // 1. Abrir janela de impressão
       openLabelsPrintWindow(shipmentIds);
 
+      // 2. Remover otimisticamente os envios impressos da lista "ready"
+      setReady(prev => prev.filter(s => !selectedSet.has(s.shipmentId)));
       setSelected(new Set());
-      fetchShipments();
+
+      // 3. Refresh após delay para a ML atualizar os status
+      setTimeout(() => fetchShipments(), 3000);
     } catch (err) {
       if (err instanceof Error && err.message === 'Popup blocked') {
         toast.error('Permita popups no navegador para abrir a tela de impressão.');
