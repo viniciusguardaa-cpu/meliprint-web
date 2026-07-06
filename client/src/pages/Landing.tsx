@@ -303,8 +303,8 @@ export default function Landing() {
             </div>
             <div className="flex items-center gap-6 text-sm">
               <a href="/pricing" className="hover:text-white transition-colors">Preços</a>
-              <a href="#" className="hover:text-white transition-colors">Termos de Uso</a>
-              <a href="#" className="hover:text-white transition-colors">Privacidade</a>
+              <a href="/termos" className="hover:text-white transition-colors">Termos de Uso</a>
+              <a href="/privacidade" className="hover:text-white transition-colors">Privacidade</a>
             </div>
             <div className="text-sm">
               © {new Date().getFullYear()} Printly. Todos os direitos reservados.

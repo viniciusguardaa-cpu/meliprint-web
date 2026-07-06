@@ -64,14 +64,15 @@ function getSessionStore() {
 
 app.use(session({
   store: getSessionStore(),
-  secret: process.env.SESSION_SECRET || 'meliprint-secret-key',
+  secret: process.env.SESSION_SECRET || 'printly-secret-key',
   resave: false,
   saveUninitialized: false,
+  rolling: true, // reset maxAge on every request, so active users don't get logged out
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days (session is refreshed on every /api/auth/me call)
   }
 }));
 

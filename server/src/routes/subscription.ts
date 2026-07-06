@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { MercadoPagoConfig, PreApproval } from 'mercadopago';
 import {
   findOrCreateUser,
@@ -13,7 +14,7 @@ import {
 const router = Router();
 
 const PLAN_PRICE = 29.90;
-const PLAN_NAME = 'MeliPrint Pro - Mensal';
+const PLAN_NAME = 'Printly Pro - Mensal';
 
 function getMercadoPagoClient() {
   const accessToken = process.env.MP_ACCESS_TOKEN;
@@ -37,7 +38,7 @@ router.get('/status', async (req: Request, res: Response) => {
         hasSubscription: true,
         status: 'authorized',
         currentPeriodEnd: null,
-        planName: 'MeliPrint Pro - Vitalício',
+        planName: 'Printly Pro - Vitalício',
         price: 0,
         isFreeAccess: true
       });
@@ -95,7 +96,11 @@ router.post('/checkout', async (req: Request, res: Response) => {
 
     const backUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-    // Create preapproval (subscription) in Mercado Pago
+    // NOTE: Mercado Pago's PreApproval API does not accept a per-request
+    // notification_url (unlike Payments/Preferences). For subscriptions,
+    // the webhook URL must be configured once in the Mercado Pago
+    // Developer Panel: App > Webhooks > "Assinaturas" (preapproval) topic,
+    // pointing to `${FRONTEND_URL}/api/subscription/webhook`.
     const response = await preapproval.create({
       body: {
         reason: PLAN_NAME,
@@ -128,9 +133,55 @@ router.post('/checkout', async (req: Request, res: Response) => {
   }
 });
 
+// Validates the Mercado Pago webhook signature.
+// Docs: https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks#validacao-da-origem-da-notificacao
+// Returns true when the signature is valid OR when MP_WEBHOOK_SECRET is not configured
+// (fails open with a warning, since MP does not sign requests unless a secret is set up
+// in the Developer Panel). Once MP_WEBHOOK_SECRET is set, invalid signatures are rejected.
+function isValidWebhookSignature(req: Request): boolean {
+  const secret = process.env.MP_WEBHOOK_SECRET;
+  if (!secret) {
+    console.warn('⚠️  MP_WEBHOOK_SECRET not configured - webhook signature is not being verified');
+    return true;
+  }
+
+  const signatureHeader = req.header('x-signature');
+  const requestId = req.header('x-request-id');
+  const dataId = (req.query['data.id'] as string) || req.body?.data?.id;
+
+  if (!signatureHeader || !requestId || !dataId) {
+    return false;
+  }
+
+  const parts = Object.fromEntries(
+    signatureHeader.split(',').map((p) => {
+      const [key, value] = p.split('=');
+      return [key?.trim(), value?.trim()];
+    })
+  );
+
+  const ts = parts.ts;
+  const v1 = parts.v1;
+  if (!ts || !v1) return false;
+
+  const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
+  const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
+
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
+  } catch {
+    return false;
+  }
+}
+
 // Webhook to receive payment notifications from Mercado Pago
 router.post('/webhook', async (req: Request, res: Response) => {
   try {
+    if (!isValidWebhookSignature(req)) {
+      console.error('Webhook rejected: invalid signature');
+      return res.sendStatus(401);
+    }
+
     const { type, data } = req.body;
 
     console.log('Webhook received:', { type, data });

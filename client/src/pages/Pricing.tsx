@@ -118,6 +118,17 @@ export default function Pricing() {
               <p className="text-center text-sm text-gray-500 mt-4">
                 Cancele quando quiser. Sem fidelidade.
               </p>
+              <p className="text-center text-xs text-gray-400 mt-2">
+                Ao assinar, você concorda com os{' '}
+                <a href="/termos" target="_blank" rel="noreferrer" className="underline hover:text-gray-600">
+                  Termos de Uso
+                </a>{' '}
+                e a{' '}
+                <a href="/privacidade" target="_blank" rel="noreferrer" className="underline hover:text-gray-600">
+                  Política de Privacidade
+                </a>
+                .
+              </p>
             </div>
           </div>
 

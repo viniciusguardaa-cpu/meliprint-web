@@ -7,6 +7,8 @@ import SubscriptionCallback from './pages/SubscriptionCallback';
 import Subscription from './pages/Subscription';
 import Landing from './pages/Landing';
 import Admin from './pages/Admin';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 import { useAuth } from './hooks/useAuth';
 import { useSubscription } from './hooks/useSubscription';
 
@@ -57,6 +59,8 @@ function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/admin" element={<Admin />} />
+      <Route path="/termos" element={<Terms />} />
+      <Route path="/privacidade" element={<Privacy />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route
         path="/subscription/callback"
