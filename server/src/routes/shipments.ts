@@ -17,8 +17,8 @@ interface ShipmentWithOrder {
   state?: string;
 }
 
-const BATCH_SIZE = 5;
-const BATCH_DELAY_MS = 300;
+const BATCH_SIZE = 25;
+const BATCH_DELAY_MS = 50;
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
