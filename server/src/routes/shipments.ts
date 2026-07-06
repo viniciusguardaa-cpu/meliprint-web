@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { getOrder, getOrders, getShipment, searchShipments, Order, Shipment } from '../services/mercadolivre.js';
+import { requireActiveSubscription } from '../middleware/subscription.js';
 
 const router = Router();
+router.use(requireActiveSubscription);
 
 interface ShipmentWithOrder {
   shipmentId: number;

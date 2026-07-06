@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { getShipmentLabelsPDF, getShipmentLabelsZPL, getInvoiceData } from '../services/mercadolivre.js';
+import { requireActiveSubscription } from '../middleware/subscription.js';
 
 const router = Router();
+router.use(requireActiveSubscription);
 
 router.post('/zpl', async (req: Request, res: Response) => {
   if (!req.session.accessToken) {

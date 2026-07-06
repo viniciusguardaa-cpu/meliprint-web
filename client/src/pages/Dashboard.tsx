@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Printer, RefreshCw, CheckSquare, Square, Package, Calendar } from 'lucide-react';
 import Header from '../components/Header';
@@ -26,6 +27,7 @@ function formatDateParamEnd(dateStr: string): string {
 
 export default function Dashboard() {
   useAuth();
+  const navigate = useNavigate();
   const [ready, setReady] = useState<Shipment[]>([]);
   const [reprint, setReprint] = useState<Shipment[]>([]);
   const [tab, setTab] = useState<'ready' | 'reprint'>('ready');
@@ -46,6 +48,13 @@ export default function Dashboard() {
       if (dateFrom) params.set('date_from', formatDateParam(dateFrom));
       if (dateTo) params.set('date_to', formatDateParamEnd(dateTo));
       const res = await fetch(`/api/shipments?${params.toString()}`, { credentials: 'include' });
+      if (res.status === 403) {
+        const data = await res.json().catch(() => null);
+        if (data?.error === 'subscription_required') {
+          navigate('/pricing');
+          return;
+        }
+      }
       if (!res.ok) throw new Error('Falha ao carregar envios');
       const data = await res.json();
       setReady(data.ready || []);

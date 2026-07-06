@@ -8,16 +8,12 @@ import {
   updateSubscriptionByPreapprovalId,
   getSubscriptionByPreapprovalId
 } from '../db.js';
+import { FREE_ACCESS_EMAILS } from '../config.js';
 
 const router = Router();
 
 const PLAN_PRICE = 29.90;
 const PLAN_NAME = 'MeliPrint Pro - Mensal';
-
-// Emails with free lifetime access
-const FREE_ACCESS_EMAILS = [
-  'marcos@companhiadopapel.com.br'
-];
 
 function getMercadoPagoClient() {
   const accessToken = process.env.MP_ACCESS_TOKEN;
