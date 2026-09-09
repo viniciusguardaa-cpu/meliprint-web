@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import PrintLabels from './pages/PrintLabels';
+import AutoPrint from './pages/AutoPrint';
 import Pricing from './pages/Pricing';
 import SubscriptionCallback from './pages/SubscriptionCallback';
 import Subscription from './pages/Subscription';
@@ -91,6 +92,14 @@ function App() {
         element={
           <SubscriberRoute>
             <PrintLabels />
+          </SubscriberRoute>
+        }
+      />
+      <Route
+        path="/auto-print"
+        element={
+          <SubscriberRoute>
+            <AutoPrint />
           </SubscriberRoute>
         }
       />

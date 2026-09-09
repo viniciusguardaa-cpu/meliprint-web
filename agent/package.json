@@ -1,0 +1,11 @@
+{
+  "name": "meliprint-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Agente local de impressão automática do Meliprint — envia ZPL para a impressora térmica USB",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js",
+    "list-printers": "node list-printers.js"
+  }
+}

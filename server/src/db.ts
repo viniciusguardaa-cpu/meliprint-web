@@ -85,6 +85,43 @@ export async function initDatabase() {
       );
     `);
 
+    // Create auto_print_config table (stores ML tokens + agent token for the local print agent)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "auto_print_config" (
+        "user_id" INTEGER PRIMARY KEY REFERENCES "users"("id") ON DELETE CASCADE,
+        "enabled" BOOLEAN NOT NULL DEFAULT false,
+        "ml_access_token" TEXT,
+        "ml_refresh_token" TEXT,
+        "ml_token_expires_at" BIGINT,
+        "ml_seller_id" BIGINT,
+        "agent_token" VARCHAR(255) UNIQUE,
+        "printer_name" VARCHAR(255),
+        "last_polled_at" TIMESTAMP,
+        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Create print_queue table (pending print jobs with ZPL, consumed by the local agent)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "print_queue" (
+        "id" SERIAL PRIMARY KEY,
+        "user_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+        "shipment_id" BIGINT NOT NULL,
+        "zpl" TEXT,
+        "status" VARCHAR(50) NOT NULL DEFAULT 'pending',
+        "attempts" INTEGER NOT NULL DEFAULT 0,
+        "error" TEXT,
+        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "printed_at" TIMESTAMP,
+        UNIQUE("user_id", "shipment_id")
+      );
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_print_queue_status" ON "print_queue" ("status");
+    `);
+
     console.log('✅ Database initialized');
   } finally {
     client.release();
@@ -230,6 +267,154 @@ export async function getAdminStats() {
        (SELECT COUNT(*) FROM "subscriptions" WHERE "status" IN ('authorized', 'active')) AS active_subscriptions,
        (SELECT COALESCE(SUM("price"), 0) FROM "subscriptions" WHERE "status" IN ('authorized', 'active')) AS mrr,
        (SELECT COUNT(*) FROM "subscriptions" WHERE "status" = 'cancelled') AS cancelled_subscriptions`
+  );
+  return result.rows[0];
+}
+
+// ---------------------------------------------------------------------------
+// Auto-print config operations
+// ---------------------------------------------------------------------------
+
+export async function getAutoPrintConfig(userId: number) {
+  const result = await pool.query(
+    `SELECT * FROM "auto_print_config" WHERE "user_id" = $1`,
+    [userId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function upsertAutoPrintConfig(
+  userId: number,
+  fields: {
+    enabled?: boolean;
+    mlAccessToken?: string;
+    mlRefreshToken?: string;
+    mlTokenExpiresAt?: number;
+    mlSellerId?: number;
+    agentToken?: string;
+    printerName?: string;
+  }
+) {
+  const result = await pool.query(
+    `INSERT INTO "auto_print_config" ("user_id", "enabled", "ml_access_token", "ml_refresh_token", "ml_token_expires_at", "ml_seller_id", "agent_token", "printer_name", "updated_at")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+     ON CONFLICT ("user_id") DO UPDATE SET
+       "enabled" = COALESCE($2, "auto_print_config"."enabled"),
+       "ml_access_token" = COALESCE($3, "auto_print_config"."ml_access_token"),
+       "ml_refresh_token" = COALESCE($4, "auto_print_config"."ml_refresh_token"),
+       "ml_token_expires_at" = COALESCE($5, "auto_print_config"."ml_token_expires_at"),
+       "ml_seller_id" = COALESCE($6, "auto_print_config"."ml_seller_id"),
+       "agent_token" = COALESCE($7, "auto_print_config"."agent_token"),
+       "printer_name" = COALESCE($8, "auto_print_config"."printer_name"),
+       "updated_at" = CURRENT_TIMESTAMP
+     RETURNING *`,
+    [
+      userId,
+      fields.enabled ?? null,
+      fields.mlAccessToken ?? null,
+      fields.mlRefreshToken ?? null,
+      fields.mlTokenExpiresAt ?? null,
+      fields.mlSellerId ?? null,
+      fields.agentToken ?? null,
+      fields.printerName ?? null
+    ]
+  );
+  return result.rows[0];
+}
+
+export async function updateAutoPrintTokens(
+  userId: number,
+  accessToken: string,
+  refreshToken: string,
+  expiresAt: number
+) {
+  await pool.query(
+    `UPDATE "auto_print_config" SET
+       "ml_access_token" = $2,
+       "ml_refresh_token" = $3,
+       "ml_token_expires_at" = $4,
+       "updated_at" = CURRENT_TIMESTAMP
+     WHERE "user_id" = $1`,
+    [userId, accessToken, refreshToken, expiresAt]
+  );
+}
+
+export async function updateAutoPrintLastPolled(userId: number) {
+  await pool.query(
+    `UPDATE "auto_print_config" SET "last_polled_at" = CURRENT_TIMESTAMP WHERE "user_id" = $1`,
+    [userId]
+  );
+}
+
+export async function getAutoPrintEnabledConfigs() {
+  const result = await pool.query(
+    `SELECT * FROM "auto_print_config" WHERE "enabled" = true`
+  );
+  return result.rows;
+}
+
+export async function getAutoPrintConfigByAgentToken(token: string) {
+  const result = await pool.query(
+    `SELECT c.*, u."ml_user_id" FROM "auto_print_config" c
+     JOIN "users" u ON c."user_id" = u."id"
+     WHERE c."agent_token" = $1 AND c."enabled" = true`,
+    [token]
+  );
+  return result.rows[0] || null;
+}
+
+// ---------------------------------------------------------------------------
+// Print queue operations
+// ---------------------------------------------------------------------------
+
+export async function addPrintQueueJob(userId: number, shipmentId: number, zpl: string) {
+  // INSERT ... ON CONFLICT DO NOTHING so we never duplicate a shipment already queued
+  const result = await pool.query(
+    `INSERT INTO "print_queue" ("user_id", "shipment_id", "zpl", "status")
+     VALUES ($1, $2, $3, 'pending')
+     ON CONFLICT ("user_id", "shipment_id") DO NOTHING
+     RETURNING *`,
+    [userId, shipmentId, zpl]
+  );
+  return result.rows[0] || null;
+}
+
+export async function getPendingPrintJobs(userId: number, limit = 20) {
+  const result = await pool.query(
+    `SELECT * FROM "print_queue"
+     WHERE "user_id" = $1 AND "status" = 'pending'
+     ORDER BY "created_at" ASC
+     LIMIT $2`,
+    [userId, limit]
+  );
+  return result.rows;
+}
+
+export async function markPrintJobPrinted(jobId: number) {
+  await pool.query(
+    `UPDATE "print_queue" SET "status" = 'printed', "printed_at" = CURRENT_TIMESTAMP WHERE "id" = $1`,
+    [jobId]
+  );
+}
+
+export async function markPrintJobFailed(jobId: number, error: string) {
+  await pool.query(
+    `UPDATE "print_queue" SET
+       "status" = CASE WHEN "attempts" >= 3 THEN 'failed' ELSE 'pending' END,
+       "attempts" = "attempts" + 1,
+       "error" = $2
+     WHERE "id" = $1`,
+    [jobId, error]
+  );
+}
+
+export async function getPrintQueueStats(userId: number) {
+  const result = await pool.query(
+    `SELECT
+       (SELECT COUNT(*) FROM "print_queue" WHERE "user_id" = $1 AND "status" = 'pending') AS pending,
+       (SELECT COUNT(*) FROM "print_queue" WHERE "user_id" = $1 AND "status" = 'printed') AS printed,
+       (SELECT COUNT(*) FROM "print_queue" WHERE "user_id" = $1 AND "status" = 'failed') AS failed`,
+    [userId]
   );
   return result.rows[0];
 }

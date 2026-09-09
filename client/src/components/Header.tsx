@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { LogOut, CreditCard } from 'lucide-react';
+import { LogOut, CreditCard, Zap } from 'lucide-react';
 
 interface HeaderProps {
   showSubscription?: boolean;
@@ -29,6 +29,15 @@ export default function Header({ showSubscription = false, showDashboard = false
               className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             >
               Dashboard
+            </button>
+          )}
+          {showSubscription && (
+            <button
+              onClick={() => navigate('/auto-print')}
+              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+            >
+              <Zap className="w-4 h-4" />
+              <span className="hidden sm:inline">Auto Print</span>
             </button>
           )}
           {showSubscription && (

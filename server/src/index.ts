@@ -25,6 +25,8 @@ import shipmentsRoutes from './routes/shipments.js';
 import labelsRoutes from './routes/labels.js';
 import subscriptionRoutes from './routes/subscription.js';
 import adminRoutes from './routes/admin.js';
+import autoPrintRoutes from './routes/autoPrint.js';
+import { startAutoPrintPoller } from './jobs/autoPrintPoller.js';
 import { generalLimiter, authLimiter, labelsLimiter, checkoutLimiter, webhookLimiter } from './middleware/rateLimiter.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -84,6 +86,7 @@ app.use('/api/subscription/webhook', webhookLimiter);
 app.use('/api/subscription/checkout', checkoutLimiter);
 app.use('/api/subscription', generalLimiter, subscriptionRoutes);
 app.use('/api/admin', generalLimiter, adminRoutes);
+app.use('/api/auto-print', generalLimiter, autoPrintRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
@@ -106,6 +109,10 @@ async function start() {
 
   app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
+    // Start auto-print poller only if database is configured
+    if (process.env.DATABASE_URL) {
+      startAutoPrintPoller();
+    }
   });
 }
 
