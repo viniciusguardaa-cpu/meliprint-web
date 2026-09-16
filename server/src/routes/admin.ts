@@ -1,12 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { requireAdmin } from '../middleware/adminAuth.js';
-import {
+import pool, {
   getAllSubscribers,
   getAdminStats,
   getFreeAccessList,
   addFreeAccess,
-  removeFreeAccess
+  removeFreeAccess,
+  getAgentStatusCounts
 } from '../db.js';
+import { getGrowthMetrics } from '../services/analytics.js';
+import { getExperimentResults } from '../services/pricing.js';
 
 const router = Router();
 
@@ -25,15 +28,80 @@ router.get('/subscribers', async (_req: Request, res: Response) => {
 router.get('/stats', async (_req: Request, res: Response) => {
   try {
     const stats = await getAdminStats();
+    const agents = await getAgentStatusCounts();
+
+    // MRR breakdown by plan
+    const mrrByPlan = await pool.query(`
+      SELECT
+        s."plan_id",
+        p."name" AS plan_name,
+        COUNT(*) AS subscription_count,
+        COALESCE(SUM(s."contracted_amount"), 0) AS mrr
+      FROM "subscriptions" s
+      LEFT JOIN "plans" p ON p."id" = s."plan_id"
+      WHERE s."status" IN ('authorized', 'active', 'trialing')
+        AND s."plan_id" IS NOT NULL
+      GROUP BY s."plan_id", p."name"
+      ORDER BY mrr DESC
+    `);
+
+    // Trial stats
+    const trials = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE "status" = 'trialing') AS active_trials,
+        COUNT(*) FILTER (WHERE "status" = 'trial_expired') AS expired_trials,
+        COUNT(*) FILTER (WHERE "status" = 'trialing' AND "trial_ends_at" < CURRENT_TIMESTAMP + INTERVAL '1 day') AS trials_expiring_24h
+      FROM "subscriptions"
+    `);
+
     res.json({
       totalUsers: Number(stats.total_users),
       activeSubscriptions: Number(stats.active_subscriptions),
       mrr: Number(stats.mrr),
-      cancelledSubscriptions: Number(stats.cancelled_subscriptions)
+      cancelledSubscriptions: Number(stats.cancelled_subscriptions),
+      agentsOnline: Number(agents.online),
+      agentsOffline: Number(agents.offline),
+      mrrByPlan: mrrByPlan.rows.map((r: any) => ({
+        planId: r.plan_id,
+        planName: r.plan_name,
+        count: Number(r.subscription_count),
+        mrr: Number(r.mrr),
+      })),
+      trials: {
+        active: Number(trials.rows[0].active_trials),
+        expired: Number(trials.rows[0].expired_trials),
+        expiring24h: Number(trials.rows[0].trials_expiring_24h),
+      }
     });
   } catch (error) {
     console.error('Error fetching admin stats:', error);
     res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// Growth metrics: funnel, UTM performance, agents, prints
+router.get('/growth', async (_req: Request, res: Response) => {
+  try {
+    const metrics = await getGrowthMetrics();
+    res.json(metrics);
+  } catch (error) {
+    console.error('Error fetching growth metrics:', error);
+    res.status(500).json({ error: 'Failed to fetch growth metrics' });
+  }
+});
+
+// Pricing experiment results
+router.get('/experiments/:id', async (req: Request, res: Response) => {
+  try {
+    const experimentId = Number(req.params.id);
+    if (!Number.isFinite(experimentId)) {
+      return res.status(400).json({ error: 'Invalid experiment id' });
+    }
+    const results = await getExperimentResults(experimentId);
+    res.json({ results });
+  } catch (error) {
+    console.error('Error fetching experiment results:', error);
+    res.status(500).json({ error: 'Failed to fetch experiment results' });
   }
 });
 
