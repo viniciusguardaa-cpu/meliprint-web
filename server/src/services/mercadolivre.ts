@@ -25,7 +25,11 @@ export interface Shipment {
   id: number;
   status: string;
   substatus: string;
-  order_id: number;
+  // order_id and external_reference were discontinued from shipment responses
+  // as of October 12, 2025. Kept as optional for backward compatibility with
+  // older API responses, but should not be relied upon.
+  order_id?: number;
+  external_reference?: string;
   lead_time?: {
     buffering?: {
       date?: string;

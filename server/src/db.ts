@@ -501,4 +501,32 @@ export async function recordBillingEvent(
   );
 }
 
+// ---------------------------------------------------------------------------
+// Mercado Livre notifications (event-driven auto-print)
+// ---------------------------------------------------------------------------
+
+/**
+ * Record an ML notification if new. Returns true if new (should process),
+ * false if duplicate (idempotent skip).
+ */
+export async function recordMLNotificationIfNew(topic: string, resource: string, userId?: number, payload?: any): Promise<boolean> {
+  try {
+    await pool.query(
+      `INSERT INTO "ml_notifications" ("topic", "resource", "user_id", "payload") VALUES ($1, $2, $3, $4)`,
+      [topic, resource, userId ?? null, payload ? JSON.stringify(payload) : null]
+    );
+    return true;
+  } catch (err: any) {
+    if (err.code === '23505') return false; // unique violation → duplicate
+    throw err;
+  }
+}
+
+export async function markMLNotificationProcessed(topic: string, resource: string) {
+  await pool.query(
+    `UPDATE "ml_notifications" SET "processed" = true WHERE "topic" = $1 AND "resource" = $2`,
+    [topic, resource]
+  );
+}
+
 export default pool;

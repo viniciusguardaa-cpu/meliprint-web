@@ -28,6 +28,7 @@ import subscriptionRoutes from './routes/subscription.js';
 import adminRoutes from './routes/admin.js';
 import autoPrintRoutes from './routes/autoPrint.js';
 import healthRoutes from './routes/health.js';
+import notificationsRoutes from './routes/notifications.js';
 import { startAutoPrintPoller } from './jobs/autoPrintPoller.js';
 import { generalLimiter, authLimiter, labelsLimiter, checkoutLimiter, webhookLimiter } from './middleware/rateLimiter.js';
 import { correlationId, requestLogger } from './middleware/logger.js';
@@ -87,6 +88,7 @@ app.use(session({
 
 // Apply rate limiters per route
 app.use('/api/health', healthRoutes);
+app.use('/api/notifications', webhookLimiter, notificationsRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/shipments', generalLimiter, shipmentsRoutes);
 app.use('/api/labels', labelsLimiter, labelsRoutes);

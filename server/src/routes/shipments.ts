@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getOrder, getOrders, getShipment, searchShipments, Order, Shipment } from '../services/mercadolivre.js';
+import { getOrders, getShipment, searchShipments, Order, Shipment } from '../services/mercadolivre.js';
 import { requireActiveSubscription } from '../middleware/subscription.js';
 
 const router = Router();
@@ -75,27 +75,34 @@ router.get('/', async (req: Request, res: Response) => {
       console.error('[shipments] search API failed:', error);
     }
 
-    // Step 2: Fallback IDs from orders (helps if search endpoint returns empty)
-    const fallbackIds = new Set<number>();
-    if (searchIds.size === 0) {
-      try {
-        const orders = await getOrders(accessToken, sellerId, dateFrom, dateTo);
-        for (const order of orders) {
-          if (order.shipping?.id) fallbackIds.add(order.shipping.id);
+    // Step 2: Always fetch orders to build shipping_id → order map.
+    // As of Oct 2025, ML discontinued order_id/external_reference from shipment
+    // responses, so we can no longer get the order_id from a shipment. Instead,
+    // we fetch orders (which still contain shipping.id) and match by shipment ID.
+    const ordersByShipmentId = new Map<number, Order>();
+    try {
+      const orders = await getOrders(accessToken, sellerId, dateFrom, dateTo);
+      for (const order of orders) {
+        if (order.shipping?.id) {
+          ordersByShipmentId.set(order.shipping.id, order);
+          // Also add to shipment IDs as fallback (helps if search returns empty)
+          if (!searchIds.has(order.shipping.id)) {
+            searchIds.add(order.shipping.id);
+          }
         }
-        console.log(`[shipments] fallback orders scan: ${orders.length} orders, ${fallbackIds.size} shipment IDs`);
-      } catch (error) {
-        console.error('[shipments] fallback orders scan failed:', error);
       }
+      console.log(`[shipments] orders scan: ${orders.length} orders, ${ordersByShipmentId.size} mapped to shipments`);
+    } catch (error) {
+      console.error('[shipments] orders scan failed:', error);
     }
 
-    const allShipmentIds = new Set<number>([...searchIds, ...fallbackIds]);
-    console.log(`[shipments] total unique IDs to resolve: ${allShipmentIds.size}`);
+    const allShipmentIds = Array.from(searchIds);
+    console.log(`[shipments] total unique IDs to resolve: ${allShipmentIds.length}`);
 
     // Step 3: Resolve shipments
     const failedShipmentIds: number[] = [];
     const shipments = await processBatchWithDelay(
-      [...allShipmentIds],
+      allShipmentIds,
       BATCH_SIZE,
       BATCH_DELAY_MS,
       async (shipmentId): Promise<Shipment | null> => {
@@ -121,42 +128,16 @@ router.get('/', async (req: Request, res: Response) => {
       console.error(`[shipments] ${failedShipmentIds.length} shipments failed after retry: ${failedShipmentIds.join(',')}`);
     }
 
-    // Step 4: Fetch orders for resolved shipments
-    const orderIds = Array.from(
-      new Set(shipments.map((s) => s.order_id).filter((id): id is number => Number.isFinite(id) && id > 0))
-    );
-
-    const ordersById = new Map<number, Order>();
-    const failedOrderIds: number[] = [];
-    await processBatchWithDelay(
-      orderIds,
-      BATCH_SIZE,
-      BATCH_DELAY_MS,
-      async (orderId): Promise<null> => {
-        try {
-          const order = await getOrder(accessToken, orderId);
-          ordersById.set(orderId, order);
-          return null;
-        } catch {
-          failedOrderIds.push(orderId);
-          return null;
-        }
-      }
-    );
-
-    if (failedOrderIds.length > 0) {
-      console.error(`[shipments] ${failedOrderIds.length} orders failed: ${failedOrderIds.slice(0, 20).join(',')}`);
-    }
-
+    // Step 4: Build rows using the shipping_id → order map (no order_id from shipment)
     let rows: ShipmentWithOrder[] = shipments.map((shipment) => {
-      const order = ordersById.get(shipment.order_id);
+      const order = ordersByShipmentId.get(shipment.id);
       const items = order
         ? order.order_items.map(item => `${item.quantity}x ${item.item.title}`).join(', ')
         : '';
 
       return {
         shipmentId: shipment.id,
-        orderId: order?.id || shipment.order_id || 0,
+        orderId: order?.id || 0,
         buyerNickname: order?.buyer?.nickname || '-',
         items: items.length > 100 ? items.substring(0, 97) + '...' : items,
         status: shipment.status,
@@ -170,7 +151,7 @@ router.get('/', async (req: Request, res: Response) => {
     // Step 5: Optional date filter (based on order.date_created when available)
     if (dateFrom || dateTo) {
       rows = rows.filter((r) => {
-        const order = ordersById.get(r.orderId);
+        const order = ordersByShipmentId.get(r.shipmentId);
         const created = (order as any)?.date_created as string | undefined;
         if (!created) return true;
         const d = new Date(created);

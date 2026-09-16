@@ -1,7 +1,9 @@
 import { getAutoPrintEnabledConfigs, updateAutoPrintTokens, updateAutoPrintLastPolled, addPrintQueueJob, releaseStaleJobs, markStaleAgentsOffline } from '../db.js';
 import { searchShipments, getShipment, getShipmentLabelsZPL, refreshAccessToken } from '../services/mercadolivre.js';
 
-const POLL_INTERVAL_MS = 60_000; // 60 seconds
+const POLL_INTERVAL_MS = 5 * 60_000; // 5 minutes — reconciliation fallback.
+// Real-time printing is driven by ML notifications (POST /api/notifications).
+// This poller catches anything missed by notifications.
 const BATCH_SIZE = 20;
 
 function sleep(ms: number) {
@@ -102,7 +104,7 @@ async function pollUser(config: any) {
 }
 
 export function startAutoPrintPoller() {
-  console.log('🔄 Auto-print poller started (60s interval)');
+  console.log('🔄 Auto-print poller started (5min interval — reconciliation fallback for ML notifications)');
 
   const run = async () => {
     try {
