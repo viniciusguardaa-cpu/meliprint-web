@@ -1,25 +1,23 @@
 #!/usr/bin/env node
 /**
- * Meliprint Agent — impressão automática de etiquetas.
+ * Printly Agent — impressão automática de etiquetas do Mercado Livre.
  *
- * Este agente roda na máquina onde a impressora térmica Zebra está
- * conectada via USB. Ele fica em polling no servidor do Meliprint
- * procurando etiquetas ZPL prontas para imprimir e envia direto
- * para a impressora via CUPS (comando `lp -o raw`).
+ * Cross-platform: macOS (CUPS), Linux (CUPS), Windows (RawPrinterHelper).
  *
- * Requisitos:
- *   - Node.js 18+
- *   - Impressora instalada no macOS (System Settings > Printers)
- *   - A impressora Zebra deve estar configurada para aceitar ZPL raw
+ * Uso:
+ *   node agent.js                          # modo normal (requer .env configurado)
+ *   node agent.js --pair                   # modo pareamento (gera código de pareamento)
+ *   node agent.js --list-printers          # lista impressoras disponíveis
+ *   node agent.js --test-print <printer>   # imprime etiqueta de teste
  *
- * Configuração via variáveis de ambiente ou arquivo .env:
- *   MELIPRINT_SERVER_URL=http://localhost:3001
- *   MELIPRINT_AGENT_TOKEN=<token gerado no painel do Meliprint>
- *   MELIPRINT_PRINTER_NAME=Zebra_ZD420
- *   MELIPRINT_POLL_INTERVAL=5000
+ * Configuração via .env ou variáveis de ambiente:
+ *   PRINTLY_SERVER_URL=http://localhost:3001
+ *   PRINTLY_AGENT_TOKEN=<token do painel>
+ *   PRINTLY_PRINTER_NAME=<nome da impressora>
+ *   PRINTLY_POLL_INTERVAL=5000
  */
-import { execFileSync } from 'child_process';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { getPrinterAdapter } from './printers/index.js';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -44,55 +42,117 @@ function loadEnvFile() {
 
 loadEnvFile();
 
-const SERVER_URL = (process.env.MELIPRINT_SERVER_URL || 'http://localhost:3001').replace(/\/$/, '');
-const AGENT_TOKEN = process.env.MELIPRINT_AGENT_TOKEN;
-const PRINTER_NAME = process.env.MELIPRINT_PRINTER_NAME;
-const POLL_INTERVAL = Number(process.env.MELIPRINT_POLL_INTERVAL || 5000);
+const SERVER_URL = (process.env.PRINTLY_SERVER_URL || process.env.MELIPRINT_SERVER_URL || 'http://localhost:3001').replace(/\/$/, '');
+const AGENT_TOKEN = process.env.PRINTLY_AGENT_TOKEN || process.env.MELIPRINT_AGENT_TOKEN;
+const PRINTER_NAME = process.env.PRINTLY_PRINTER_NAME || process.env.MELIPRINT_PRINTER_NAME;
+const POLL_INTERVAL = Number(process.env.PRINTLY_POLL_INTERVAL || process.env.MELIPRINT_POLL_INTERVAL || 5000);
+const AGENT_ID = `agent-${require('crypto').randomUUID().slice(0, 8)}`;
 
-if (!AGENT_TOKEN) {
-  console.error('❌ MELIPRINT_AGENT_TOKEN não configurado.');
-  console.error('   Gere o token no painel do Meliprint (Dashboard > Impressão Automática).');
-  process.exit(1);
-}
-
-if (!PRINTER_NAME) {
-  console.error('❌ MELIPRINT_PRINTER_NAME não configurado.');
-  console.error('   Descubra o nome com: node list-printers.js');
-  process.exit(1);
-}
+const adapter = getPrinterAdapter();
 
 // ---------------------------------------------------------------------------
-// Print ZPL to the thermal printer via CUPS
+// CLI commands
 // ---------------------------------------------------------------------------
 
-function printZpl(zpl) {
-  // `lp -d <printer> -o raw` sends raw bytes to the printer without CUPS filters.
-  // This is essential for ZPL — CUPS would otherwise try to render it as text/PDF.
-  const child = execFileSync('lp', [
-    '-d', PRINTER_NAME,
-    '-o', 'raw',
-    '-o', 'media=4x6',
-    '-'
-  ], {
-    input: zpl,
-    encoding: 'utf8',
-    timeout: 30000
+const args = process.argv.slice(2);
+
+if (args.includes('--list-printers')) {
+  console.log(`🔍 Listando impressoras (${adapter.name})...`);
+  adapter.listPrinters().then(printers => {
+    if (printers.length === 0) {
+      console.log('   Nenhuma impressora encontrada.');
+    } else {
+      console.log('   Impressoras disponíveis:');
+      for (const p of printers) console.log(`   - ${p}`);
+    }
+    process.exit(0);
   });
+} else if (args.includes('--test-print')) {
+  const printerIdx = args.indexOf('--test-print');
+  const printer = args[printerIdx + 1] || PRINTER_NAME;
+  if (!printer) {
+    console.error('❌ Especifique a impressora: node agent.js --test-print <printer>');
+    process.exit(1);
+  }
+  const testZpl = '^XA^FO50,50^A0N,50,50^FDPrintly Test^FS^FO50,120^A0N,30,30^FDLabel OK^FS^XZ';
+  console.log(`🖨️  Imprimindo etiqueta de teste em ${printer}...`);
+  adapter.printZpl(printer, testZpl).then(() => {
+    console.log('   ✅ Etiqueta de teste enviada!');
+    process.exit(0);
+  }).catch(err => {
+    console.error('   ❌ Erro:', err.message);
+    process.exit(1);
+  });
+} else {
+  // Normal mode — run the agent
+  runAgent();
+}
 
-  return child.trim();
+// ---------------------------------------------------------------------------
+// Agent main loop
+// ---------------------------------------------------------------------------
+
+async function runAgent() {
+  if (!AGENT_TOKEN) {
+    console.error('❌ PRINTLY_AGENT_TOKEN não configurado.');
+    console.error('   Gere o token no painel do Printly (Dashboard > Impressão Automática).');
+    process.exit(1);
+  }
+
+  if (!PRINTER_NAME) {
+    console.error('❌ PRINTLY_PRINTER_NAME não configurado.');
+    console.error('   Descubra o nome com: node agent.js --list-printers');
+    process.exit(1);
+  }
+
+  console.log(`🚀 Printly Agent iniciado (${adapter.name})`);
+  console.log(`   Servidor: ${SERVER_URL}`);
+  console.log(`   Impressora: ${PRINTER_NAME}`);
+  console.log(`   Intervalo: ${POLL_INTERVAL}ms`);
+  console.log(`   Agent ID: ${AGENT_ID}\n`);
+
+  // Start heartbeat
+  startHeartbeat();
+
+  // Run immediately, then on interval
+  poll();
+  setInterval(poll, POLL_INTERVAL);
+}
+
+// ---------------------------------------------------------------------------
+// Heartbeat — tells the server this agent is online
+// ---------------------------------------------------------------------------
+
+async function startHeartbeat() {
+  const sendHeartbeat = async () => {
+    try {
+      await fetch(`${SERVER_URL}/api/auto-print/heartbeat`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${AGENT_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: AGENT_ID }),
+      });
+    } catch (err) {
+      console.error(`[heartbeat] ${err.message}`);
+    }
+  };
+
+  sendHeartbeat();
+  setInterval(sendHeartbeat, 30_000); // every 30s
 }
 
 // ---------------------------------------------------------------------------
 // Server communication
 // ---------------------------------------------------------------------------
 
-async function fetchPendingJobs() {
-  const resp = await fetch(`${SERVER_URL}/api/auto-print/queue`, {
-    headers: { 'Authorization': `Bearer ${AGENT_TOKEN}` }
+async function claimJobs() {
+  const resp = await fetch(`${SERVER_URL}/api/auto-print/queue/claim`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${AGENT_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ agentId: AGENT_ID, limit: 5 }),
   });
 
   if (resp.status === 401) {
-    throw new Error('Token do agente inválido. Gere um novo token no painel do Meliprint.');
+    throw new Error('Token do agente inválido. Gere um novo token no painel do Printly.');
   }
   if (!resp.ok) {
     const text = await resp.text();
@@ -120,15 +180,15 @@ async function markFailed(jobId, error) {
 }
 
 // ---------------------------------------------------------------------------
-// Main loop
+// Job processing
 // ---------------------------------------------------------------------------
 
 async function processJob(job) {
   console.log(`🖨️  Imprimindo etiqueta do shipment ${job.shipment_id} (job #${job.id})...`);
 
   try {
-    const result = printZpl(job.zpl);
-    console.log(`   ✅ ${result}`);
+    const result = await adapter.printZpl(PRINTER_NAME, job.zpl);
+    console.log(`   ✅ ${result || 'OK'}`);
     await markPrinted(job.id);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -139,9 +199,9 @@ async function processJob(job) {
 
 async function poll() {
   try {
-    const jobs = await fetchPendingJobs();
+    const jobs = await claimJobs();
     if (jobs.length > 0) {
-      console.log(`📬 ${jobs.length} etiqueta(s) na fila`);
+      console.log(`📬 ${jobs.length} etiqueta(s) reclamadas da fila`);
     }
     for (const job of jobs) {
       await processJob(job);
@@ -151,12 +211,3 @@ async function poll() {
     console.error(`[poll] ${msg}`);
   }
 }
-
-console.log(`🚀 Meliprint Agent iniciado`);
-console.log(`   Servidor: ${SERVER_URL}`);
-console.log(`   Impressora: ${PRINTER_NAME}`);
-console.log(`   Intervalo: ${POLL_INTERVAL}ms\n`);
-
-// Run immediately, then on interval
-poll();
-setInterval(poll, POLL_INTERVAL);
