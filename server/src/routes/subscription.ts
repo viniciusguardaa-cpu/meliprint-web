@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import crypto from 'crypto';
 import { MercadoPagoConfig, PreApproval } from 'mercadopago';
 import {
   findOrCreateUser,
@@ -8,8 +7,11 @@ import {
   createSubscription,
   updateSubscriptionByPreapprovalId,
   getSubscriptionByPreapprovalId,
-  isFreeAccessEmail
+  isFreeAccessEmail,
+  recordWebhookEventIfNew,
+  recordBillingEvent
 } from '../db.js';
+import { isValidWebhookSignature } from '../services/webhookSignature.js';
 
 const router = Router();
 
@@ -133,58 +135,6 @@ router.post('/checkout', async (req: Request, res: Response) => {
   }
 });
 
-// Validates the Mercado Pago webhook signature.
-// Docs: https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks#validacao-da-origem-da-notificacao
-// Production is fail-closed: a missing/invalid signature is rejected.
-// Development may allow an explicit bypass via MP_WEBHOOK_ALLOW_UNSIGNED=1.
-function isValidWebhookSignature(req: Request): boolean {
-  const secret = process.env.MP_WEBHOOK_SECRET;
-  const isProd = process.env.NODE_ENV === 'production';
-
-  if (!secret) {
-    if (isProd) {
-      // Fail-closed: no secret configured in production → reject everything.
-      console.error('MP_WEBHOOK_SECRET not configured in production — webhook rejected (fail-closed)');
-      return false;
-    }
-    if (process.env.MP_WEBHOOK_ALLOW_UNSIGNED !== '1') {
-      console.error('MP_WEBHOOK_SECRET not configured and MP_WEBHOOK_ALLOW_UNSIGNED!=1 — webhook rejected');
-      return false;
-    }
-    console.warn('⚠️  MP_WEBHOOK_SECRET not configured — webhook signature bypassed (dev only, MP_WEBHOOK_ALLOW_UNSIGNED=1)');
-    return true;
-  }
-
-  const signatureHeader = req.header('x-signature');
-  const requestId = req.header('x-request-id');
-  const dataId = (req.query['data.id'] as string) || req.body?.data?.id;
-
-  if (!signatureHeader || !requestId || !dataId) {
-    return false;
-  }
-
-  const parts = Object.fromEntries(
-    signatureHeader.split(',').map((p) => {
-      const [key, value] = p.split('=');
-      return [key?.trim(), value?.trim()];
-    })
-  );
-
-  const ts = parts.ts;
-  const v1 = parts.v1;
-  if (!ts || !v1) return false;
-
-  const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
-  const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
-
-  try {
-    if (expected.length !== v1.length) return false;
-    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
-  } catch {
-    return false;
-  }
-}
-
 // Webhook to receive payment notifications from Mercado Pago
 router.post('/webhook', async (req: Request, res: Response) => {
   try {
@@ -198,6 +148,15 @@ router.post('/webhook', async (req: Request, res: Response) => {
     console.log('Webhook received:', { type, data });
 
     if (type === 'preapproval' && data?.id) {
+      // Idempotency: dedup by provider + event key (preapproval id + type).
+      // If we already processed this exact event, skip silently.
+      const eventKey = `preapproval:${data.id}`;
+      const isNew = await recordWebhookEventIfNew('mercado_pago', eventKey, req.body);
+      if (!isNew) {
+        console.log(`Webhook event ${eventKey} already processed — skipping (idempotent)`);
+        return res.sendStatus(200);
+      }
+
       const client = getMercadoPagoClient();
       const preapproval = new PreApproval(client);
 
@@ -222,6 +181,17 @@ router.post('/webhook', async (req: Request, res: Response) => {
           status,
           periodStart,
           periodEnd
+        );
+
+        // Audit trail
+        const sub = await getSubscriptionByPreapprovalId(details.id);
+        await recordBillingEvent(
+          sub?.user_id ?? null,
+          details.id,
+          'webhook_status_update',
+          status,
+          undefined,
+          { next_payment_date: details.next_payment_date }
         );
 
         console.log(`Subscription ${details.id} updated to status: ${status}`);

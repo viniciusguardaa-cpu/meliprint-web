@@ -1,4 +1,4 @@
-import { getAutoPrintEnabledConfigs, updateAutoPrintTokens, updateAutoPrintLastPolled, addPrintQueueJob } from '../db.js';
+import { getAutoPrintEnabledConfigs, updateAutoPrintTokens, updateAutoPrintLastPolled, addPrintQueueJob, releaseStaleJobs, markStaleAgentsOffline } from '../db.js';
 import { searchShipments, getShipment, getShipmentLabelsZPL, refreshAccessToken } from '../services/mercadolivre.js';
 
 const POLL_INTERVAL_MS = 60_000; // 60 seconds
@@ -106,6 +106,11 @@ export function startAutoPrintPoller() {
 
   const run = async () => {
     try {
+      // Reclaim jobs stuck in 'processing' (agent died mid-print) and mark
+      // agents with stale heartbeats as offline.
+      await releaseStaleJobs();
+      await markStaleAgentsOffline();
+
       const configs = await getAutoPrintEnabledConfigs();
       if (configs.length === 0) return;
 

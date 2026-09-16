@@ -19,114 +19,12 @@ pool.on('error', (err) => {
 });
 
 export async function initDatabase() {
-  const client = await pool.connect();
-  try {
-    // Create session table if not exists (required by connect-pg-simple)
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS "session" (
-        "sid" varchar NOT NULL COLLATE "default",
-        "sess" json NOT NULL,
-        "expire" timestamp(6) NOT NULL,
-        CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
-      );
-    `);
-    
-    // Create index for session expiration cleanup
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
-    `);
-
-    // Create users table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS "users" (
-        "id" SERIAL PRIMARY KEY,
-        "ml_user_id" BIGINT UNIQUE NOT NULL,
-        "nickname" VARCHAR(255) NOT NULL,
-        "email" VARCHAR(255),
-        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Create subscriptions table
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS "subscriptions" (
-        "id" SERIAL PRIMARY KEY,
-        "user_id" INTEGER REFERENCES "users"("id") ON DELETE CASCADE,
-        "mp_preapproval_id" VARCHAR(255) UNIQUE,
-        "mp_payer_id" VARCHAR(255),
-        "status" VARCHAR(50) NOT NULL DEFAULT 'pending',
-        "plan_id" VARCHAR(100) DEFAULT 'monthly_29_90',
-        "price" DECIMAL(10,2) DEFAULT 29.90,
-        "current_period_start" TIMESTAMP,
-        "current_period_end" TIMESTAMP,
-        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Create index for faster lookups
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_subscriptions_user_id" ON "subscriptions" ("user_id");
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_subscriptions_status" ON "subscriptions" ("status");
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_users_ml_user_id" ON "users" ("ml_user_id");
-    `);
-
-    // Create free_access table (manual courtesy access, granted from the admin panel)
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS "free_access" (
-        "id" SERIAL PRIMARY KEY,
-        "email" VARCHAR(255) UNIQUE NOT NULL,
-        "note" VARCHAR(255),
-        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Create auto_print_config table (stores ML tokens + agent token for the local print agent)
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS "auto_print_config" (
-        "user_id" INTEGER PRIMARY KEY REFERENCES "users"("id") ON DELETE CASCADE,
-        "enabled" BOOLEAN NOT NULL DEFAULT false,
-        "ml_access_token" TEXT,
-        "ml_refresh_token" TEXT,
-        "ml_token_expires_at" BIGINT,
-        "ml_seller_id" BIGINT,
-        "agent_token" VARCHAR(255) UNIQUE,
-        "printer_name" VARCHAR(255),
-        "last_polled_at" TIMESTAMP,
-        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Create print_queue table (pending print jobs with ZPL, consumed by the local agent)
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS "print_queue" (
-        "id" SERIAL PRIMARY KEY,
-        "user_id" INTEGER NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
-        "shipment_id" BIGINT NOT NULL,
-        "zpl" TEXT,
-        "status" VARCHAR(50) NOT NULL DEFAULT 'pending',
-        "attempts" INTEGER NOT NULL DEFAULT 0,
-        "error" TEXT,
-        "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "printed_at" TIMESTAMP,
-        UNIQUE("user_id", "shipment_id")
-      );
-    `);
-
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_print_queue_status" ON "print_queue" ("status");
-    `);
-
-    console.log('✅ Database initialized');
-  } finally {
-    client.release();
-  }
+  // Run versioned migrations instead of inline CREATE TABLE IF NOT EXISTS.
+  // The migration runner is idempotent and tracks applied versions in
+  // schema_migrations. See server/migrations/*.sql.
+  const { runMigrations } = await import('./migrate.js');
+  await runMigrations();
+  console.log('✅ Database initialized (migrations applied)');
 }
 
 // User operations
@@ -414,6 +312,85 @@ export async function getPendingPrintJobs(userId: number, limit = 20) {
   return result.rows;
 }
 
+/**
+ * Atomically claim pending jobs for an agent so two agents can't double-print.
+ * Moves jobs to 'processing' with claimed_at/claimed_by. Returns the claimed jobs.
+ */
+export async function claimPrintJobs(userId: number, agentId: string, limit = 5) {
+  const result = await pool.query(
+    `UPDATE "print_queue" SET
+       "status" = 'processing',
+       "claimed_at" = CURRENT_TIMESTAMP,
+       "claimed_by" = $3,
+       "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" IN (
+       SELECT "id" FROM "print_queue"
+       WHERE "user_id" = $1 AND "status" = 'pending'
+       ORDER BY "created_at" ASC
+       LIMIT $2
+       FOR UPDATE SKIP LOCKED
+     )
+     RETURNING *`,
+    [userId, limit, agentId]
+  );
+  return result.rows;
+}
+
+/**
+ * Reclaim jobs stuck in 'processing' for too long (agent died mid-print).
+ * Jobs claimed more than `staleMs` ago are reset to 'pending' (retryable).
+ */
+export async function releaseStaleJobs(staleMs = 5 * 60 * 1000) {
+  const result = await pool.query(
+    `UPDATE "print_queue" SET
+       "status" = 'pending',
+       "claimed_at" = NULL,
+       "claimed_by" = NULL,
+       "last_error" = COALESCE("last_error", 'stale_processing_reclaimed'),
+       "updated_at" = CURRENT_TIMESTAMP
+     WHERE "status" = 'processing'
+       AND "claimed_at" IS NOT NULL
+       AND "claimed_at" < CURRENT_TIMESTAMP - ($1 || ' milliseconds')::INTERVAL
+     RETURNING id, user_id`,
+    [String(staleMs)]
+  );
+  return result.rows;
+}
+
+/** Manual retry of a failed job (owner-scoped). Resets to pending. */
+export async function retryFailedJob(userId: number, jobId: number) {
+  const result = await pool.query(
+    `UPDATE "print_queue" SET
+       "status" = 'pending',
+       "error" = NULL,
+       "claimed_at" = NULL,
+       "claimed_by" = NULL,
+       "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1 AND "user_id" = $2 AND "status" = 'failed'
+     RETURNING *`,
+    [jobId, userId]
+  );
+  return result.rows[0] || null;
+}
+
+/** Regenerate a job's ZPL (owner-scoped). Used when ML label content changed. */
+export async function regenerateJob(userId: number, jobId: number, zpl: string) {
+  const result = await pool.query(
+    `UPDATE "print_queue" SET
+       "zpl" = $3,
+       "status" = 'pending',
+       "error" = NULL,
+       "attempts" = 0,
+       "claimed_at" = NULL,
+       "claimed_by" = NULL,
+       "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1 AND "user_id" = $2
+     RETURNING *`,
+    [jobId, userId, zpl]
+  );
+  return result.rows[0] || null;
+}
+
 export async function markPrintJobPrinted(userId: number, jobId: number) {
   const result = await pool.query(
     `UPDATE "print_queue" SET "status" = 'printed', "printed_at" = CURRENT_TIMESTAMP, "updated_at" = CURRENT_TIMESTAMP
@@ -429,6 +406,9 @@ export async function markPrintJobFailed(userId: number, jobId: number, error: s
        "status" = CASE WHEN "attempts" + 1 >= 3 THEN 'failed' ELSE 'pending' END,
        "attempts" = "attempts" + 1,
        "error" = $3,
+       "last_error" = $3,
+       "claimed_at" = NULL,
+       "claimed_by" = NULL,
        "updated_at" = CURRENT_TIMESTAMP
      WHERE "id" = $1 AND "user_id" = $2`,
     [jobId, userId, error]
@@ -440,11 +420,85 @@ export async function getPrintQueueStats(userId: number) {
   const result = await pool.query(
     `SELECT
        (SELECT COUNT(*) FROM "print_queue" WHERE "user_id" = $1 AND "status" = 'pending') AS pending,
+       (SELECT COUNT(*) FROM "print_queue" WHERE "user_id" = $1 AND "status" = 'processing') AS processing,
        (SELECT COUNT(*) FROM "print_queue" WHERE "user_id" = $1 AND "status" = 'printed') AS printed,
        (SELECT COUNT(*) FROM "print_queue" WHERE "user_id" = $1 AND "status" = 'failed') AS failed`,
     [userId]
   );
   return result.rows[0];
+}
+
+// ---------------------------------------------------------------------------
+// Agent heartbeat
+// ---------------------------------------------------------------------------
+
+export async function updateAgentHeartbeat(agentId: string, userId: number) {
+  await pool.query(
+    `UPDATE "auto_print_config" SET
+       "last_heartbeat_at" = CURRENT_TIMESTAMP,
+       "agent_status" = 'online',
+       "agent_id" = $3,
+       "updated_at" = CURRENT_TIMESTAMP
+     WHERE "user_id" = $1`,
+    [userId, agentId, agentId]
+  );
+}
+
+/** Mark agents whose last heartbeat is older than the threshold as offline. */
+export async function markStaleAgentsOffline(thresholdMs = 60 * 1000) {
+  await pool.query(
+    `UPDATE "auto_print_config" SET "agent_status" = 'offline'
+     WHERE "agent_status" = 'online'
+       AND "last_heartbeat_at" IS NOT NULL
+       AND "last_heartbeat_at" < CURRENT_TIMESTAMP - ($1 || ' milliseconds')::INTERVAL`,
+    [String(thresholdMs)]
+  );
+}
+
+export async function getAgentStatusCounts() {
+  const result = await pool.query(
+    `SELECT
+       (SELECT COUNT(*) FROM "auto_print_config" WHERE "agent_status" = 'online') AS online,
+       (SELECT COUNT(*) FROM "auto_print_config" WHERE "agent_status" = 'offline' AND "enabled" = true) AS offline`
+  );
+  return result.rows[0];
+}
+
+// ---------------------------------------------------------------------------
+// Webhook event dedup (idempotency)
+// ---------------------------------------------------------------------------
+
+/**
+ * Try to record a webhook event. Returns true if it's new (should process),
+ * false if it was already processed (idempotent skip).
+ */
+export async function recordWebhookEventIfNew(provider: string, eventKey: string, payload?: any): Promise<boolean> {
+  try {
+    await pool.query(
+      `INSERT INTO "webhook_events" ("provider", "event_key", "payload") VALUES ($1, $2, $3)`,
+      [provider, eventKey, payload ? JSON.stringify(payload) : null]
+    );
+    return true;
+  } catch (err: any) {
+    // Unique violation → already processed
+    if (err.code === '23505') return false;
+    throw err;
+  }
+}
+
+export async function recordBillingEvent(
+  userId: number | null,
+  mpPreapprovalId: string | null,
+  eventType: string,
+  status?: string,
+  amount?: number,
+  metadata?: any
+) {
+  await pool.query(
+    `INSERT INTO "billing_events" ("user_id", "mp_preapproval_id", "event_type", "status", "amount", "metadata")
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [userId, mpPreapprovalId, eventType, status ?? null, amount ?? null, metadata ? JSON.stringify(metadata) : null]
+  );
 }
 
 export default pool;

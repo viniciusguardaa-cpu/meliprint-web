@@ -27,8 +27,10 @@ import labelsRoutes from './routes/labels.js';
 import subscriptionRoutes from './routes/subscription.js';
 import adminRoutes from './routes/admin.js';
 import autoPrintRoutes from './routes/autoPrint.js';
+import healthRoutes from './routes/health.js';
 import { startAutoPrintPoller } from './jobs/autoPrintPoller.js';
 import { generalLimiter, authLimiter, labelsLimiter, checkoutLimiter, webhookLimiter } from './middleware/rateLimiter.js';
+import { correlationId, requestLogger } from './middleware/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,6 +45,10 @@ app.use(cors({
 
 app.use(express.json());
 app.use(cookieParser());
+
+// Request correlation id + structured logging (must be before routes)
+app.use(correlationId);
+app.use(requestLogger);
 
 app.set('trust proxy', 1);
 
@@ -80,6 +86,7 @@ app.use(session({
 }));
 
 // Apply rate limiters per route
+app.use('/api/health', healthRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/shipments', generalLimiter, shipmentsRoutes);
 app.use('/api/labels', labelsLimiter, labelsRoutes);

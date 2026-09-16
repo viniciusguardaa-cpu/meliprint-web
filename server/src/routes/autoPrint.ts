@@ -4,10 +4,12 @@ import {
   getAutoPrintConfig,
   upsertAutoPrintConfig,
   getAutoPrintConfigByAgentToken,
-  getPendingPrintJobs,
+  claimPrintJobs,
   markPrintJobPrinted,
   markPrintJobFailed,
+  retryFailedJob,
   getPrintQueueStats,
+  updateAgentHeartbeat,
   getUserByMlId
 } from '../db.js';
 import { requireActiveSubscription } from '../middleware/subscription.js';
@@ -65,7 +67,7 @@ router.post('/disable', requireActiveSubscription, async (req: Request, res: Res
   res.json({ enabled: false });
 });
 
-// Get current auto-print status + queue stats
+// Get current auto-print status + queue stats + agent online/offline
 router.get('/status', requireActiveSubscription, async (req: Request, res: Response) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
@@ -84,6 +86,8 @@ router.get('/status', requireActiveSubscription, async (req: Request, res: Respo
     agentToken: config?.agent_token ?? null,
     printerName: config?.printer_name ?? null,
     lastPolledAt: config?.last_polled_at ?? null,
+    agentStatus: config?.agent_status ?? 'offline',
+    lastHeartbeatAt: config?.last_heartbeat_at ?? null,
     queue: stats
   });
 });
@@ -108,6 +112,26 @@ router.post('/printer', requireActiveSubscription, async (req: Request, res: Res
   res.json({ printerName });
 });
 
+// Manual retry of a failed job (browser session, owner-scoped)
+router.post('/queue/:id/retry', requireActiveSubscription, async (req: Request, res: Response) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  const user = await getUserByMlId(req.session.userId);
+  if (!user) {
+    return res.status(403).json({ error: 'subscription_required' });
+  }
+  const jobId = Number(req.params.id);
+  if (!Number.isFinite(jobId)) {
+    return res.status(400).json({ error: 'Invalid job id' });
+  }
+  const job = await retryFailedJob(user.id, jobId);
+  if (!job) {
+    return res.status(404).json({ error: 'Failed job not found for this tenant' });
+  }
+  res.json({ ok: true, job });
+});
+
 // ---------------------------------------------------------------------------
 // Routes protected by agent token (local agent, no browser session)
 // ---------------------------------------------------------------------------
@@ -129,10 +153,30 @@ function requireAgentToken(req: Request, res: Response, next: () => void) {
   })().catch(() => res.status(500).json({ error: 'Auth error' }));
 }
 
-// Agent fetches pending jobs
+// Agent heartbeat — keeps the agent marked online
+router.post('/heartbeat', requireAgentToken, async (req: Request, res: Response) => {
+  const config = (req as any).agentConfig;
+  const agentId = (req.body?.agentId as string | undefined)?.slice(0, 255) || `agent-${config.user_id}`;
+  await updateAgentHeartbeat(agentId, config.user_id);
+  res.json({ ok: true });
+});
+
+// Agent claims pending jobs (atomic, prevents double-print by two agents)
+router.post('/queue/claim', requireAgentToken, async (req: Request, res: Response) => {
+  const config = (req as any).agentConfig;
+  const limit = Math.min(Number(req.body?.limit) || 5, 20);
+  const agentId = (req.body?.agentId as string | undefined)?.slice(0, 255) || `agent-${config.user_id}`;
+  const jobs = await claimPrintJobs(config.user_id, agentId, limit);
+  res.json({ jobs });
+});
+
+// Backwards-compatible GET /queue (returns pending without claiming — for old agents)
 router.get('/queue', requireAgentToken, async (req: Request, res: Response) => {
   const config = (req as any).agentConfig;
-  const jobs = await getPendingPrintJobs(config.user_id, 20);
+  // Use claimPrintJobs with limit to ensure atomic claiming even on old agents
+  const limit = Math.min(Number(req.query.limit) || 20, 20);
+  const agentId = `legacy-${config.user_id}`;
+  const jobs = await claimPrintJobs(config.user_id, agentId, limit);
   res.json({ jobs });
 });
 
