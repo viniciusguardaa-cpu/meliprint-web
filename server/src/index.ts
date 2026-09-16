@@ -20,6 +20,7 @@ import Redis from 'ioredis';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import pool, { initDatabase } from './db.js';
+import { assertRequiredEnv } from './env.js';
 import authRoutes from './routes/auth.js';
 import shipmentsRoutes from './routes/shipments.js';
 import labelsRoutes from './routes/labels.js';
@@ -66,7 +67,7 @@ function getSessionStore() {
 
 app.use(session({
   store: getSessionStore(),
-  secret: process.env.SESSION_SECRET || 'printly-secret-key',
+  secret: process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'printly-dev-secret'),
   resave: false,
   saveUninitialized: false,
   rolling: true, // reset maxAge on every request, so active users don't get logged out
@@ -101,6 +102,9 @@ if (process.env.NODE_ENV === 'production') {
 Sentry.setupExpressErrorHandler(app);
 
 async function start() {
+  // Fail-closed: refuse to boot in production if required secrets are missing.
+  assertRequiredEnv();
+
   if (process.env.DATABASE_URL) {
     await initDatabase();
   } else {

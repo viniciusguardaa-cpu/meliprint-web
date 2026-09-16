@@ -50,7 +50,12 @@ async function pollUser(config: any) {
       return;
     }
 
-    // Fetch ZPL in batches and add to queue
+    // Fetch ZPL per shipment so each print job contains exactly ONE label.
+    // Fetching the whole batch at once returns a single ZPL blob containing
+    // every label — storing that blob once per shipment would print the
+    // entire batch N times (one per job). Per-shipment fetch keeps a 1:1
+    // relationship between job and label content.
+    let queued = 0;
     for (let i = 0; i < shipmentIds.length; i += BATCH_SIZE) {
       const batch = shipmentIds.slice(i, i + BATCH_SIZE);
 
@@ -69,23 +74,25 @@ async function pollUser(config: any) {
 
       if (validShipments.length === 0) continue;
 
-      try {
-        const zpl = await getShipmentLabelsZPL(accessToken, validShipments);
-        if (!zpl.trim()) continue;
-
-        // ZPL from ML can contain multiple labels separated by form feed or newlines.
-        // We store the whole batch as one job — the agent sends it all to the printer at once.
-        for (const shipmentId of validShipments) {
+      for (const shipmentId of validShipments) {
+        try {
+          const zpl = await getShipmentLabelsZPL(accessToken, [shipmentId]);
+          if (!zpl || !zpl.trim()) continue;
           await addPrintQueueJob(config.user_id, shipmentId, zpl);
+          queued++;
+          // Small delay to respect ML rate limits between single-shipment calls.
+          await sleep(150);
+        } catch (error) {
+          console.error(`[autoPrintPoller] Failed to get ZPL for user ${config.user_id} shipment ${shipmentId}:`, error);
         }
-        console.log(`[autoPrintPoller] User ${config.user_id}: queued ${validShipments.length} shipments`);
-      } catch (error) {
-        console.error(`[autoPrintPoller] Failed to get ZPL for user ${config.user_id} batch:`, error);
       }
 
       if (i + BATCH_SIZE < shipmentIds.length) {
         await sleep(300);
       }
+    }
+    if (queued > 0) {
+      console.log(`[autoPrintPoller] User ${config.user_id}: queued ${queued} shipments (one label per job)`);
     }
 
     await updateAutoPrintLastPolled(config.user_id);

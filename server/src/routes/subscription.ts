@@ -135,13 +135,23 @@ router.post('/checkout', async (req: Request, res: Response) => {
 
 // Validates the Mercado Pago webhook signature.
 // Docs: https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks#validacao-da-origem-da-notificacao
-// Returns true when the signature is valid OR when MP_WEBHOOK_SECRET is not configured
-// (fails open with a warning, since MP does not sign requests unless a secret is set up
-// in the Developer Panel). Once MP_WEBHOOK_SECRET is set, invalid signatures are rejected.
+// Production is fail-closed: a missing/invalid signature is rejected.
+// Development may allow an explicit bypass via MP_WEBHOOK_ALLOW_UNSIGNED=1.
 function isValidWebhookSignature(req: Request): boolean {
   const secret = process.env.MP_WEBHOOK_SECRET;
+  const isProd = process.env.NODE_ENV === 'production';
+
   if (!secret) {
-    console.warn('⚠️  MP_WEBHOOK_SECRET not configured - webhook signature is not being verified');
+    if (isProd) {
+      // Fail-closed: no secret configured in production → reject everything.
+      console.error('MP_WEBHOOK_SECRET not configured in production — webhook rejected (fail-closed)');
+      return false;
+    }
+    if (process.env.MP_WEBHOOK_ALLOW_UNSIGNED !== '1') {
+      console.error('MP_WEBHOOK_SECRET not configured and MP_WEBHOOK_ALLOW_UNSIGNED!=1 — webhook rejected');
+      return false;
+    }
+    console.warn('⚠️  MP_WEBHOOK_SECRET not configured — webhook signature bypassed (dev only, MP_WEBHOOK_ALLOW_UNSIGNED=1)');
     return true;
   }
 
@@ -168,6 +178,7 @@ function isValidWebhookSignature(req: Request): boolean {
   const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
 
   try {
+    if (expected.length !== v1.length) return false;
     return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
   } catch {
     return false;

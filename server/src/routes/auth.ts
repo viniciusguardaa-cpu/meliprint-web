@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import {
   generateCodeVerifier,
   generateCodeChallenge,
@@ -11,6 +12,7 @@ import {
 declare module 'express-session' {
   interface SessionData {
     codeVerifier?: string;
+    oauthState?: string;
     accessToken?: string;
     refreshToken?: string;
     userId?: number;
@@ -30,6 +32,10 @@ const getEnvVar = (name: string): string => {
   return value;
 };
 
+function generateState(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
 router.get('/login', (req: Request, res: Response) => {
   try {
     const clientId = getEnvVar('ML_CLIENT_ID');
@@ -37,10 +43,12 @@ router.get('/login', (req: Request, res: Response) => {
 
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = generateCodeChallenge(codeVerifier);
+    const state = generateState();
 
     req.session.codeVerifier = codeVerifier;
+    req.session.oauthState = state;
 
-    const authUrl = getAuthUrl(clientId, redirectUri, codeChallenge);
+    const authUrl = getAuthUrl(clientId, redirectUri, codeChallenge, state);
     res.json({ authUrl });
   } catch (error) {
     console.error('Login error:', error);
@@ -50,8 +58,9 @@ router.get('/login', (req: Request, res: Response) => {
 
 router.get('/callback', async (req: Request, res: Response) => {
   try {
-    const { code } = req.query;
+    const { code, state } = req.query;
     const codeVerifier = req.session.codeVerifier;
+    const expectedState = req.session.oauthState;
 
     if (!code || typeof code !== 'string') {
       return res.status(400).json({ error: 'Missing authorization code' });
@@ -59,6 +68,14 @@ router.get('/callback', async (req: Request, res: Response) => {
 
     if (!codeVerifier) {
       return res.status(400).json({ error: 'Missing code verifier' });
+    }
+
+    // CSRF protection: validate state. If missing or mismatched, reject and
+    // regenerate the verifier so a leaked state can't be replayed.
+    if (!expectedState || typeof state !== 'string' || state !== expectedState) {
+      delete req.session.codeVerifier;
+      delete req.session.oauthState;
+      return res.status(400).json({ error: 'Invalid or missing OAuth state' });
     }
 
     const clientId = getEnvVar('ML_CLIENT_ID');
@@ -82,6 +99,7 @@ router.get('/callback', async (req: Request, res: Response) => {
     req.session.userEmail = userInfo.email;
     req.session.tokenExpiresAt = Date.now() + tokens.expires_in * 1000;
     delete req.session.codeVerifier;
+    delete req.session.oauthState;
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     res.redirect(`${frontendUrl}/dashboard`);

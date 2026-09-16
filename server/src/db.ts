@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { encrypt, decrypt, isLegacyPlaintext } from './services/crypto.js';
 
 const { Pool } = pg;
 
@@ -280,7 +281,14 @@ export async function getAutoPrintConfig(userId: number) {
     `SELECT * FROM "auto_print_config" WHERE "user_id" = $1`,
     [userId]
   );
-  return result.rows[0] || null;
+  const row = result.rows[0] || null;
+  if (row) {
+    // Decrypt ML tokens on read. Legacy plaintext rows are decrypted (returned as-is)
+    // and re-encrypted on the next write (lazy migration).
+    row.ml_access_token = row.ml_access_token ? decrypt(row.ml_access_token) : null;
+    row.ml_refresh_token = row.ml_refresh_token ? decrypt(row.ml_refresh_token) : null;
+  }
+  return row;
 }
 
 export async function upsertAutoPrintConfig(
@@ -295,6 +303,8 @@ export async function upsertAutoPrintConfig(
     printerName?: string;
   }
 ) {
+  const encAccess = fields.mlAccessToken !== undefined ? encrypt(fields.mlAccessToken) : undefined;
+  const encRefresh = fields.mlRefreshToken !== undefined ? encrypt(fields.mlRefreshToken) : undefined;
   const result = await pool.query(
     `INSERT INTO "auto_print_config" ("user_id", "enabled", "ml_access_token", "ml_refresh_token", "ml_token_expires_at", "ml_seller_id", "agent_token", "printer_name", "updated_at")
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
@@ -311,15 +321,20 @@ export async function upsertAutoPrintConfig(
     [
       userId,
       fields.enabled ?? null,
-      fields.mlAccessToken ?? null,
-      fields.mlRefreshToken ?? null,
+      encAccess ?? null,
+      encRefresh ?? null,
       fields.mlTokenExpiresAt ?? null,
       fields.mlSellerId ?? null,
       fields.agentToken ?? null,
       fields.printerName ?? null
     ]
   );
-  return result.rows[0];
+  const row = result.rows[0];
+  if (row) {
+    row.ml_access_token = row.ml_access_token ? decrypt(row.ml_access_token) : null;
+    row.ml_refresh_token = row.ml_refresh_token ? decrypt(row.ml_refresh_token) : null;
+  }
+  return row;
 }
 
 export async function updateAutoPrintTokens(
@@ -335,7 +350,7 @@ export async function updateAutoPrintTokens(
        "ml_token_expires_at" = $4,
        "updated_at" = CURRENT_TIMESTAMP
      WHERE "user_id" = $1`,
-    [userId, accessToken, refreshToken, expiresAt]
+    [userId, encrypt(accessToken), encrypt(refreshToken), expiresAt]
   );
 }
 
@@ -350,6 +365,10 @@ export async function getAutoPrintEnabledConfigs() {
   const result = await pool.query(
     `SELECT * FROM "auto_print_config" WHERE "enabled" = true`
   );
+  for (const row of result.rows) {
+    row.ml_access_token = row.ml_access_token ? decrypt(row.ml_access_token) : null;
+    row.ml_refresh_token = row.ml_refresh_token ? decrypt(row.ml_refresh_token) : null;
+  }
   return result.rows;
 }
 
@@ -360,7 +379,12 @@ export async function getAutoPrintConfigByAgentToken(token: string) {
      WHERE c."agent_token" = $1 AND c."enabled" = true`,
     [token]
   );
-  return result.rows[0] || null;
+  const row = result.rows[0] || null;
+  if (row) {
+    row.ml_access_token = row.ml_access_token ? decrypt(row.ml_access_token) : null;
+    row.ml_refresh_token = row.ml_refresh_token ? decrypt(row.ml_refresh_token) : null;
+  }
+  return row;
 }
 
 // ---------------------------------------------------------------------------
@@ -390,22 +414,26 @@ export async function getPendingPrintJobs(userId: number, limit = 20) {
   return result.rows;
 }
 
-export async function markPrintJobPrinted(jobId: number) {
-  await pool.query(
-    `UPDATE "print_queue" SET "status" = 'printed', "printed_at" = CURRENT_TIMESTAMP WHERE "id" = $1`,
-    [jobId]
+export async function markPrintJobPrinted(userId: number, jobId: number) {
+  const result = await pool.query(
+    `UPDATE "print_queue" SET "status" = 'printed', "printed_at" = CURRENT_TIMESTAMP, "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1 AND "user_id" = $2`,
+    [jobId, userId]
   );
+  return (result.rowCount ?? 0) > 0;
 }
 
-export async function markPrintJobFailed(jobId: number, error: string) {
-  await pool.query(
+export async function markPrintJobFailed(userId: number, jobId: number, error: string) {
+  const result = await pool.query(
     `UPDATE "print_queue" SET
-       "status" = CASE WHEN "attempts" >= 3 THEN 'failed' ELSE 'pending' END,
+       "status" = CASE WHEN "attempts" + 1 >= 3 THEN 'failed' ELSE 'pending' END,
        "attempts" = "attempts" + 1,
-       "error" = $2
-     WHERE "id" = $1`,
-    [jobId, error]
+       "error" = $3,
+       "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1 AND "user_id" = $2`,
+    [jobId, userId, error]
   );
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function getPrintQueueStats(userId: number) {

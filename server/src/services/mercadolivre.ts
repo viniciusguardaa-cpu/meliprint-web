@@ -61,13 +61,14 @@ export function generateCodeChallenge(verifier: string): string {
   return crypto.createHash('sha256').update(verifier).digest('base64url');
 }
 
-export function getAuthUrl(clientId: string, redirectUri: string, codeChallenge: string): string {
+export function getAuthUrl(clientId: string, redirectUri: string, codeChallenge: string, state: string): string {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
     redirect_uri: redirectUri,
     code_challenge: codeChallenge,
-    code_challenge_method: 'S256'
+    code_challenge_method: 'S256',
+    state
   });
   return `${ML_AUTH_URL}/authorization?${params.toString()}`;
 }

@@ -138,22 +138,30 @@ router.get('/queue', requireAgentToken, async (req: Request, res: Response) => {
 
 // Agent marks a job as printed
 router.post('/queue/:id/printed', requireAgentToken, async (req: Request, res: Response) => {
+  const config = (req as any).agentConfig;
   const jobId = Number(req.params.id);
   if (!Number.isFinite(jobId)) {
     return res.status(400).json({ error: 'Invalid job id' });
   }
-  await markPrintJobPrinted(jobId);
+  const ok = await markPrintJobPrinted(config.user_id, jobId);
+  if (!ok) {
+    return res.status(404).json({ error: 'Job not found for this tenant' });
+  }
   res.json({ ok: true });
 });
 
 // Agent marks a job as failed
 router.post('/queue/:id/failed', requireAgentToken, async (req: Request, res: Response) => {
+  const config = (req as any).agentConfig;
   const jobId = Number(req.params.id);
   if (!Number.isFinite(jobId)) {
     return res.status(400).json({ error: 'Invalid job id' });
   }
   const error = (req.body?.error as string)?.slice(0, 500) || 'Unknown error';
-  await markPrintJobFailed(jobId, error);
+  const ok = await markPrintJobFailed(config.user_id, jobId, error);
+  if (!ok) {
+    return res.status(404).json({ error: 'Job not found for this tenant' });
+  }
   res.json({ ok: true });
 });
 
