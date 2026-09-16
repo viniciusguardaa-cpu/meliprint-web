@@ -29,7 +29,9 @@ import adminRoutes from './routes/admin.js';
 import autoPrintRoutes from './routes/autoPrint.js';
 import healthRoutes from './routes/health.js';
 import notificationsRoutes from './routes/notifications.js';
+import plansRoutes from './routes/plans.js';
 import { startAutoPrintPoller } from './jobs/autoPrintPoller.js';
+import { startBillingReconciler } from './jobs/billingReconciler.js';
 import { generalLimiter, authLimiter, labelsLimiter, checkoutLimiter, webhookLimiter } from './middleware/rateLimiter.js';
 import { correlationId, requestLogger } from './middleware/logger.js';
 
@@ -88,6 +90,7 @@ app.use(session({
 
 // Apply rate limiters per route
 app.use('/api/health', healthRoutes);
+app.use('/api/plans', generalLimiter, plansRoutes);
 app.use('/api/notifications', webhookLimiter, notificationsRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/shipments', generalLimiter, shipmentsRoutes);
@@ -125,6 +128,7 @@ async function start() {
     // Start auto-print poller only if database is configured
     if (process.env.DATABASE_URL) {
       startAutoPrintPoller();
+      startBillingReconciler();
     }
   });
 }

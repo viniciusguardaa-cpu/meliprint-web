@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -12,9 +13,41 @@ import {
   RefreshCw
 } from 'lucide-react';
 
+interface Plan {
+  id: string;
+  name: string;
+  description: string;
+  autoPrint: boolean;
+  features: string[];
+  price: { amount: number; currency: string; billingPeriod: string } | null;
+  experimentVariant: string | null;
+}
+
+function formatBRL(amount: number): string {
+  return amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export default function Landing() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [proPrice, setProPrice] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const visitorKey = localStorage.getItem('printly_visitor_key') || '';
+        const res = await fetch(`/api/plans${visitorKey ? `?visitor_key=${visitorKey}` : ''}`);
+        if (res.ok) {
+          const data = await res.json();
+          const pro = (data.plans || []).find((p: Plan) => p.id === 'pro');
+          if (pro?.price) setProPrice(pro.price.amount);
+        }
+      } catch {
+        // ignore — fallback to no price display
+      }
+    };
+    fetchPlans();
+  }, []);
 
   const handleCTA = () => {
     if (user) {
@@ -119,7 +152,9 @@ export default function Landing() {
                   <ArrowRight className="w-5 h-5" />
                 </button>
                 <div className="text-left">
-                  <div className="text-xl sm:text-2xl font-bold text-gray-900">R$ 29,90</div>
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900">
+                    {proPrice !== null ? `R$ ${formatBRL(proPrice)}` : 'R$ 59,90'}
+                  </div>
                   <div className="text-gray-500 text-xs sm:text-sm">por mês</div>
                 </div>
               </div>
@@ -278,7 +313,9 @@ export default function Landing() {
 
           <div className="bg-gradient-to-r from-brand-500 to-brand-600 p-6 sm:p-8 rounded-2xl text-white">
             <div className="flex items-center justify-center gap-2 mb-4">
-              <span className="text-3xl sm:text-5xl font-bold">R$ 29,90</span>
+              <span className="text-3xl sm:text-5xl font-bold">
+                {proPrice !== null ? `R$ ${formatBRL(proPrice)}` : 'R$ 59,90'}
+              </span>
               <span className="text-blue-200">/mês</span>
             </div>
             <p className="text-blue-100 mb-6">

@@ -53,19 +53,45 @@ export async function getUserByMlId(mlUserId: number) {
 export async function getActiveSubscription(userId: number) {
   const result = await pool.query(
     `SELECT * FROM "subscriptions" 
-     WHERE "user_id" = $1 AND "status" IN ('authorized', 'active')
+     WHERE "user_id" = $1 AND "status" IN ('authorized', 'active', 'trialing')
      ORDER BY "created_at" DESC LIMIT 1`,
     [userId]
   );
   return result.rows[0] || null;
 }
 
-export async function createSubscription(userId: number, mpPreapprovalId: string, mpPayerId?: string) {
+export async function createSubscription(
+  userId: number,
+  mpPreapprovalId: string,
+  mpPayerId?: string,
+  options?: {
+    planId?: string;
+    priceId?: number;
+    contractedAmount?: number;
+    contractedCurrency?: string;
+    trialEndsAt?: Date;
+    idempotencyKey?: string;
+  }
+) {
   const result = await pool.query(
-    `INSERT INTO "subscriptions" ("user_id", "mp_preapproval_id", "mp_payer_id", "status")
-     VALUES ($1, $2, $3, 'pending')
+    `INSERT INTO "subscriptions" (
+       "user_id", "mp_preapproval_id", "mp_payer_id", "status",
+       "plan_id", "price_id", "contracted_amount", "contracted_currency",
+       "trial_ends_at", "idempotency_key"
+     )
+     VALUES ($1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9)
      RETURNING *`,
-    [userId, mpPreapprovalId, mpPayerId || null]
+    [
+      userId,
+      mpPreapprovalId,
+      mpPayerId || null,
+      options?.planId ?? null,
+      options?.priceId ?? null,
+      options?.contractedAmount ?? null,
+      options?.contractedCurrency ?? 'BRL',
+      options?.trialEndsAt ?? null,
+      options?.idempotencyKey ?? null,
+    ]
   );
   return result.rows[0];
 }

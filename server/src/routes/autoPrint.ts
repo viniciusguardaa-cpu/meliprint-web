@@ -12,7 +12,7 @@ import {
   updateAgentHeartbeat,
   getUserByMlId
 } from '../db.js';
-import { requireActiveSubscription } from '../middleware/subscription.js';
+import { requireActiveSubscription, requirePlanFeature } from '../middleware/subscription.js';
 
 const router = Router();
 
@@ -21,7 +21,8 @@ const router = Router();
 // ---------------------------------------------------------------------------
 
 // Enable auto-print: copies session ML tokens to DB, generates agent token
-router.post('/enable', requireActiveSubscription, async (req: Request, res: Response) => {
+// Requires Pro plan (auto_print feature)
+router.post('/enable', requirePlanFeature('auto_print'), async (req: Request, res: Response) => {
   if (!req.session.accessToken || !req.session.refreshToken || !req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
