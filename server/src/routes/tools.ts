@@ -40,7 +40,7 @@ router.post('/zpl-to-pdf', async (req: Request, res: Response) => {
     });
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="printly-label.pdf"');
+    res.setHeader('Content-Disposition', 'attachment; filename="labelgo-label.pdf"');
     res.send(buffer);
   } catch (error) {
     console.error('ZPL to PDF conversion error:', error);

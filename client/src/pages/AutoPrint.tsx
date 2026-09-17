@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Printer, Zap, Copy, Check, Loader2, AlertCircle } from 'lucide-react';
+import { Printer, Zap, Copy, Check, Loader2, AlertCircle, Link2, AlertTriangle } from 'lucide-react';
 import Header from '../components/Header';
 import toast from 'react-hot-toast';
 
@@ -13,15 +13,27 @@ interface AutoPrintStatus {
   queue: { pending: number; printed: number; failed: number };
 }
 
+interface ReviewJob {
+  id: number;
+  shipment_id: number;
+  created_at: string;
+  claimed_at: string | null;
+  last_error: string | null;
+  sent_to_printer_at: string | null;
+}
+
 export default function AutoPrint() {
   useAuth();
   const navigate = useNavigate();
 
   const [status, setStatus] = useState<AutoPrintStatus | null>(null);
+  const [reviewJobs, setReviewJobs] = useState<ReviewJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [enabling, setEnabling] = useState(false);
   const [printerName, setPrinterName] = useState('');
   const [copied, setCopied] = useState(false);
+  const [pairingCode, setPairingCode] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [pairing, setPairing] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -44,12 +56,25 @@ export default function AutoPrint() {
     }
   }, [navigate]);
 
+  const fetchReviewJobs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auto-print/queue/review', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setReviewJobs(data.jobs || []);
+      }
+    } catch {
+      // non-critical
+    }
+  }, []);
+
   useEffect(() => {
     fetchStatus();
+    fetchReviewJobs();
     // Refresh queue stats every 10s
-    const interval = setInterval(fetchStatus, 10000);
+    const interval = setInterval(() => { fetchStatus(); fetchReviewJobs(); }, 10000);
     return () => clearInterval(interval);
-  }, [fetchStatus]);
+  }, [fetchStatus, fetchReviewJobs]);
 
   const handleEnable = async () => {
     setEnabling(true);
@@ -76,7 +101,6 @@ export default function AutoPrint() {
     try {
       const res = await fetch('/api/auto-print/disable', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
       });
       if (!res.ok) throw new Error('Falha ao desativar');
@@ -106,11 +130,52 @@ export default function AutoPrint() {
     }
   };
 
+  const handlePairingCode = async () => {
+    setPairing(true);
+    try {
+      const res = await fetch('/api/auto-print/pairing-code', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha ao gerar código');
+      setPairingCode({ code: data.code, expiresAt: data.expiresAt });
+      toast.success('Código gerado — válido por 10 minutos.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao gerar código de pareamento.');
+    } finally {
+      setPairing(false);
+    }
+  };
+
+  const handleResolve = async (jobId: number, action: 'requeue' | 'confirm_printed') => {
+    try {
+      const res = await fetch(`/api/auto-print/queue/${jobId}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action })
+      });
+      if (!res.ok) throw new Error('Falha ao resolver');
+      toast.success(action === 'requeue' ? 'Etiqueta reenfileirada.' : 'Marcada como impressa.');
+      fetchReviewJobs();
+      fetchStatus();
+    } catch {
+      toast.error('Erro ao resolver etiqueta.');
+    }
+  };
+
   const copyToken = () => {
     if (!status?.agentToken) return;
     navigator.clipboard.writeText(status.agentToken);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyCode = () => {
+    if (!pairingCode) return;
+    navigator.clipboard.writeText(pairingCode.code);
+    toast.success('Código copiado!');
   };
 
   if (loading) {
@@ -134,7 +199,7 @@ export default function AutoPrint() {
             Impressão Automática
           </h1>
           <p className="text-gray-500 mt-1">
-            O Meliprint detecta etiquetas liberadas pelo Mercado Livre e imprime automaticamente na sua impressora térmica.
+            O LabelGo detecta etiquetas liberadas pelo Mercado Livre e imprime automaticamente na sua impressora térmica.
           </p>
         </div>
 
@@ -145,7 +210,7 @@ export default function AutoPrint() {
               <h2 className="text-lg font-semibold text-gray-800">Status</h2>
               <p className="text-sm text-gray-500 mt-1">
                 {enabled
-                  ? 'Ativo — o servidor está monitorando novas etiquetas a cada 60s.'
+                  ? 'Ativo — o servidor monitora novas etiquetas continuamente.'
                   : 'Inativo — ative para começar a impressão automática.'}
               </p>
             </div>
@@ -162,7 +227,7 @@ export default function AutoPrint() {
               </div>
               <div className="bg-green-50 rounded-lg p-3 text-center">
                 <div className="text-2xl font-bold text-green-700">{status.queue.printed}</div>
-                <div className="text-xs text-gray-500">Impressas</div>
+                <div className="text-xs text-gray-500">Enviadas à impressora</div>
               </div>
               <div className="bg-red-50 rounded-lg p-3 text-center">
                 <div className="text-2xl font-bold text-red-700">{status.queue.failed}</div>
@@ -199,8 +264,104 @@ export default function AutoPrint() {
           </div>
         </div>
 
+        {/* Needs review — uncertain outcomes, never auto-reprinted */}
+        {enabled && reviewJobs.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-6">
+            <h2 className="text-lg font-semibold text-amber-800 mb-2 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              Verificar impressão ({reviewJobs.length})
+            </h2>
+            <p className="text-sm text-amber-700 mb-4">
+              O agente perdeu contato no meio destas impressões. Para evitar etiquetas
+              duplicadas, confira a impressora e diga o que aconteceu com cada uma.
+            </p>
+            <div className="space-y-3">
+              {reviewJobs.map((job) => (
+                <div key={job.id} className="bg-white rounded-lg border border-amber-200 p-4 flex items-center justify-between gap-3">
+                  <div>
+                    <span className="font-mono text-sm text-gray-700">Envio #{job.shipment_id}</span>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {job.sent_to_printer_at
+                        ? `Enviada à impressora em ${new Date(job.sent_to_printer_at).toLocaleString('pt-BR')}`
+                        : `Reclamada em ${job.claimed_at ? new Date(job.claimed_at).toLocaleString('pt-BR') : '-'}`}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleResolve(job.id, 'confirm_printed')}
+                      className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
+                    >
+                      Saiu impressa
+                    </button>
+                    <button
+                      onClick={() => handleResolve(job.id, 'requeue')}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
+                    >
+                      Não saiu — reenviar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {enabled && (
           <>
+            {/* Pairing + installer */}
+            <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                <Link2 className="w-5 h-5 text-gray-500" />
+                Conectar o agente
+              </h2>
+              <p className="text-sm text-gray-500 mb-4">
+                Instale o LabelGo Agent no computador ligado à impressora. Não precisa
+                instalar Node nem editar arquivos: o instalador pede apenas o código
+                de pareamento abaixo.
+              </p>
+
+              <ol className="space-y-3 text-sm text-gray-600 mb-5">
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                  <span>Baixe e execute o instalador <strong>LabelGoAgent-Setup.exe</strong> no Windows.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                  <span>Gere o código de pareamento abaixo e digite-o no instalador.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                  <span>Escolha a impressora, imprima a etiqueta de teste e pronto — o agente inicia sozinho junto com o Windows.</span>
+                </li>
+              </ol>
+
+              {pairingCode ? (
+                <div className="bg-brand-50 border border-brand-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-brand-700 mb-1">Código de pareamento (válido por 10 min)</p>
+                  <div className="flex items-center justify-center gap-3">
+                    <span className="text-3xl font-mono font-bold tracking-widest text-brand-700">
+                      {pairingCode.code}
+                    </span>
+                    <button
+                      onClick={copyCode}
+                      className="bg-white hover:bg-brand-100 text-brand-700 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handlePairingCode}
+                  disabled={pairing}
+                  className="bg-brand-500 hover:bg-brand-600 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {pairing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+                  Gerar código de pareamento
+                </button>
+              )}
+            </div>
+
             {/* Printer name */}
             <div className="bg-white rounded-xl shadow-md p-6 mb-6">
               <h2 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
@@ -208,7 +369,7 @@ export default function AutoPrint() {
                 Impressora
               </h2>
               <p className="text-sm text-gray-500 mb-3">
-                Nome da impressora no CUPS (descubra rodando <code className="bg-gray-100 px-1 rounded">node list-printers.js</code> no agente).
+                Nome da impressora usada pelo agente (escolhida durante o setup).
               </p>
               <div className="flex gap-2">
                 <input
@@ -227,14 +388,14 @@ export default function AutoPrint() {
               </div>
             </div>
 
-            {/* Agent token + setup instructions */}
+            {/* Agent token — advanced/dev installs only */}
             {status?.agentToken && (
               <div className="bg-white rounded-xl shadow-md p-6 mb-6">
                 <h2 className="text-lg font-semibold text-gray-800 mb-2">
                   Token do Agente
                 </h2>
                 <p className="text-sm text-gray-500 mb-3">
-                  Use este token no arquivo <code className="bg-gray-100 px-1 rounded">.env</code> do agente local.
+                  Só necessário para instalação manual (sem o instalador). O pareamento por código já configura tudo automaticamente.
                 </p>
                 <div className="flex gap-2">
                   <input
@@ -252,47 +413,11 @@ export default function AutoPrint() {
                   </button>
                 </div>
 
-                <div className="mt-6">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Como configurar o agente</h3>
-                  <ol className="space-y-3 text-sm text-gray-600">
-                    <li className="flex gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-bold">1</span>
-                      <span>
-                        Instale a impressora Zebra no macOS via <strong>System Settings &gt; Printers &amp; Scanners</strong>.
-                      </span>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                      <span>
-                        Na pasta <code className="bg-gray-100 px-1 rounded">agent/</code> do projeto, copie <code className="bg-gray-100 px-1 rounded">.env.example</code> para <code className="bg-gray-100 px-1 rounded">.env</code> e preencha o token e o nome da impressora.
-                      </span>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-                      <span>
-                        Descubra o nome da impressora: <code className="bg-gray-100 px-1 rounded">node list-printers.js</code>
-                      </span>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-bold">4</span>
-                      <span>
-                        Inicie o agente: <code className="bg-gray-100 px-1 rounded">node agent.js</code>
-                      </span>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-bold">5</span>
-                      <span>
-                        Pronto! O agente vai imprimir automaticamente quando o ML liberar etiquetas.
-                      </span>
-                    </li>
-                  </ol>
-                </div>
-
                 <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex gap-2">
                   <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-yellow-800">
                     Mantenha o agente rodando na máquina onde a impressora está conectada.
-                    O computador precisa estar ligado e com Node.js 18+ instalado.
+                    O computador precisa estar ligado e com internet.
                   </p>
                 </div>
               </div>

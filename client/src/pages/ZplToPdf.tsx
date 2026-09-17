@@ -21,8 +21,8 @@ export default function ZplToPdf() {
     setSuccess(false);
 
     try {
-      const visitorKey = localStorage.getItem('printly_visitor_key') || crypto.randomUUID();
-      localStorage.setItem('printly_visitor_key', visitorKey);
+      const visitorKey = localStorage.getItem('labelgo_visitor_key') || crypto.randomUUID();
+      localStorage.setItem('labelgo_visitor_key', visitorKey);
 
       const res = await fetch('/api/tools/zpl-to-pdf', {
         method: 'POST',
@@ -42,7 +42,7 @@ export default function ZplToPdf() {
       const url = URL.createObjectURL(blob);
       const a = window.document.createElement('a');
       a.href = url;
-      a.download = 'printly-label.pdf';
+      a.download = 'labelgo-label.pdf';
       a.click();
       URL.revokeObjectURL(url);
 
@@ -117,8 +117,8 @@ export default function ZplToPdf() {
             Cansado de converter etiquetas manualmente?
           </h2>
           <p className="text-blue-100 mb-4">
-            Conecte seu Mercado Livre ao Printly e imprima etiquetas em segundos.
-            Com o Printly Pro, suas etiquetas saem automaticamente na impressora.
+            Conecte seu Mercado Livre ao LabelGo e imprima etiquetas em segundos.
+            Com o LabelGo Pro, suas etiquetas saem automaticamente na impressora.
           </p>
           <button
             onClick={() => navigate('/pricing')}
@@ -134,7 +134,7 @@ export default function ZplToPdf() {
           <h2 className="text-lg font-semibold text-gray-900">Sobre ZPL e etiquetas térmicas</h2>
           <p>
             ZPL (Zebra Programming Language) é a linguagem usada por impressoras térmicas
-            Zebra e compatíveis para imprimir etiquetas. O Printly converte seu código ZPL
+            Zebra e compatíveis para imprimir etiquetas. O LabelGo converte seu código ZPL
             em PDF para visualização e impressão em qualquer impressora comum.
           </p>
           <p>

@@ -179,6 +179,34 @@ export async function assignVariant(
   return chosen;
 }
 
+/**
+ * The price a visitor must actually be charged: if an active experiment
+ * assigned them a variant (visible in the /api/plans catalog), the checkout
+ * must charge THAT amount — never a different one.
+ * Returns null when there is no experiment/assignment (use standard price).
+ */
+export async function getAssignedVariantPrice(
+  planId: string,
+  visitorKey: string
+): Promise<(Price & { experiment_variant_id?: number }) | null> {
+  const experiment = await getActiveExperimentForPlan(planId);
+  if (!experiment) return null;
+
+  const result = await pool.query(
+    `SELECT v."id" AS variant_id, v."amount"
+     FROM "pricing_assignments" a
+     JOIN "pricing_variants" v ON v."id" = a."variant_id"
+     WHERE a."experiment_id" = $1 AND a."visitor_key" = $2`,
+    [experiment.id, visitorKey]
+  );
+  const row = result.rows[0];
+  if (!row) return null; // visitor never got a variant → standard price
+
+  const base = await getPriceForPlan(planId, 'monthly');
+  if (!base) return null;
+  return { ...base, amount: Number(row.amount), experiment_variant_id: row.variant_id };
+}
+
 /** Link a pricing assignment to a user after signup. */
 export async function linkAssignmentToUser(visitorKey: string, userId: number) {
   await pool.query(

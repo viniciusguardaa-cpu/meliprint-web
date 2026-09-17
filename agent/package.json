@@ -1,13 +1,26 @@
 {
-  "name": "printly-agent",
+  "name": "labelgo-agent",
   "version": "1.0.0",
   "type": "module",
-  "description": "Printly Agent - impressao automatica de etiquetas do Mercado Livre (cross-platform)",
+  "description": "LabelGo Agent - impressao automatica de etiquetas do Mercado Livre (cross-platform)",
   "main": "agent.js",
+  "bin": "agent.js",
   "scripts": {
     "start": "node agent.js",
     "list-printers": "node list-printers.js",
-    "test-print": "node agent.js --test-print"
+    "test-print": "node agent.js --test-print",
+    "setup": "node agent.js --setup",
+    "check": "node agent.js --check",
+    "test": "node --test",
+    "build:exe": "pkg package.json --targets node18-win-x64 --output dist/labelgo-agent.exe"
+  },
+  "pkg": {
+    "scripts": [
+      "**/*.js"
+    ]
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.6.0"
   },
   "engines": {
     "node": ">=18"

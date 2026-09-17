@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Check, Zap, Shield, Loader2 } from 'lucide-react';
 import Header from '../components/Header';
+import { getVisitorKey, track } from '../lib/analytics';
 
 interface Plan {
   id: string;
@@ -13,18 +14,30 @@ interface Plan {
   experimentVariant: string | null;
 }
 
+interface SubscriptionStatus {
+  hasSubscription: boolean;
+  status: string | null;
+  canTrial?: boolean;
+  trialDaysRemaining?: number | null;
+}
+
 export default function Pricing() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
+  const [subStatus, setSubStatus] = useState<SubscriptionStatus | null>(null);
+  // One idempotency key per checkout intent — double clicks/retries replay
+  // the same checkout instead of creating duplicate charges.
+  const idempotencyKey = useRef(crypto.randomUUID());
 
   useEffect(() => {
+    track('pricing_view');
     const fetchPlans = async () => {
       try {
-        const visitorKey = localStorage.getItem('printly_visitor_key') || '';
-        const res = await fetch(`/api/plans${visitorKey ? `?visitor_key=${visitorKey}` : ''}`);
+        const visitorKey = getVisitorKey();
+        const res = await fetch(`/api/plans?visitor_key=${encodeURIComponent(visitorKey)}`);
         if (res.ok) {
           const data = await res.json();
           setPlans(data.plans || []);
@@ -35,7 +48,16 @@ export default function Pricing() {
         setPlansLoading(false);
       }
     };
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch('/api/subscription/status', { credentials: 'include' });
+        if (res.ok) setSubStatus(await res.json());
+      } catch {
+        // not logged in or unavailable — default UI
+      }
+    };
     fetchPlans();
+    fetchStatus();
   }, []);
 
   const handleSubscribe = async (planId: string, trial: boolean = false) => {
@@ -48,16 +70,29 @@ export default function Pricing() {
     setError(null);
 
     try {
+      track(trial ? 'trial_started' : 'checkout_started', { plan_id: planId });
       const res = await fetch('/api/subscription/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ planId, trial })
+        body: JSON.stringify({
+          planId,
+          trial,
+          visitorKey: getVisitorKey(),
+          idempotencyKey: idempotencyKey.current,
+        })
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.error === 'trial_already_used') {
+          setSubStatus(prev => ({ ...(prev || { hasSubscription: false, status: null }), canTrial: false }));
+          throw new Error('O período de teste gratuito já foi utilizado. Assine o Pro para continuar.');
+        }
+        if (data.error === 'checkout_in_progress') {
+          throw new Error('Já existe um checkout em andamento. Aguarde alguns segundos e tente novamente.');
+        }
         throw new Error(data.error || 'Erro ao criar checkout');
       }
 
@@ -67,10 +102,13 @@ export default function Pricing() {
         return;
       }
 
-      // Redirect to Mercado Pago checkout
+      // Redirect to Mercado Pago checkout (same URL on replayed requests)
       window.location.href = data.checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao processar');
+      // New key for the next attempt so a genuinely new try isn't deduped
+      // against a failed/abandoned checkout.
+      idempotencyKey.current = crypto.randomUUID();
     } finally {
       setLoading(false);
     }
@@ -84,6 +122,9 @@ export default function Pricing() {
     );
   }
 
+  const isTrialing = subStatus?.status === 'trialing';
+  const canTrial = subStatus?.canTrial !== false && !isTrialing;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <Header showDashboard />
@@ -95,8 +136,15 @@ export default function Pricing() {
             Imprima etiquetas do Mercado Livre em segundos
           </h1>
           <p className="text-xl text-gray-600">
-            Teste grátis por 7 dias. Sem cartão de crédito.
+            {canTrial
+              ? 'Teste grátis por 7 dias. Sem cartão de crédito.'
+              : 'Assine e imprima automaticamente.'}
           </p>
+          {isTrialing && (
+            <p className="mt-3 inline-block bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-medium">
+              Trial ativo — restam {subStatus?.trialDaysRemaining ?? '-'} dia(s)
+            </p>
+          )}
         </div>
 
         {/* Pricing Cards */}
@@ -160,20 +208,38 @@ export default function Pricing() {
 
                   {/* CTA */}
                   {isPro ? (
-                    <button
-                      onClick={() => handleSubscribe(plan.id, true)}
-                      disabled={loading}
-                      className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-4 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3"
-                    >
-                      {loading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <>
-                          <Zap className="w-5 h-5" />
-                          Testar grátis por 7 dias
-                        </>
+                    <>
+                      {canTrial && (
+                        <button
+                          onClick={() => handleSubscribe(plan.id, true)}
+                          disabled={loading}
+                          className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-4 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3"
+                        >
+                          {loading ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <>
+                              <Zap className="w-5 h-5" />
+                              Testar grátis por 7 dias
+                            </>
+                          )}
+                        </button>
                       )}
-                    </button>
+                      <button
+                        onClick={() => handleSubscribe(plan.id, false)}
+                        disabled={loading}
+                        className={`w-full font-semibold py-4 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3 ${canTrial
+                            ? 'bg-gray-900 hover:bg-gray-800 text-white'
+                            : 'bg-brand-500 hover:bg-brand-600 text-white'
+                          }`}
+                      >
+                        {loading ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          isTrialing ? 'Assinar agora (converter trial)' : 'Assinar Pro agora'
+                        )}
+                      </button>
+                    </>
                   ) : (
                     <button
                       onClick={() => handleSubscribe(plan.id, false)}

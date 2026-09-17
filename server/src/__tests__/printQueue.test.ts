@@ -42,8 +42,20 @@ describe('print queue multi-tenant ownership (SQL verification)', () => {
     const [sql, params] = mockQuery.mock.calls[0];
     expect(sql).toContain('"user_id" = $2');
     expect(sql).toContain('"id" = $1');
-    expect(params).toEqual([100, 42]);
+    expect(params).toEqual([100, 42, null]);
     expect(result).toBe(true);
+  });
+
+  it('markPrintJobPrinted passes the agent sentToPrinterAt timestamp', async () => {
+    const { markPrintJobPrinted } = await import('../db.js');
+    mockQuery.mockResolvedValue({ rowCount: 1, rows: [] });
+    const sentAt = new Date('2026-09-17T12:00:00Z');
+
+    await markPrintJobPrinted(42, 100, sentAt);
+
+    const [sql, params] = mockQuery.mock.calls[0];
+    expect(sql).toContain('sent_to_printer_at');
+    expect(params).toEqual([100, 42, sentAt]);
   });
 
   it('markPrintJobFailed includes user_id in WHERE clause', async () => {

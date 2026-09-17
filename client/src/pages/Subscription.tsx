@@ -2,16 +2,21 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
-import { CreditCard, Calendar, AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
+import { CreditCard, Calendar, AlertTriangle, ArrowLeft, Loader2, Zap } from 'lucide-react';
 import Header from '../components/Header';
 import toast from 'react-hot-toast';
+import { getVisitorKey } from '../lib/analytics';
 
 export default function Subscription() {
   const navigate = useNavigate();
   useAuth();
   const { subscription, loading } = useSubscription();
   const [canceling, setCanceling] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+
+  const isTrialing = subscription?.status === 'trialing';
+  const isCancelledWithAccess = subscription?.status === 'cancelled' && !!subscription?.accessUntil;
 
   const handleCancel = async () => {
     setCanceling(true);
@@ -40,13 +45,50 @@ export default function Subscription() {
     }
   };
 
-  const formatDate = (dateString: string | null) => {
+  /** Convert trial → paid (or re-subscribe) via Mercado Pago checkout. */
+  const handleSubscribe = async () => {
+    setSubscribing(true);
+    try {
+      const res = await fetch('/api/subscription/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          planId: subscription?.planId || 'pro',
+          trial: false,
+          visitorKey: getVisitorKey(),
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao criar checkout');
+      window.location.href = data.checkoutUrl;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao assinar');
+      setSubscribing(false);
+    }
+  };
+
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'long',
       year: 'numeric'
     });
+  };
+
+  const statusLabel = (status: string | null | undefined) => {
+    switch (status) {
+      case 'authorized':
+      case 'active': return 'Ativa';
+      case 'trialing': return 'Período de teste';
+      case 'cancelled': return 'Cancelada';
+      case 'paused': return 'Pagamento pendente';
+      case 'pending': return 'Pagamento pendente';
+      case 'trial_expired': return 'Teste expirado';
+      case 'expired': return 'Expirada';
+      default: return status || '-';
+    }
   };
 
   if (loading) {
@@ -76,8 +118,13 @@ export default function Subscription() {
         {subscription?.hasSubscription ? (
           <div className="bg-white rounded-xl shadow-md overflow-hidden animate-fade-in">
             {/* Status badge */}
-            <div className="bg-green-500 text-white text-center py-2 text-sm font-semibold">
-              ASSINATURA ATIVA
+            <div className={`text-white text-center py-2 text-sm font-semibold ${isCancelledWithAccess ? 'bg-yellow-500' : isTrialing ? 'bg-blue-500' : 'bg-green-500'
+              }`}>
+              {isCancelledWithAccess
+                ? 'CANCELADA — ACESSO ATÉ O FIM DO PERÍODO'
+                : isTrialing
+                  ? 'PERÍODO DE TESTE ATIVO'
+                  : 'ASSINATURA ATIVA'}
             </div>
 
             <div className="p-6">
@@ -85,9 +132,9 @@ export default function Subscription() {
               <div className="flex items-center justify-between mb-6 pb-6 border-b">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">
-                    {subscription.planName || 'Printly Pro'}
+                    {subscription.planName || 'LabelGo Pro'}
                   </h2>
-                  <p className="text-gray-500">Plano mensal</p>
+                  <p className="text-gray-500">{isTrialing ? 'Teste gratuito' : 'Plano mensal'}</p>
                 </div>
                 <div className="text-right">
                   <div className="text-3xl font-bold text-gray-900">
@@ -105,8 +152,8 @@ export default function Subscription() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Status</p>
-                    <p className="font-medium text-gray-900 capitalize">
-                      {subscription.status === 'authorized' ? 'Ativa' : subscription.status}
+                    <p className="font-medium text-gray-900">
+                      {statusLabel(subscription.status)}
                     </p>
                   </div>
                 </div>
@@ -116,21 +163,51 @@ export default function Subscription() {
                     <Calendar className="w-5 h-5 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Próxima cobrança</p>
+                    <p className="text-sm text-gray-500">
+                      {isTrialing
+                        ? 'Teste termina em'
+                        : isCancelledWithAccess
+                          ? 'Acesso até'
+                          : 'Próxima cobrança'}
+                    </p>
                     <p className="font-medium text-gray-900">
-                      {formatDate(subscription.currentPeriodEnd)}
+                      {isTrialing
+                        ? `${formatDate(subscription.trialEndsAt)} (${subscription.trialDaysRemaining ?? '-'} dia(s) restantes)`
+                        : isCancelledWithAccess
+                          ? formatDate(subscription.accessUntil)
+                          : formatDate(subscription.currentPeriodEnd)}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Cancel button */}
-              <button
-                onClick={() => setShowCancelModal(true)}
-                className="w-full border border-red-300 text-red-600 hover:bg-red-50 font-medium py-3 px-6 rounded-lg transition-colors"
-              >
-                Cancelar assinatura
-              </button>
+              {/* Trial conversion CTA */}
+              {isTrialing && (
+                <button
+                  onClick={handleSubscribe}
+                  disabled={subscribing}
+                  className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mb-3"
+                >
+                  {subscribing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <Zap className="w-5 h-5" />
+                      Assinar agora — R$ {subscription.price?.toFixed(2).replace('.', ',')}/mês
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Cancel button (hide once already cancelled) */}
+              {!isCancelledWithAccess && (
+                <button
+                  onClick={() => setShowCancelModal(true)}
+                  className="w-full border border-red-300 text-red-600 hover:bg-red-50 font-medium py-3 px-6 rounded-lg transition-colors"
+                >
+                  {isTrialing ? 'Cancelar teste' : 'Cancelar assinatura'}
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -142,7 +219,7 @@ export default function Subscription() {
               Sem assinatura ativa
             </h2>
             <p className="text-gray-500 mb-6">
-              Assine para ter acesso completo ao Printly
+              Assine para ter acesso completo ao LabelGo
             </p>
             <button
               onClick={() => navigate('/pricing')}
@@ -163,13 +240,14 @@ export default function Subscription() {
                 <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900">
-                Cancelar assinatura?
+                {isTrialing ? 'Cancelar teste?' : 'Cancelar assinatura?'}
               </h3>
             </div>
 
             <p className="text-gray-600 mb-6">
-              Tem certeza que deseja cancelar sua assinatura? Você perderá acesso às funcionalidades
-              premium ao final do período atual.
+              {isTrialing
+                ? 'Seu acesso de teste será encerrado. O teste gratuito só pode ser usado uma vez por conta.'
+                : 'Tem certeza que deseja cancelar sua assinatura? Você manterá acesso até o fim do período já pago.'}
             </p>
 
             <div className="flex gap-3">

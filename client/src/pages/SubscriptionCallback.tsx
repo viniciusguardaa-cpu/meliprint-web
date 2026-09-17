@@ -63,7 +63,7 @@ export default function SubscriptionCallback() {
               Assinatura ativada!
             </h1>
             <p className="text-gray-600 mb-6">
-              Obrigado! Você agora tem acesso completo ao Printly.
+              Obrigado! Você agora tem acesso completo ao LabelGo.
             </p>
             <p className="text-sm text-gray-500">
               Redirecionando para o dashboard...

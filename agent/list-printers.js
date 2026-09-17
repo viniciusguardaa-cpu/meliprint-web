@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Printly Agent — lista as impressoras disponíveis (cross-platform).
+ * LabelGo Agent — lista as impressoras disponíveis (cross-platform).
  *
  * Uso:
  *   node list-printers.js

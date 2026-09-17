@@ -36,7 +36,7 @@ export default function SeoPage({ title, description, h1, sections, cta = true }
           <div className="bg-gradient-to-r from-brand-500 to-brand-600 rounded-2xl p-6 text-white text-center mt-8">
             <h2 className="text-xl font-bold mb-2">Pronto para automatizar sua expedição?</h2>
             <p className="text-blue-100 mb-4">
-              Conecte seu Mercado Livre ao Printly e imprima etiquetas em segundos.
+              Conecte seu Mercado Livre ao LabelGo e imprima etiquetas em segundos.
             </p>
             <button
               onClick={() => navigate('/pricing')}

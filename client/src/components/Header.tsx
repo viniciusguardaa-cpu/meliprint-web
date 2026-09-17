@@ -15,7 +15,7 @@ export default function Header({ showSubscription = false, showDashboard = false
     <header className="bg-brand-500 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
         <a href="/" className="flex-shrink-0">
-          <img src="/logo.png" alt="Printly" className="h-10 w-auto" />
+          <img src="/logo.png" alt="LabelGo" className="h-10 w-auto" />
         </a>
         <div className="flex items-center gap-3">
           {user && (

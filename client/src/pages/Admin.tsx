@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, DollarSign, TrendingDown, RefreshCw, Lock, Gift, Trash2, Plus } from 'lucide-react';
+import { Users, DollarSign, TrendingDown, RefreshCw, Lock, Gift, Trash2, Plus, Activity } from 'lucide-react';
 
 interface Subscriber {
   user_id: number;
@@ -28,6 +28,28 @@ interface FreeAccessEntry {
   email: string;
   note: string | null;
   created_at: string;
+}
+
+interface GrowthMetrics {
+  funnel: {
+    landing_views: number;
+    oauth_started: number;
+    ml_connected: number;
+    pricing_views: number;
+    checkouts_started: number;
+    trials_started: number;
+    subscriptions_activated: number;
+    subscriptions_cancelled: number;
+  };
+  utm_performance: Array<{
+    utm_source: string | null;
+    utm_medium: string | null;
+    utm_campaign: string | null;
+    visitors: number;
+    signups: number;
+  }>;
+  agents: { agents_online: number; agents_offline: number };
+  prints: { prints_success: number; prints_failed: number };
 }
 
 const ACTIVE_STATUSES = ['authorized', 'active'];
@@ -66,6 +88,7 @@ export default function Admin() {
 
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [growth, setGrowth] = useState<GrowthMetrics | null>(null);
   const [freeAccess, setFreeAccess] = useState<FreeAccessEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'active' | 'cancelled' | 'none'>('all');
@@ -81,10 +104,11 @@ export default function Admin() {
     try {
       const headers = { 'x-admin-key': key };
 
-      const [statsRes, subsRes, freeRes] = await Promise.all([
+      const [statsRes, subsRes, freeRes, growthRes] = await Promise.all([
         fetch('/api/admin/stats', { headers }),
         fetch('/api/admin/subscribers', { headers }),
-        fetch('/api/admin/free-access', { headers })
+        fetch('/api/admin/free-access', { headers }),
+        fetch('/api/admin/growth', { headers })
       ]);
 
       if (statsRes.status === 401 || subsRes.status === 401 || freeRes.status === 401) {
@@ -105,6 +129,7 @@ export default function Admin() {
       setStats(statsData);
       setSubscribers(subsData.subscribers || []);
       setFreeAccess(freeData.freeAccess || []);
+      if (growthRes.ok) setGrowth(await growthRes.json());
       sessionStorage.setItem('adminKey', key);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Erro ao carregar dados');
@@ -214,7 +239,7 @@ export default function Admin() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-brand-500 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-white font-bold text-lg">Printly Admin</h1>
+          <h1 className="text-white font-bold text-lg">LabelGo Admin</h1>
           <button
             onClick={() => fetchData(adminKey)}
             disabled={loading}
@@ -268,6 +293,73 @@ export default function Admin() {
             </div>
           </div>
         </div>
+
+        {/* Growth funnel */}
+        {growth && (
+          <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Activity className="w-5 h-5 text-brand-500" />
+              <h2 className="text-lg font-bold text-gray-900">Funil de aquisição</h2>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+              {[
+                { label: 'Landing', value: growth.funnel.landing_views },
+                { label: 'OAuth iniciado', value: growth.funnel.oauth_started },
+                { label: 'ML conectado', value: growth.funnel.ml_connected },
+                { label: 'Pricing visto', value: growth.funnel.pricing_views },
+                { label: 'Checkout iniciado', value: growth.funnel.checkouts_started },
+                { label: 'Trials iniciados', value: growth.funnel.trials_started },
+                { label: 'Assinaturas ativas', value: growth.funnel.subscriptions_activated },
+                { label: 'Cancelamentos', value: growth.funnel.subscriptions_cancelled },
+              ].map((item) => (
+                <div key={item.label} className="bg-gray-50 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-gray-900">{item.value}</div>
+                  <div className="text-xs text-gray-500">{item.label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Agentes e impressões</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-green-50 rounded-lg p-3 text-center">
+                    <div className="text-xl font-bold text-green-700">{growth.agents.agents_online}</div>
+                    <div className="text-xs text-gray-500">Agentes online</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="text-xl font-bold text-gray-700">{growth.agents.agents_offline}</div>
+                    <div className="text-xs text-gray-500">Agentes offline</div>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-3 text-center">
+                    <div className="text-xl font-bold text-green-700">{growth.prints.prints_success}</div>
+                    <div className="text-xs text-gray-500">Etiquetas impressas</div>
+                  </div>
+                  <div className="bg-red-50 rounded-lg p-3 text-center">
+                    <div className="text-xl font-bold text-red-700">{growth.prints.prints_failed}</div>
+                    <div className="text-xs text-gray-500">Falhas de impressão</div>
+                  </div>
+                </div>
+              </div>
+              {growth.utm_performance.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Origem dos visitantes</h3>
+                  <div className="divide-y divide-gray-100 border rounded-lg">
+                    {growth.utm_performance.map((u, i) => (
+                      <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
+                        <span className="text-gray-700 truncate">
+                          {[u.utm_source, u.utm_medium, u.utm_campaign].filter(Boolean).join(' / ') || '(direto)'}
+                        </span>
+                        <span className="text-gray-500 whitespace-nowrap ml-3">
+                          {u.visitors} visitas · {u.signups} contas
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Free access section */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-8">

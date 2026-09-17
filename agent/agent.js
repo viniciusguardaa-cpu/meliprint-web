@@ -1,54 +1,30 @@
 #!/usr/bin/env node
 /**
- * Printly Agent — impressão automática de etiquetas do Mercado Livre.
+ * LabelGo Agent — impressão automática de etiquetas do Mercado Livre.
  *
  * Cross-platform: macOS (CUPS), Linux (CUPS), Windows (RawPrinterHelper).
  *
  * Uso:
- *   node agent.js                          # modo normal (requer .env configurado)
- *   node agent.js --pair                   # modo pareamento (gera código de pareamento)
- *   node agent.js --list-printers          # lista impressoras disponíveis
- *   node agent.js --test-print <printer>   # imprime etiqueta de teste
+ *   node agent.js / labelgo-agent.exe        # modo normal (config salva por --setup)
+ *   node agent.js --setup                    # wizard: pareamento + impressora + teste
+ *   node agent.js --list-printers            # lista impressoras disponíveis
+ *   node agent.js --test-print <printer>     # imprime etiqueta de teste
+ *   node agent.js --check                    # verifica inicialização (CI/smoke)
  *
- * Configuração via .env ou variáveis de ambiente:
- *   PRINTLY_SERVER_URL=http://localhost:3001
- *   PRINTLY_AGENT_TOKEN=<token do painel>
- *   PRINTLY_PRINTER_NAME=<nome da impressora>
- *   PRINTLY_POLL_INTERVAL=5000
+ * Configuração (ordem): variáveis de ambiente LABELGO_*, config.json no
+ * diretório de estado, .env na pasta do agente. O instalador usa --setup.
  */
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { randomUUID } from 'node:crypto';
 import { getPrinterAdapter } from './printers/index.js';
-
-// ---------------------------------------------------------------------------
-// Config
-// ---------------------------------------------------------------------------
-
-function loadEnvFile() {
-  try {
-    const content = readFileSync(new URL('./.env', import.meta.url), 'utf8');
-    for (const line of content.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      const eq = trimmed.indexOf('=');
-      if (eq === -1) continue;
-      const key = trimmed.slice(0, eq).trim();
-      const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
-      if (!process.env[key]) process.env[key] = value;
-    }
-  } catch {
-    // .env not found — use environment variables
-  }
-}
-
-loadEnvFile();
-
-const SERVER_URL = (process.env.PRINTLY_SERVER_URL || process.env.MELIPRINT_SERVER_URL || 'http://localhost:3001').replace(/\/$/, '');
-const AGENT_TOKEN = process.env.PRINTLY_AGENT_TOKEN || process.env.MELIPRINT_AGENT_TOKEN;
-const PRINTER_NAME = process.env.PRINTLY_PRINTER_NAME || process.env.MELIPRINT_PRINTER_NAME;
-const POLL_INTERVAL = Number(process.env.PRINTLY_POLL_INTERVAL || process.env.MELIPRINT_POLL_INTERVAL || 5000);
-const AGENT_ID = `agent-${require('crypto').randomUUID().slice(0, 8)}`;
+import { loadConfig } from './lib/config.js';
+import { getStateDir, ensureStateDir } from './lib/paths.js';
+import { claimJobs, sendHeartbeat } from './lib/api.js';
+import { processJob, flushPendingConfirmations } from './lib/jobs.js';
+import { runSetup } from './lib/setup.js';
+import { listPendingReceipts } from './lib/store.js';
 
 const adapter = getPrinterAdapter();
+const TEST_ZPL = '^XA^FO50,50^A0N,50,50^FDLabelGo Test^FS^FO50,120^A0N,30,30^FDLabel OK^FS^XZ';
 
 // ---------------------------------------------------------------------------
 // CLI commands
@@ -69,23 +45,63 @@ if (args.includes('--list-printers')) {
   });
 } else if (args.includes('--test-print')) {
   const printerIdx = args.indexOf('--test-print');
-  const printer = args[printerIdx + 1] || PRINTER_NAME;
+  const printer = args[printerIdx + 1] || loadConfig().printerName;
   if (!printer) {
-    console.error('❌ Especifique a impressora: node agent.js --test-print <printer>');
+    console.error('❌ Especifique a impressora: agent.js --test-print <printer>');
     process.exit(1);
   }
-  const testZpl = '^XA^FO50,50^A0N,50,50^FDPrintly Test^FS^FO50,120^A0N,30,30^FDLabel OK^FS^XZ';
   console.log(`🖨️  Imprimindo etiqueta de teste em ${printer}...`);
-  adapter.printZpl(printer, testZpl).then(() => {
+  adapter.printZpl(printer, TEST_ZPL).then(() => {
     console.log('   ✅ Etiqueta de teste enviada!');
     process.exit(0);
   }).catch(err => {
     console.error('   ❌ Erro:', err.message);
     process.exit(1);
   });
+} else if (args.includes('--setup') || args.includes('--pair')) {
+  runSetup(adapter).then(() => process.exit(0)).catch(err => {
+    console.error(`❌ Setup falhou: ${err.message}`);
+    process.exit(1);
+  });
+} else if (args.includes('--check')) {
+  runCheck().then(code => process.exit(code));
 } else {
-  // Normal mode — run the agent
   runAgent();
+}
+
+// ---------------------------------------------------------------------------
+// Startup check — verifies modules, adapter and config without printing.
+// Exit 0 = agente consegue iniciar; exit 1 = falha de inicialização.
+// ---------------------------------------------------------------------------
+
+async function runCheck() {
+  const problems = [];
+  const warnings = [];
+
+  try {
+    ensureStateDir();
+  } catch (err) {
+    problems.push(`state dir: ${err.message}`);
+  }
+
+  const config = loadConfig();
+  if (!config.agentToken) warnings.push('agentToken não configurado (rode --setup)');
+  if (!config.printerName) warnings.push('printerName não configurado (rode --setup)');
+
+  try {
+    const printers = await adapter.listPrinters();
+    console.log(`adapter=${adapter.name} printers=${printers.length}`);
+    if (config.printerName && !printers.includes(config.printerName)) {
+      warnings.push(`impressora configurada "${config.printerName}" não encontrada`);
+    }
+  } catch (err) {
+    problems.push(`adapter ${adapter.name}: ${err.message}`);
+  }
+
+  for (const w of warnings) console.warn(`⚠️  ${w}`);
+  for (const p of problems) console.error(`❌ ${p}`);
+  console.log(problems.length === 0 ? '✅ check OK' : '❌ check falhou');
+  return problems.length === 0 ? 0 : 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,121 +109,82 @@ if (args.includes('--list-printers')) {
 // ---------------------------------------------------------------------------
 
 async function runAgent() {
-  if (!AGENT_TOKEN) {
-    console.error('❌ PRINTLY_AGENT_TOKEN não configurado.');
-    console.error('   Gere o token no painel do Printly (Dashboard > Impressão Automática).');
+  const config = loadConfig();
+  const stateDir = ensureStateDir();
+  const agentId = config.agentId || `agent-${randomUUID().slice(0, 8)}`;
+
+  if (!config.agentToken) {
+    console.error('❌ Agente não pareado.');
+    console.error('   Rode: agent.js --setup  (ou configure LABELGO_AGENT_TOKEN)');
     process.exit(1);
   }
 
-  if (!PRINTER_NAME) {
-    console.error('❌ PRINTLY_PRINTER_NAME não configurado.');
-    console.error('   Descubra o nome com: node agent.js --list-printers');
+  if (!config.printerName) {
+    console.error('❌ Impressora não configurada.');
+    console.error('   Rode: agent.js --setup  (ou configure LABELGO_PRINTER_NAME)');
     process.exit(1);
   }
 
-  console.log(`🚀 Printly Agent iniciado (${adapter.name})`);
-  console.log(`   Servidor: ${SERVER_URL}`);
-  console.log(`   Impressora: ${PRINTER_NAME}`);
-  console.log(`   Intervalo: ${POLL_INTERVAL}ms`);
-  console.log(`   Agent ID: ${AGENT_ID}\n`);
+  const deps = {
+    adapter,
+    printerName: config.printerName,
+    serverUrl: config.serverUrl,
+    agentToken: config.agentToken,
+    stateDir,
+  };
 
-  // Start heartbeat
-  startHeartbeat();
+  console.log(`🚀 LabelGo Agent iniciado (${adapter.name})`);
+  console.log(`   Servidor: ${config.serverUrl}`);
+  console.log(`   Impressora: ${config.printerName}`);
+  console.log(`   Intervalo: ${config.pollInterval}ms`);
+  console.log(`   Estado local: ${stateDir}`);
+  console.log(`   Agent ID: ${agentId}\n`);
 
-  // Run immediately, then on interval
+  startHeartbeat(config.serverUrl, config.agentToken, agentId);
+
+  const poll = async () => {
+    try {
+      // Retry confirmations for labels already sent to the printer — never
+      // reprint them.
+      const pending = listPendingReceipts(stateDir).length;
+      if (pending > 0) {
+        console.log(`📨 ${pending} confirmação(ões) pendente(s) de recibo local`);
+        await flushPendingConfirmations(deps);
+      }
+
+      const jobs = await claimJobs(config.serverUrl, config.agentToken, agentId, 5);
+      if (jobs.length > 0) {
+        console.log(`📬 ${jobs.length} etiqueta(s) reclamadas da fila`);
+      }
+      for (const job of jobs) {
+        await processJob(job, deps);
+      }
+    } catch (err) {
+      if (err && err.code === 'subscription_required') {
+        console.error(`[poll] ${err.message}`);
+      } else {
+        console.error(`[poll] ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  };
+
   poll();
-  setInterval(poll, POLL_INTERVAL);
+  setInterval(poll, config.pollInterval);
 }
 
 // ---------------------------------------------------------------------------
 // Heartbeat — tells the server this agent is online
 // ---------------------------------------------------------------------------
 
-async function startHeartbeat() {
-  const sendHeartbeat = async () => {
+async function startHeartbeat(serverUrl, agentToken, agentId) {
+  const beat = async () => {
     try {
-      await fetch(`${SERVER_URL}/api/auto-print/heartbeat`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${AGENT_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId: AGENT_ID }),
-      });
+      await sendHeartbeat(serverUrl, agentToken, agentId);
     } catch (err) {
       console.error(`[heartbeat] ${err.message}`);
     }
   };
 
-  sendHeartbeat();
-  setInterval(sendHeartbeat, 30_000); // every 30s
-}
-
-// ---------------------------------------------------------------------------
-// Server communication
-// ---------------------------------------------------------------------------
-
-async function claimJobs() {
-  const resp = await fetch(`${SERVER_URL}/api/auto-print/queue/claim`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${AGENT_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ agentId: AGENT_ID, limit: 5 }),
-  });
-
-  if (resp.status === 401) {
-    throw new Error('Token do agente inválido. Gere um novo token no painel do Printly.');
-  }
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Server error ${resp.status}: ${text}`);
-  }
-
-  const data = await resp.json();
-  return data.jobs || [];
-}
-
-async function markPrinted(jobId) {
-  await fetch(`${SERVER_URL}/api/auto-print/queue/${jobId}/printed`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${AGENT_TOKEN}`, 'Content-Type': 'application/json' },
-    body: '{}'
-  });
-}
-
-async function markFailed(jobId, error) {
-  await fetch(`${SERVER_URL}/api/auto-print/queue/${jobId}/failed`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${AGENT_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ error: error.slice(0, 500) })
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Job processing
-// ---------------------------------------------------------------------------
-
-async function processJob(job) {
-  console.log(`🖨️  Imprimindo etiqueta do shipment ${job.shipment_id} (job #${job.id})...`);
-
-  try {
-    const result = await adapter.printZpl(PRINTER_NAME, job.zpl);
-    console.log(`   ✅ ${result || 'OK'}`);
-    await markPrinted(job.id);
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error(`   ❌ Erro ao imprimir: ${msg}`);
-    await markFailed(job.id, msg);
-  }
-}
-
-async function poll() {
-  try {
-    const jobs = await claimJobs();
-    if (jobs.length > 0) {
-      console.log(`📬 ${jobs.length} etiqueta(s) reclamadas da fila`);
-    }
-    for (const job of jobs) {
-      await processJob(job);
-    }
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error(`[poll] ${msg}`);
-  }
+  beat();
+  setInterval(beat, 30_000);
 }

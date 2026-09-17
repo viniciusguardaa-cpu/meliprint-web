@@ -1,12 +1,13 @@
 /**
  * Printer adapter interface — abstracts OS-specific printing.
- * Each adapter implements raw ZPL printing + printer discovery.
+ *
+ * @typedef {Object} PrinterAdapter
+ * @property {(printerName: string, zpl: string) => Promise<string>} printZpl
+ *   Print raw ZPL to the specified printer. Resolves once the spooler accepts
+ *   the job (this does NOT prove physical printing).
+ * @property {() => Promise<string[]>} listPrinters
+ *   List available printer names.
+ * @property {string} name
+ *   Human-readable adapter name (e.g. "CUPS", "Windows").
  */
-export interface PrinterAdapter {
-  /** Print raw ZPL to the specified printer. */
-  printZpl(printerName: string, zpl: string): Promise<string>;
-  /** List available printer names. */
-  listPrinters(): Promise<string[]>;
-  /** Human-readable adapter name (e.g. "CUPS", "Windows"). */
-  readonly name: string;
-}
+export { };

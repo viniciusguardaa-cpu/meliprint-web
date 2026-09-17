@@ -10,9 +10,14 @@ import {
   retryFailedJob,
   getPrintQueueStats,
   updateAgentHeartbeat,
-  getUserByMlId
+  getUserByMlId,
+  hasProAccess,
+  getJobsNeedingReview,
+  resolveJobReview,
+  createPairingCode
 } from '../db.js';
 import { requireActiveSubscription, requirePlanFeature } from '../middleware/subscription.js';
+import { trackEvent } from '../services/analytics.js';
 
 const router = Router();
 
@@ -133,6 +138,58 @@ router.post('/queue/:id/retry', requireActiveSubscription, async (req: Request, 
   res.json({ ok: true, job });
 });
 
+// List jobs with uncertain outcome (agent lost contact mid-print). These are
+// NEVER auto-reprinted — the owner decides.
+router.get('/queue/review', requireActiveSubscription, async (req: Request, res: Response) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  const user = await getUserByMlId(req.session.userId);
+  if (!user) {
+    return res.status(403).json({ error: 'subscription_required' });
+  }
+  const jobs = await getJobsNeedingReview(user.id);
+  res.json({ jobs });
+});
+
+// Resolve a needs_review job: 'requeue' (label did not come out) or
+// 'confirm_printed' (user verified the label was printed).
+router.post('/queue/:id/resolve', requireActiveSubscription, async (req: Request, res: Response) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  const user = await getUserByMlId(req.session.userId);
+  if (!user) {
+    return res.status(403).json({ error: 'subscription_required' });
+  }
+  const jobId = Number(req.params.id);
+  const action = req.body?.action;
+  if (!Number.isFinite(jobId) || (action !== 'requeue' && action !== 'confirm_printed')) {
+    return res.status(400).json({ error: 'Invalid job id or action' });
+  }
+  const job = await resolveJobReview(user.id, jobId, action);
+  if (!job) {
+    return res.status(404).json({ error: 'Review job not found for this tenant' });
+  }
+  res.json({ ok: true, job });
+});
+
+// Generate a short-lived pairing code for `labelgo-agent --setup`.
+router.post('/pairing-code', requirePlanFeature('auto_print'), async (req: Request, res: Response) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  const user = await getUserByMlId(req.session.userId);
+  if (!user) {
+    return res.status(403).json({ error: 'subscription_required' });
+  }
+  // 8-char code, unambiguous alphabet (no 0/O, 1/I/L).
+  const code = crypto.randomBytes(6).toString('hex').slice(0, 8).toUpperCase()
+    .replace(/0/g, '2').replace(/1/g, '7');
+  const row = await createPairingCode(user.id, code, 10);
+  res.json({ code: row.code, expiresAt: row.expires_at });
+});
+
 // ---------------------------------------------------------------------------
 // Routes protected by agent token (local agent, no browser session)
 // ---------------------------------------------------------------------------
@@ -148,6 +205,12 @@ function requireAgentToken(req: Request, res: Response, next: () => void) {
     const config = await getAutoPrintConfigByAgentToken(token);
     if (!config) {
       return res.status(401).json({ error: 'Invalid agent token' });
+    }
+    // Entitlement: a lapsed/expired subscription means no new Pro work.
+    // Cancelled subs keep access until current_period_end (checked inside
+    // hasProAccess).
+    if (!(await hasProAccess(config.user_id))) {
+      return res.status(403).json({ error: 'subscription_required' });
     }
     (req as any).agentConfig = config;
     next();
@@ -181,17 +244,32 @@ router.get('/queue', requireAgentToken, async (req: Request, res: Response) => {
   res.json({ jobs });
 });
 
-// Agent marks a job as printed
+// Agent confirms a job it already sent to the printer. `sentToPrinterAt` is
+// the agent's local timestamp for when the spooler accepted the job — it may
+// be well in the past when the confirmation is retried after a network drop.
 router.post('/queue/:id/printed', requireAgentToken, async (req: Request, res: Response) => {
   const config = (req as any).agentConfig;
   const jobId = Number(req.params.id);
   if (!Number.isFinite(jobId)) {
     return res.status(400).json({ error: 'Invalid job id' });
   }
-  const ok = await markPrintJobPrinted(config.user_id, jobId);
+  const rawSent = req.body?.sentToPrinterAt;
+  const sentAt = rawSent ? new Date(rawSent) : undefined;
+  const ok = await markPrintJobPrinted(
+    config.user_id,
+    jobId,
+    sentAt && !Number.isNaN(sentAt.getTime()) ? sentAt : undefined
+  );
   if (!ok) {
     return res.status(404).json({ error: 'Job not found for this tenant' });
   }
+
+  // Funnel event: first confirmed label for this account.
+  const stats = await getPrintQueueStats(config.user_id);
+  if (Number(stats.printed) === 1) {
+    await trackEvent({ event_name: 'first_label_printed', user_id: config.user_id });
+  }
+
   res.json({ ok: true });
 });
 

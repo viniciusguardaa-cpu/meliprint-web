@@ -53,6 +53,6 @@ CREATE TABLE IF NOT EXISTS "referral_signups" (
   "visitor_key" VARCHAR(255),
   "signed_up_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   "subscribed_at" TIMESTAMP,
-  "UNIQUE" ("referred_user_id")
+  UNIQUE("referred_user_id")
 );
 CREATE INDEX IF NOT EXISTS "IDX_referral_signups_referral" ON "referral_signups" ("referral_id");

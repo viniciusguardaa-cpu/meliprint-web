@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { getVisitorKey, track, captureUTM } from '../lib/analytics';
 import {
   Printer,
   Zap,
@@ -33,10 +34,12 @@ export default function Landing() {
   const [proPrice, setProPrice] = useState<number | null>(null);
 
   useEffect(() => {
+    captureUTM();
+    track('landing_view', { path: window.location.pathname });
     const fetchPlans = async () => {
       try {
-        const visitorKey = localStorage.getItem('printly_visitor_key') || '';
-        const res = await fetch(`/api/plans${visitorKey ? `?visitor_key=${visitorKey}` : ''}`);
+        const visitorKey = getVisitorKey();
+        const res = await fetch(`/api/plans?visitor_key=${encodeURIComponent(visitorKey)}`);
         if (res.ok) {
           const data = await res.json();
           const pro = (data.plans || []).find((p: Plan) => p.id === 'pro');
@@ -94,7 +97,7 @@ export default function Landing() {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
-          <img src="/logoazul.png" alt="Printly" className="h-8 sm:h-12 w-auto" />
+          <img src="/logoazul.png" alt="LabelGo" className="h-8 sm:h-12 w-auto" />
           <div className="flex items-center gap-2 sm:gap-4">
             {user ? (
               <button
@@ -288,7 +291,7 @@ export default function Landing() {
                   <span className="text-red-500 font-medium">~7 minutos</span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b">
-                  <span className="text-gray-600">Com Printly</span>
+                  <span className="text-gray-600">Com LabelGo</span>
                   <span className="text-green-500 font-medium">~2 minutos</span>
                 </div>
                 <div className="flex justify-between items-center py-3">
@@ -336,7 +339,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="Printly" className="h-10 w-auto brightness-0 invert" />
+              <img src="/logo.png" alt="LabelGo" className="h-10 w-auto brightness-0 invert" />
             </div>
             <div className="flex items-center gap-6 text-sm">
               <a href="/pricing" className="hover:text-white transition-colors">Preços</a>
@@ -344,7 +347,7 @@ export default function Landing() {
               <a href="/privacidade" className="hover:text-white transition-colors">Privacidade</a>
             </div>
             <div className="text-sm">
-              © {new Date().getFullYear()} Printly. Todos os direitos reservados.
+              © {new Date().getFullYear()} LabelGo. Todos os direitos reservados.
             </div>
           </div>
         </div>

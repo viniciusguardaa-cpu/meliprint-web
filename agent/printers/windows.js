@@ -18,8 +18,8 @@ export const windowsAdapter = {
     // PowerShell script: send raw bytes to the printer using RawPrinterHelper.
     // This avoids any Windows print processor rendering (which would corrupt ZPL).
     const psScript = `
-$bytes = [System.Text.Encoding]::Default.GetBytes([System.Environment]::GetEnvironmentVariable('PRINTLY_ZPL'))
-$printerName = [System.Environment]::GetEnvironmentVariable('PRINTLY_PRINTER')
+$bytes = [System.Text.Encoding]::Default.GetBytes([System.Environment]::GetEnvironmentVariable('LABELGO_ZPL'))
+$printerName = [System.Environment]::GetEnvironmentVariable('LABELGO_PRINTER')
 $method = [System.Drawing.Printing.PrinterSettings].GetMethod('RawPrinterHelper', [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Static)
 if (-not $method) {
   Add-Type -TypeDefinition @'
@@ -43,7 +43,7 @@ public class RawPrinterHelper {
   [DllImport("winspool.Drv", EntryPoint="WritePrinter", SetLastError=true)]
   public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, int dwCount, out int dwWritten);
   public static bool SendBytesToPrinter(string szPrinterName, IntPtr pBytes, int dwCount) {
-    IntPtr hPrinter; DOCINFO di = new DOCINFO(); di.pDocName = "Printly Label"; di.pDataType = "RAW";
+    IntPtr hPrinter; DOCINFO di = new DOCINFO(); di.pDocName = "LabelGo Label"; di.pDataType = "RAW";
     if (!OpenPrinter(szPrinterName.Normalize(), out hPrinter, IntPtr.Zero)) return false;
     if (hPrinter == IntPtr.Zero) return false;
     bool bSuccess = StartDocPrinter(hPrinter, 1, ref di);
@@ -64,8 +64,8 @@ public class RawPrinterHelper {
       const child = execFile('powershell', ['-NoProfile', '-Command', psScript], {
         env: {
           ...process.env,
-          PRINTLY_ZPL: zpl,
-          PRINTLY_PRINTER: printerName,
+          LABELGO_ZPL: zpl,
+          LABELGO_PRINTER: printerName,
         },
         timeout: 30000,
       }, (err, stdout, stderr) => {

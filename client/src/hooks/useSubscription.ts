@@ -1,11 +1,21 @@
 import { useState, useEffect } from 'react';
 
-interface SubscriptionStatus {
+export interface SubscriptionStatus {
   hasSubscription: boolean;
   status: string | null;
   currentPeriodEnd: string | null;
+  /** For cancelled subs still inside the paid period: last day of access. */
+  accessUntil?: string | null;
+  trialEndsAt?: string | null;
+  /** Days left in the trial (only when status === 'trialing'). */
+  trialDaysRemaining?: number | null;
+  planId?: string | null;
   planName: string | null;
   price: number | null;
+  autoPrint?: boolean;
+  isFreeAccess?: boolean;
+  /** Whether this account can still start a free trial (one per account). */
+  canTrial?: boolean;
 }
 
 export function useSubscription() {

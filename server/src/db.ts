@@ -60,6 +60,135 @@ export async function getActiveSubscription(userId: number) {
   return result.rows[0] || null;
 }
 
+/**
+ * Entitled subscription: the subscription that grants product access NOW.
+ * Includes authorized/active, in-window trials, and cancelled subscriptions
+ * still inside their contracted paid period (current_period_end in the
+ * future). This is the correct check for feature access; billing state
+ * checks should use getActiveSubscription.
+ */
+export async function getEntitledSubscription(userId: number) {
+  const result = await pool.query(
+    `SELECT * FROM "subscriptions"
+     WHERE "user_id" = $1 AND (
+       "status" IN ('authorized', 'active')
+       OR ("status" = 'trialing' AND "trial_ends_at" IS NOT NULL AND "trial_ends_at" > CURRENT_TIMESTAMP)
+       OR ("status" = 'cancelled' AND "current_period_end" IS NOT NULL AND "current_period_end" > CURRENT_TIMESTAMP)
+     )
+     ORDER BY "created_at" DESC LIMIT 1`,
+    [userId]
+  );
+  return result.rows[0] || null;
+}
+
+/** Whether the user may use Pro features (auto-print) right now. */
+export async function hasProAccess(userId: number): Promise<boolean> {
+  const result = await pool.query(
+    `SELECT EXISTS(
+       SELECT 1 FROM "subscriptions" s
+       JOIN "plans" p ON p."id" = s."plan_id"
+       WHERE s."user_id" = $1 AND p."auto_print" = true AND (
+         s."status" IN ('authorized', 'active')
+         OR (s."status" = 'trialing' AND s."trial_ends_at" IS NOT NULL AND s."trial_ends_at" > CURRENT_TIMESTAMP)
+         OR (s."status" = 'cancelled' AND s."current_period_end" IS NOT NULL AND s."current_period_end" > CURRENT_TIMESTAMP)
+       )
+     ) OR EXISTS(
+       SELECT 1 FROM "free_access" f
+       JOIN "users" u ON LOWER(u."email") = LOWER(f."email")
+       WHERE u."id" = $1
+     ) AS "has_access"`,
+    [userId]
+  );
+  return result.rows[0]?.has_access === true;
+}
+
+// Trial: one per account, ever — survives cancellation/expiration because it
+// is tracked on users.trial_started_at, not on the subscription row.
+export async function hasUsedTrial(userId: number): Promise<boolean> {
+  const result = await pool.query(
+    `SELECT "trial_started_at" FROM "users" WHERE "id" = $1`,
+    [userId]
+  );
+  return !!result.rows[0]?.trial_started_at;
+}
+
+export async function markTrialUsed(userId: number) {
+  await pool.query(
+    `UPDATE "users" SET "trial_started_at" = COALESCE("trial_started_at", CURRENT_TIMESTAMP) WHERE "id" = $1`,
+    [userId]
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Checkout sessions: durable idempotency for checkout creation. A row is
+// inserted BEFORE calling Mercado Pago; concurrent requests hit the unique
+// (user_id, idempotency_key) constraint and resolve to the same checkout.
+// ---------------------------------------------------------------------------
+
+/** Returns 'created' when the row was inserted, or the existing row on conflict. */
+export async function startCheckoutSession(
+  userId: number,
+  idempotencyKey: string,
+  planId: string,
+  priceId: number | null,
+  amount: number,
+  currency: string
+): Promise<{ created: boolean; session?: any }> {
+  try {
+    const result = await pool.query(
+      `INSERT INTO "checkout_sessions" ("user_id", "idempotency_key", "plan_id", "price_id", "amount", "currency", "status")
+       VALUES ($1, $2, $3, $4, $5, $6, 'processing')
+       RETURNING *`,
+      [userId, idempotencyKey, planId, priceId, amount, currency]
+    );
+    return { created: true, session: result.rows[0] };
+  } catch (err: any) {
+    if (err.code === '23505') {
+      const existing = await pool.query(
+        `SELECT * FROM "checkout_sessions" WHERE "user_id" = $1 AND "idempotency_key" = $2`,
+        [userId, idempotencyKey]
+      );
+      return { created: false, session: existing.rows[0] };
+    }
+    throw err;
+  }
+}
+
+export async function completeCheckoutSession(id: number, preapprovalId: string, checkoutUrl: string) {
+  await pool.query(
+    `UPDATE "checkout_sessions" SET
+       "status" = 'completed',
+       "preapproval_id" = $2,
+       "checkout_url" = $3,
+       "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1`,
+    [id, preapprovalId, checkoutUrl]
+  );
+}
+
+export async function failCheckoutSession(id: number, error: string) {
+  await pool.query(
+    `UPDATE "checkout_sessions" SET
+       "status" = 'failed',
+       "error" = $2,
+       "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1`,
+    [id, error.slice(0, 500)]
+  );
+}
+
+/** Re-open a failed session for a retry with the same key. */
+export async function retryCheckoutSession(id: number) {
+  await pool.query(
+    `UPDATE "checkout_sessions" SET
+       "status" = 'processing',
+       "error" = NULL,
+       "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1 AND "status" = 'failed'`,
+    [id]
+  );
+}
+
 export async function createSubscription(
   userId: number,
   mpPreapprovalId: string,
@@ -186,11 +315,19 @@ export async function getAllSubscribers() {
 }
 
 export async function getAdminStats() {
+  // Paid MRR only: authorized/active subscriptions, excluding free-access
+  // courtesy accounts and trials (trialing is not paid revenue).
   const result = await pool.query(
     `SELECT
        (SELECT COUNT(*) FROM "users") AS total_users,
        (SELECT COUNT(*) FROM "subscriptions" WHERE "status" IN ('authorized', 'active')) AS active_subscriptions,
-       (SELECT COALESCE(SUM("price"), 0) FROM "subscriptions" WHERE "status" IN ('authorized', 'active')) AS mrr,
+       (SELECT COALESCE(SUM(s."contracted_amount"), 0)
+          FROM "subscriptions" s
+          JOIN "users" u ON u."id" = s."user_id"
+          WHERE s."status" IN ('authorized', 'active')
+            AND NOT EXISTS (
+              SELECT 1 FROM "free_access" f WHERE LOWER(f."email") = LOWER(u."email")
+            )) AS mrr,
        (SELECT COUNT(*) FROM "subscriptions" WHERE "status" = 'cancelled') AS cancelled_subscriptions`
   );
   return result.rows[0];
@@ -286,8 +423,26 @@ export async function updateAutoPrintLastPolled(userId: number) {
 }
 
 export async function getAutoPrintEnabledConfigs() {
+  // Only configs whose owner currently has Pro access: authorized/active
+  // subscription on an auto_print plan, in-window trial, cancelled-but-still-
+  // in-period, or a free-access courtesy account.
   const result = await pool.query(
-    `SELECT * FROM "auto_print_config" WHERE "enabled" = true`
+    `SELECT c.* FROM "auto_print_config" c
+     JOIN "users" u ON u."id" = c."user_id"
+     WHERE c."enabled" = true AND (
+       EXISTS (
+         SELECT 1 FROM "subscriptions" s
+         JOIN "plans" p ON p."id" = s."plan_id"
+         WHERE s."user_id" = c."user_id" AND p."auto_print" = true AND (
+           s."status" IN ('authorized', 'active')
+           OR (s."status" = 'trialing' AND s."trial_ends_at" IS NOT NULL AND s."trial_ends_at" > CURRENT_TIMESTAMP)
+           OR (s."status" = 'cancelled' AND s."current_period_end" IS NOT NULL AND s."current_period_end" > CURRENT_TIMESTAMP)
+         )
+       )
+       OR EXISTS (
+         SELECT 1 FROM "free_access" f WHERE LOWER(f."email") = LOWER(u."email") AND u."email" IS NOT NULL
+       )
+     )`
   );
   for (const row of result.rows) {
     row.ml_access_token = row.ml_access_token ? decrypt(row.ml_access_token) : null;
@@ -363,16 +518,16 @@ export async function claimPrintJobs(userId: number, agentId: string, limit = 5)
 }
 
 /**
- * Reclaim jobs stuck in 'processing' for too long (agent died mid-print).
- * Jobs claimed more than `staleMs` ago are reset to 'pending' (retryable).
+ * Jobs stuck in 'processing' for too long (agent died mid-print or lost
+ * network after printing). The outcome is UNCERTAIN — the label may already
+ * be in the spooler — so we move them to 'needs_review' for a human decision
+ * instead of auto-reprinting.
  */
 export async function releaseStaleJobs(staleMs = 5 * 60 * 1000) {
   const result = await pool.query(
     `UPDATE "print_queue" SET
-       "status" = 'pending',
-       "claimed_at" = NULL,
-       "claimed_by" = NULL,
-       "last_error" = COALESCE("last_error", 'stale_processing_reclaimed'),
+       "status" = 'needs_review',
+       "last_error" = COALESCE("last_error", 'agent_lost_contact_uncertain'),
        "updated_at" = CURRENT_TIMESTAMP
      WHERE "status" = 'processing'
        AND "claimed_at" IS NOT NULL
@@ -381,6 +536,42 @@ export async function releaseStaleJobs(staleMs = 5 * 60 * 1000) {
     [String(staleMs)]
   );
   return result.rows;
+}
+
+export async function getJobsNeedingReview(userId: number) {
+  const result = await pool.query(
+    `SELECT "id", "shipment_id", "created_at", "claimed_at", "claimed_by", "last_error", "sent_to_printer_at"
+     FROM "print_queue"
+     WHERE "user_id" = $1 AND "status" = 'needs_review'
+     ORDER BY "created_at" ASC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+/**
+ * Resolve a needs_review job (owner-scoped):
+ *  - 'requeue': the label was never printed → back to pending.
+ *  - 'confirm_printed': the user verified the label came out → printed.
+ */
+export async function resolveJobReview(userId: number, jobId: number, action: 'requeue' | 'confirm_printed') {
+  const sql = action === 'requeue'
+    ? `UPDATE "print_queue" SET
+         "status" = 'pending',
+         "claimed_at" = NULL, "claimed_by" = NULL,
+         "error" = NULL,
+         "updated_at" = CURRENT_TIMESTAMP
+       WHERE "id" = $1 AND "user_id" = $2 AND "status" = 'needs_review'
+       RETURNING *`
+    : `UPDATE "print_queue" SET
+         "status" = 'printed',
+         "printed_at" = COALESCE("sent_to_printer_at", CURRENT_TIMESTAMP),
+         "confirmed_at" = COALESCE("confirmed_at", CURRENT_TIMESTAMP),
+         "updated_at" = CURRENT_TIMESTAMP
+       WHERE "id" = $1 AND "user_id" = $2 AND "status" = 'needs_review'
+       RETURNING *`;
+  const result = await pool.query(sql, [jobId, userId]);
+  return result.rows[0] || null;
 }
 
 /** Manual retry of a failed job (owner-scoped). Resets to pending. */
@@ -417,11 +608,16 @@ export async function regenerateJob(userId: number, jobId: number, zpl: string) 
   return result.rows[0] || null;
 }
 
-export async function markPrintJobPrinted(userId: number, jobId: number) {
+export async function markPrintJobPrinted(userId: number, jobId: number, sentToPrinterAt?: Date) {
   const result = await pool.query(
-    `UPDATE "print_queue" SET "status" = 'printed', "printed_at" = CURRENT_TIMESTAMP, "updated_at" = CURRENT_TIMESTAMP
+    `UPDATE "print_queue" SET
+       "status" = 'printed',
+       "sent_to_printer_at" = COALESCE($3, "sent_to_printer_at", CURRENT_TIMESTAMP),
+       "printed_at" = COALESCE($3, "sent_to_printer_at", CURRENT_TIMESTAMP),
+       "confirmed_at" = CURRENT_TIMESTAMP,
+       "updated_at" = CURRENT_TIMESTAMP
      WHERE "id" = $1 AND "user_id" = $2`,
-    [jobId, userId]
+    [jobId, userId, sentToPrinterAt || null]
   );
   return (result.rowCount ?? 0) > 0;
 }
@@ -495,21 +691,50 @@ export async function getAgentStatusCounts() {
 // ---------------------------------------------------------------------------
 
 /**
- * Try to record a webhook event. Returns true if it's new (should process),
- * false if it was already processed (idempotent skip).
+ * Try to record a webhook event for processing.
+ * Returns:
+ *  - 'new': first time we see this event key → process it.
+ *  - 'retry': we saw it before but processing failed → process again.
+ *  - 'duplicate': already processed (or currently processing) → skip.
  */
-export async function recordWebhookEventIfNew(provider: string, eventKey: string, payload?: any): Promise<boolean> {
+export async function recordWebhookEvent(provider: string, eventKey: string, payload?: any): Promise<'new' | 'retry' | 'duplicate'> {
   try {
     await pool.query(
-      `INSERT INTO "webhook_events" ("provider", "event_key", "payload") VALUES ($1, $2, $3)`,
+      `INSERT INTO "webhook_events" ("provider", "event_key", "payload", "status")
+       VALUES ($1, $2, $3, 'received')`,
       [provider, eventKey, payload ? JSON.stringify(payload) : null]
     );
-    return true;
+    return 'new';
   } catch (err: any) {
-    // Unique violation → already processed
-    if (err.code === '23505') return false;
-    throw err;
+    if (err.code !== '23505') throw err;
+    // Existing row: retry if the previous processing failed (or looks stuck
+    // in 'received' for >10min — process crashed mid-handling).
+    const existing = await pool.query(
+      `UPDATE "webhook_events" SET "attempts" = "attempts" + 1
+       WHERE "provider" = $1 AND "event_key" = $2
+         AND ("status" = 'failed'
+              OR ("status" = 'received' AND "processed_at" < CURRENT_TIMESTAMP - INTERVAL '10 minutes'))
+       RETURNING "status"`,
+      [provider, eventKey]
+    );
+    return (existing.rowCount ?? 0) > 0 ? 'retry' : 'duplicate';
   }
+}
+
+export async function markWebhookEventProcessed(provider: string, eventKey: string) {
+  await pool.query(
+    `UPDATE "webhook_events" SET "status" = 'processed', "processed_at" = CURRENT_TIMESTAMP, "last_error" = NULL
+     WHERE "provider" = $1 AND "event_key" = $2`,
+    [provider, eventKey]
+  );
+}
+
+export async function markWebhookEventFailed(provider: string, eventKey: string, error: string) {
+  await pool.query(
+    `UPDATE "webhook_events" SET "status" = 'failed', "last_error" = $3
+     WHERE "provider" = $1 AND "event_key" = $2`,
+    [provider, eventKey, error.slice(0, 500)]
+  );
 }
 
 export async function recordBillingEvent(
@@ -532,27 +757,86 @@ export async function recordBillingEvent(
 // ---------------------------------------------------------------------------
 
 /**
- * Record an ML notification if new. Returns true if new (should process),
- * false if duplicate (idempotent skip).
+ * Record an ML notification if new. Dedup is per DELIVERY (delivery_key =
+ * the notification's unique _id, or a stable hash fallback) so successive
+ * changes to the same shipment are all processed.
+ * Returns the row id when new, or null when it's a duplicate delivery.
  */
-export async function recordMLNotificationIfNew(topic: string, resource: string, userId?: number, payload?: any): Promise<boolean> {
+export async function recordMLNotificationIfNew(
+  topic: string,
+  resource: string,
+  deliveryKey: string,
+  userId?: number,
+  payload?: any
+): Promise<number | null> {
   try {
-    await pool.query(
-      `INSERT INTO "ml_notifications" ("topic", "resource", "user_id", "payload") VALUES ($1, $2, $3, $4)`,
-      [topic, resource, userId ?? null, payload ? JSON.stringify(payload) : null]
+    const result = await pool.query(
+      `INSERT INTO "ml_notifications" ("topic", "resource", "delivery_key", "user_id", "payload")
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING "id"`,
+      [topic, resource, deliveryKey, userId ?? null, payload ? JSON.stringify(payload) : null]
     );
-    return true;
+    return result.rows[0].id;
   } catch (err: any) {
-    if (err.code === '23505') return false; // unique violation → duplicate
+    if (err.code === '23505') return null; // same delivery retried by ML
     throw err;
   }
 }
 
-export async function markMLNotificationProcessed(topic: string, resource: string) {
+export async function markMLNotificationProcessed(id: number) {
   await pool.query(
-    `UPDATE "ml_notifications" SET "processed" = true WHERE "topic" = $1 AND "resource" = $2`,
-    [topic, resource]
+    `UPDATE "ml_notifications" SET "processed" = true, "processed_at" = CURRENT_TIMESTAMP, "last_error" = NULL WHERE "id" = $1`,
+    [id]
   );
+}
+
+export async function markMLNotificationFailed(id: number, error: string) {
+  await pool.query(
+    `UPDATE "ml_notifications" SET "attempts" = "attempts" + 1, "last_error" = $2 WHERE "id" = $1`,
+    [id, error.slice(0, 500)]
+  );
+}
+
+/**
+ * Unprocessed notifications older than `olderThanMs`, for the retry sweeper.
+ * Rows that keep failing eventually exceed maxAttempts and stay for audit.
+ */
+export async function getUnprocessedMLNotifications(olderThanMs = 60_000, maxAttempts = 10, limit = 50) {
+  const result = await pool.query(
+    `SELECT * FROM "ml_notifications"
+     WHERE "processed" = false
+       AND "attempts" < $1
+       AND "received_at" < CURRENT_TIMESTAMP - ($2 || ' milliseconds')::INTERVAL
+     ORDER BY "received_at" ASC
+     LIMIT $3`,
+    [maxAttempts, String(olderThanMs), limit]
+  );
+  return result.rows;
+}
+
+// ---------------------------------------------------------------------------
+// Agent pairing codes
+// ---------------------------------------------------------------------------
+
+export async function createPairingCode(userId: number, code: string, ttlMinutes = 10) {
+  const result = await pool.query(
+    `INSERT INTO "agent_pairing_codes" ("code", "user_id", "expires_at")
+     VALUES ($1, $2, CURRENT_TIMESTAMP + ($3 || ' minutes')::INTERVAL)
+     RETURNING *`,
+    [code, userId, String(ttlMinutes)]
+  );
+  return result.rows[0];
+}
+
+/** Consume a pairing code atomically: returns the row if valid+unused. */
+export async function consumePairingCode(code: string) {
+  const result = await pool.query(
+    `UPDATE "agent_pairing_codes" SET "used_at" = CURRENT_TIMESTAMP
+     WHERE "code" = $1 AND "used_at" IS NULL AND "expires_at" > CURRENT_TIMESTAMP
+     RETURNING *`,
+    [code]
+  );
+  return result.rows[0] || null;
 }
 
 export default pool;

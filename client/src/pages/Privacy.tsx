@@ -17,7 +17,7 @@ export default function Privacy() {
             <h2 className="text-lg font-semibold text-gray-900">1. Quem somos</h2>
             <p>
               Esta Política de Privacidade descreve como <strong>[RAZÃO SOCIAL DA EMPRESA]</strong>
-              {' '}(CNPJ <strong>[CNPJ]</strong>), responsável pelo Printly, coleta, usa e protege
+              {' '}(CNPJ <strong>[CNPJ]</strong>), responsável pelo LabelGo, coleta, usa e protege
               seus dados pessoais, em conformidade com a Lei Geral de Proteção de Dados
               (Lei nº 13.709/2018 - LGPD).
             </p>

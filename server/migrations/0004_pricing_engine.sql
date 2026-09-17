@@ -86,10 +86,10 @@ CREATE TABLE IF NOT EXISTS "coupons" (
 -- Seed initial plans and prices.
 INSERT INTO "plans" ("id", "name", "description", "auto_print", "is_active", "sort_order", "features")
 VALUES
-  ('start', 'Printly Start', 'Impressão manual de etiquetas para sellers iniciantes', false, true, 1,
+  ('start', 'LabelGo Start', 'Impressão manual de etiquetas para sellers iniciantes', false, true, 1,
     '["Conectar Mercado Livre","Visualizar envios","Gerar etiquetas","PDF","ZPL","Impressão em lote"]'),
-  ('pro', 'Printly Pro', 'Impressão automática e fila inteligente para volume diário', true, true, 2,
-    '["Todos os recursos Start","Impressão automática","Printly Agent","Fila automática","Monitoramento de impressão","Histórico","Retries"]')
+  ('pro', 'LabelGo Pro', 'Impressão automática e fila inteligente para volume diário', true, true, 2,
+    '["Todos os recursos Start","Impressão automática","LabelGo Agent","Fila automática","Monitoramento de impressão","Histórico","Retries"]')
 ON CONFLICT ("id") DO UPDATE SET
   "name" = EXCLUDED."name",
   "description" = EXCLUDED."description",

@@ -21,7 +21,7 @@ function getKey(): Buffer {
     }
     // Development: derive a stable ephemeral key so the app still runs locally.
     // Never used in production. Logged once at startup.
-    return crypto.createHash('sha256').update('printly-dev-key').digest();
+    return crypto.createHash('sha256').update('labelgo-dev-key').digest();
   }
   let key: Buffer;
   // Accept either raw base64 of 32 bytes, or a hex string, or a utf8 passphrase (hashed).

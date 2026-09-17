@@ -16,7 +16,7 @@ export default function Terms() {
           <section>
             <h2 className="text-lg font-semibold text-gray-900">1. Sobre o serviço</h2>
             <p>
-              O Printly ("nós", "nosso" ou "serviço") é uma plataforma que permite a impressão
+              O LabelGo ("nós", "nosso" ou "serviço") é uma plataforma que permite a impressão
               rápida de etiquetas de envio do Mercado Livre em formato ZPL/PDF, oferecida por{' '}
               <strong>[RAZÃO SOCIAL DA EMPRESA]</strong>, inscrita no CNPJ sob o nº{' '}
               <strong>[CNPJ]</strong>, com sede em <strong>[ENDEREÇO]</strong>.
@@ -26,7 +26,7 @@ export default function Terms() {
           <section>
             <h2 className="text-lg font-semibold text-gray-900">2. Cadastro e acesso</h2>
             <p>
-              O acesso ao Printly é feito exclusivamente através de login com sua conta do
+              O acesso ao LabelGo é feito exclusivamente através de login com sua conta do
               Mercado Livre (OAuth). Ao autorizar o acesso, você declara ser o legítimo
               titular ou representante autorizado da conta de vendedor conectada.
             </p>
@@ -45,7 +45,7 @@ export default function Terms() {
           <section>
             <h2 className="text-lg font-semibold text-gray-900">4. Uso permitido</h2>
             <p>
-              Você concorda em usar o Printly apenas para gerar etiquetas e documentos
+              Você concorda em usar o LabelGo apenas para gerar etiquetas e documentos
               fiscais relacionados aos seus próprios envios no Mercado Livre, não sendo
               permitido o uso para fins ilícitos ou para acessar dados de contas de
               terceiros sem autorização.
@@ -55,7 +55,7 @@ export default function Terms() {
           <section>
             <h2 className="text-lg font-semibold text-gray-900">5. Limitação de responsabilidade</h2>
             <p>
-              O Printly depende de APIs de terceiros (Mercado Livre e Mercado Pago) para
+              O LabelGo depende de APIs de terceiros (Mercado Livre e Mercado Pago) para
               funcionar. Não nos responsabilizamos por indisponibilidades, alterações ou
               falhas nesses serviços que estejam fora do nosso controle.
             </p>

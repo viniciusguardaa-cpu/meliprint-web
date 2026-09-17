@@ -1,5 +1,6 @@
-import { getAutoPrintEnabledConfigs, updateAutoPrintTokens, updateAutoPrintLastPolled, addPrintQueueJob, releaseStaleJobs, markStaleAgentsOffline } from '../db.js';
+import { getAutoPrintEnabledConfigs, updateAutoPrintTokens, updateAutoPrintLastPolled, addPrintQueueJob, releaseStaleJobs, markStaleAgentsOffline, getUnprocessedMLNotifications } from '../db.js';
 import { searchShipments, getShipment, getShipmentLabelsZPL, refreshAccessToken } from '../services/mercadolivre.js';
+import { reprocessNotificationRow } from '../routes/notifications.js';
 
 const POLL_INTERVAL_MS = 5 * 60_000; // 5 minutes — reconciliation fallback.
 // Real-time printing is driven by ML notifications (POST /api/notifications).
@@ -108,10 +109,24 @@ export function startAutoPrintPoller() {
 
   const run = async () => {
     try {
-      // Reclaim jobs stuck in 'processing' (agent died mid-print) and mark
-      // agents with stale heartbeats as offline.
+      // Jobs stuck in 'processing' become 'needs_review' (uncertain outcome —
+      // never auto-reprinted), and agents with stale heartbeats go offline.
       await releaseStaleJobs();
       await markStaleAgentsOffline();
+
+      // Retry ML notifications whose processing failed (token refresh hiccup,
+      // transient ML error). Persisted retries complement ML's own redelivery.
+      try {
+        const unprocessed = await getUnprocessedMLNotifications();
+        if (unprocessed.length > 0) {
+          console.log(`[autoPrintPoller] Retrying ${unprocessed.length} unprocessed ML notification(s)`);
+          for (const row of unprocessed) {
+            await reprocessNotificationRow(row);
+          }
+        }
+      } catch (err) {
+        console.error('[autoPrintPoller] Notification sweeper failed:', err);
+      }
 
       const configs = await getAutoPrintEnabledConfigs();
       if (configs.length === 0) return;

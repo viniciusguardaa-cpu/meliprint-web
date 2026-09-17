@@ -29,6 +29,7 @@ import adminRoutes from './routes/admin.js';
 import autoPrintRoutes from './routes/autoPrint.js';
 import healthRoutes from './routes/health.js';
 import notificationsRoutes from './routes/notifications.js';
+import agentRoutes from './routes/agent.js';
 import plansRoutes from './routes/plans.js';
 import analyticsRoutes from './routes/analytics.js';
 import toolsRoutes from './routes/tools.js';
@@ -78,7 +79,7 @@ function getSessionStore() {
 
 app.use(session({
   store: getSessionStore(),
-  secret: process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'printly-dev-secret'),
+  secret: process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'labelgo-dev-secret'),
   resave: false,
   saveUninitialized: false,
   rolling: true, // reset maxAge on every request, so active users don't get logged out
@@ -104,6 +105,7 @@ app.use('/api/subscription/checkout', checkoutLimiter);
 app.use('/api/subscription', generalLimiter, subscriptionRoutes);
 app.use('/api/admin', generalLimiter, adminRoutes);
 app.use('/api/auto-print', generalLimiter, autoPrintRoutes);
+app.use('/api/agent', agentRoutes); // has its own stricter limiter on /pair
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {

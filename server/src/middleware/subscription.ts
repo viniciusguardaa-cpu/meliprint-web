@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { getUserByMlId, getActiveSubscription, isFreeAccessEmail } from '../db.js';
+import { getUserByMlId, getEntitledSubscription, isFreeAccessEmail } from '../db.js';
 import { getPlan } from '../services/pricing.js';
 
 /**
@@ -24,16 +24,11 @@ export async function requireActiveSubscription(req: Request, res: Response, nex
       return res.status(403).json({ error: 'subscription_required', message: 'Assinatura ativa necessária para usar este recurso' });
     }
 
-    const subscription = await getActiveSubscription(user.id);
+    // Entitled = authorized/active, in-window trial, or cancelled but still
+    // inside the contracted period (access until current_period_end).
+    const subscription = await getEntitledSubscription(user.id);
     if (!subscription) {
       return res.status(403).json({ error: 'subscription_required', message: 'Assinatura ativa necessária para usar este recurso' });
-    }
-
-    // Check if trial has expired
-    if (subscription.status === 'trialing' && subscription.trial_ends_at) {
-      if (new Date(subscription.trial_ends_at) < new Date()) {
-        return res.status(403).json({ error: 'trial_expired', message: 'Seu período de teste terminou. Assine um plano para continuar.' });
-      }
     }
 
     (req as any).planId = subscription.plan_id;
@@ -69,16 +64,9 @@ export function requirePlanFeature(feature: 'auto_print') {
         return res.status(403).json({ error: 'subscription_required', message: 'Assinatura ativa necessária' });
       }
 
-      const subscription = await getActiveSubscription(user.id);
+      const subscription = await getEntitledSubscription(user.id);
       if (!subscription) {
         return res.status(403).json({ error: 'subscription_required', message: 'Assinatura ativa necessária' });
-      }
-
-      // Check if trial has expired
-      if (subscription.status === 'trialing' && subscription.trial_ends_at) {
-        if (new Date(subscription.trial_ends_at) < new Date()) {
-          return res.status(403).json({ error: 'trial_expired', message: 'Seu período de teste terminou.' });
-        }
       }
 
       const planId = subscription.plan_id;
@@ -95,7 +83,7 @@ export function requirePlanFeature(feature: 'auto_print') {
       if (!hasFeature) {
         return res.status(403).json({
           error: 'plan_upgrade_required',
-          message: `Seu plano (${plan.name}) não inclui este recurso. Faça upgrade para o Printly Pro.`
+          message: `Seu plano (${plan.name}) não inclui este recurso. Faça upgrade para o LabelGo Pro.`
         });
       }
 

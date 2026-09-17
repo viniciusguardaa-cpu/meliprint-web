@@ -30,7 +30,8 @@ router.get('/stats', async (_req: Request, res: Response) => {
     const stats = await getAdminStats();
     const agents = await getAgentStatusCounts();
 
-    // MRR breakdown by plan
+    // MRR breakdown by plan — PAID only: trialing and free-access courtesy
+    // accounts are excluded (trials are not revenue).
     const mrrByPlan = await pool.query(`
       SELECT
         s."plan_id",
@@ -38,9 +39,13 @@ router.get('/stats', async (_req: Request, res: Response) => {
         COUNT(*) AS subscription_count,
         COALESCE(SUM(s."contracted_amount"), 0) AS mrr
       FROM "subscriptions" s
+      JOIN "users" u ON u."id" = s."user_id"
       LEFT JOIN "plans" p ON p."id" = s."plan_id"
-      WHERE s."status" IN ('authorized', 'active', 'trialing')
+      WHERE s."status" IN ('authorized', 'active')
         AND s."plan_id" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM "free_access" f WHERE LOWER(f."email") = LOWER(u."email")
+        )
       GROUP BY s."plan_id", p."name"
       ORDER BY mrr DESC
     `);

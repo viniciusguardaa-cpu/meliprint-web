@@ -62,7 +62,7 @@ describe('plan entitlement & trial expiration', () => {
     mockQuery.mockResolvedValue({
       rows: [{
         id: 'pro',
-        name: 'Printly Pro',
+        name: 'LabelGo Pro',
         description: 'Pro plan',
         auto_print: true,
         is_active: true,

@@ -8,6 +8,8 @@ import {
   getUserInfo,
   refreshAccessToken
 } from '../services/mercadolivre.js';
+import { findOrCreateUser } from '../db.js';
+import { trackEvent } from '../services/analytics.js';
 
 declare module 'express-session' {
   interface SessionData {
@@ -100,6 +102,11 @@ router.get('/callback', async (req: Request, res: Response) => {
     req.session.tokenExpiresAt = Date.now() + tokens.expires_in * 1000;
     delete req.session.codeVerifier;
     delete req.session.oauthState;
+
+    // Persist the user at connect time so funnel events (ml_connected) and
+    // later billing events have an internal user row to attach to.
+    const dbUser = await findOrCreateUser(userInfo.id, userInfo.nickname, userInfo.email);
+    await trackEvent({ event_name: 'ml_connected', user_id: dbUser.id });
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     res.redirect(`${frontendUrl}/dashboard`);

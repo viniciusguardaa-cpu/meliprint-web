@@ -1,23 +1,36 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { MercadoPagoConfig, PreApproval } from 'mercadopago';
 import {
   findOrCreateUser,
   getUserByMlId,
   getActiveSubscription,
+  getEntitledSubscription,
   createSubscription,
   updateSubscriptionByPreapprovalId,
   getSubscriptionByPreapprovalId,
   isFreeAccessEmail,
-  recordWebhookEventIfNew,
-  recordBillingEvent
+  recordWebhookEvent,
+  markWebhookEventProcessed,
+  markWebhookEventFailed,
+  recordBillingEvent,
+  hasUsedTrial,
+  markTrialUsed,
+  startCheckoutSession,
+  completeCheckoutSession,
+  failCheckoutSession,
+  retryCheckoutSession
 } from '../db.js';
+import pool from '../db.js';
 import { isValidWebhookSignature } from '../services/webhookSignature.js';
-import { getPlan, getPriceForPlan, planHasAutoPrint } from '../services/pricing.js';
+import { getPlan, getPriceForPlan, getAssignedVariantPrice, linkAssignmentToUser } from '../services/pricing.js';
+import { trackEvent, markReferralSubscribed } from '../services/analytics.js';
 
 const router = Router();
 
 const TRIAL_DAYS = 7;
 const TRIAL_PLAN_ID = 'pro';
+const MP_API_URL = 'https://api.mercadopago.com';
 
 function getMercadoPagoClient() {
   const accessToken = process.env.MP_ACCESS_TOKEN;
@@ -42,51 +55,51 @@ router.get('/status', async (req: Request, res: Response) => {
         status: 'authorized',
         currentPeriodEnd: null,
         planId: 'pro',
-        planName: 'Printly Pro - Vitalício',
+        planName: 'LabelGo Pro - Vitalício',
         price: 0,
         isFreeAccess: true,
-        autoPrint: true
+        autoPrint: true,
+        canTrial: false
       });
     }
 
     const user = await getUserByMlId(req.session.userId);
-    
+
     if (!user) {
-      return res.json({ hasSubscription: false, status: null });
+      return res.json({ hasSubscription: false, status: null, canTrial: true });
     }
 
-    const subscription = await getActiveSubscription(user.id);
-    
+    const subscription = await getEntitledSubscription(user.id);
+    const canTrial = !(await hasUsedTrial(user.id));
+
     if (!subscription) {
-      return res.json({ hasSubscription: false, status: null });
+      // Any past subscription at all? Distinguish "never subscribed" from
+      // "had a subscription that ended" for clearer UI states.
+      return res.json({ hasSubscription: false, status: null, canTrial });
     }
 
-    // Check if trial has expired
-    if (subscription.status === 'trialing' && subscription.trial_ends_at) {
-      if (new Date(subscription.trial_ends_at) < new Date()) {
-        return res.json({
-          hasSubscription: false,
-          status: 'trial_expired',
-          planId: subscription.plan_id,
-          planName: 'Trial expirado',
-          price: Number(subscription.contracted_amount) || 0
-        });
-      }
-    }
-
-    // Get plan info from DB
     const plan = subscription.plan_id ? await getPlan(subscription.plan_id) : null;
-    const planName = plan?.name || 'Printly Pro';
+    const planName = plan?.name || 'LabelGo Pro';
+
+    const trialEndsAt = subscription.trial_ends_at ? new Date(subscription.trial_ends_at) : null;
+    const trialDaysRemaining = subscription.status === 'trialing' && trialEndsAt
+      ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86400000))
+      : null;
 
     res.json({
       hasSubscription: true,
       status: subscription.status,
       currentPeriodEnd: subscription.current_period_end,
+      // For cancelled subs still inside the paid period, the access deadline
+      // is the period end.
+      accessUntil: subscription.status === 'cancelled' ? subscription.current_period_end : null,
       trialEndsAt: subscription.trial_ends_at,
+      trialDaysRemaining,
       planId: subscription.plan_id,
       planName,
       price: Number(subscription.contracted_amount || subscription.price) || 0,
-      autoPrint: plan?.auto_print ?? false
+      autoPrint: plan?.auto_print ?? false,
+      canTrial
     });
   } catch (error) {
     console.error('Error checking subscription status:', error);
@@ -94,7 +107,7 @@ router.get('/status', async (req: Request, res: Response) => {
   }
 });
 
-// Create checkout for subscription
+// Create checkout for subscription (paid or trial)
 router.post('/checkout', async (req: Request, res: Response) => {
   if (!req.session.userId || !req.session.userNickname) {
     return res.status(401).json({ error: 'Not authenticated' });
@@ -103,6 +116,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
   try {
     const planId = (req.body?.planId as string) || 'pro';
     const startTrial = req.body?.trial === true;
+    const visitorKey = (req.body?.visitorKey as string) || '';
 
     // Look up plan and price from DB (no hardcoded prices)
     const plan = await getPlan(planId);
@@ -110,7 +124,11 @@ router.post('/checkout', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Plano inválido ou indisponível' });
     }
 
-    const price = await getPriceForPlan(planId, 'monthly');
+    // Price consistency: charge the variant the visitor was assigned in the
+    // catalog (pricing experiments), falling back to the standard price.
+    const price = visitorKey
+      ? (await getAssignedVariantPrice(planId, visitorKey)) ?? await getPriceForPlan(planId, 'monthly')
+      : await getPriceForPlan(planId, 'monthly');
     if (!price) {
       return res.status(400).json({ error: 'Preço não encontrado para este plano' });
     }
@@ -121,58 +139,50 @@ router.post('/checkout', async (req: Request, res: Response) => {
       req.session.userNickname
     );
 
-    // Check if user already has active subscription
-    const existingSubscription = await getActiveSubscription(user.id);
-    if (existingSubscription) {
-      return res.status(400).json({ 
-        error: 'Você já possui uma assinatura ativa',
-        subscription: existingSubscription
-      });
+    // Attach the visitor's pricing assignment (if any) to their account.
+    if (visitorKey) {
+      await linkAssignmentToUser(visitorKey, user.id).catch(() => {});
     }
 
-    // Idempotency: check if a checkout was already started with the same key
-    const idempotencyKey = req.body?.idempotencyKey as string | undefined;
-    if (idempotencyKey) {
-      const existing = await getSubscriptionByPreapprovalId(idempotencyKey);
-      if (existing) {
-        // Already created — return the existing checkout URL if available
-        // (In practice MP returns a new init_point each time, but we prevent
-        // duplicate subscription rows.)
-        return res.status(409).json({ error: 'Checkout já iniciado', preapprovalId: idempotencyKey });
-      }
-    }
-
-    const backUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-
-    // Record checkout_started event
-    await recordBillingEvent(user.id, null, 'checkout_started', undefined, price.amount, {
-      plan_id: planId,
-      price_id: price.id,
-    });
-
+    // Trial: one per account, ever — including after cancel or expiration.
     if (startTrial && planId === TRIAL_PLAN_ID) {
-      // Create a trial subscription (no MP checkout needed, no card required).
-      // The trial grants full Pro access for TRIAL_DAYS days.
+      if (await hasUsedTrial(user.id)) {
+        return res.status(400).json({ error: 'trial_already_used', message: 'O período de teste já foi utilizado nesta conta.' });
+      }
+      if (await getActiveSubscription(user.id)) {
+        return res.status(400).json({ error: 'Você já possui uma assinatura ativa' });
+      }
+
       const trialEndsAt = new Date();
       trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
 
-      const trialPreapprovalId = `trial_${user.id}_${Date.now()}`;
-      const subscription = await createSubscription(user.id, trialPreapprovalId, undefined, {
-        planId,
-        priceId: price.id,
-        contractedAmount: price.amount,
-        contractedCurrency: price.currency,
-        trialEndsAt,
-        idempotencyKey: idempotencyKey || trialPreapprovalId,
-      });
+      // The idempotency key makes concurrent/repeated trial requests safe:
+      // the second insert hits the unique index on subscriptions.idempotency_key.
+      let trialSub;
+      try {
+        trialSub = await createSubscription(user.id, `trial_${user.id}_${Date.now()}`, undefined, {
+          planId,
+          priceId: price.id,
+          contractedAmount: price.amount,
+          contractedCurrency: price.currency,
+          trialEndsAt,
+          idempotencyKey: `trial_u${user.id}`,
+        });
+      } catch (err: any) {
+        if (err.code === '23505') {
+          return res.status(400).json({ error: 'trial_already_used', message: 'O período de teste já foi utilizado nesta conta.' });
+        }
+        throw err;
+      }
 
-      // Update status to trialing
-      await updateSubscriptionByPreapprovalId(trialPreapprovalId, 'trialing', new Date(), trialEndsAt);
+      await updateSubscriptionByPreapprovalId(trialSub.mp_preapproval_id, 'trialing', new Date(), trialEndsAt);
+      await markTrialUsed(user.id);
 
-      await recordBillingEvent(user.id, trialPreapprovalId, 'trial_started', 'trialing', undefined, {
+      await recordBillingEvent(user.id, trialSub.mp_preapproval_id, 'trial_started', 'trialing', undefined, {
         plan_id: planId,
         trial_ends_at: trialEndsAt.toISOString(),
       });
+      await trackEvent({ event_name: 'trial_started', user_id: user.id, visitor_key: visitorKey || undefined, properties: { plan_id: planId } });
 
       return res.json({
         trial: true,
@@ -183,41 +193,98 @@ router.post('/checkout', async (req: Request, res: Response) => {
       });
     }
 
+    // Paid checkout. Blocked only by an already-active billing subscription;
+    // a trialing user may convert to paid at any point.
+    const existingSubscription = await getActiveSubscription(user.id);
+    if (existingSubscription && existingSubscription.status !== 'trialing') {
+      return res.status(400).json({
+        error: 'Você já possui uma assinatura ativa',
+        subscription: existingSubscription
+      });
+    }
+
+    // Persistent idempotency: the checkout_sessions row is written BEFORE
+    // calling Mercado Pago. Concurrent requests hit the unique constraint;
+    // a completed session replays its checkout URL; a failed one retries.
+    const clientKey = (req.body?.idempotencyKey as string | undefined)?.slice(0, 200);
+    const idempotencyKey = clientKey || `${planId}:${new Date().toISOString().slice(0, 10)}`;
+
+    const started = await startCheckoutSession(user.id, idempotencyKey, planId, price.id, price.amount, price.currency);
+    let session = started.session!;
+
+    if (!started.created) {
+      if (session.status === 'completed' && session.checkout_url) {
+        return res.json({
+          checkoutUrl: session.checkout_url,
+          preapprovalId: session.preapproval_id,
+          planId,
+          planName: plan.name,
+          price: price.amount,
+          replayed: true
+        });
+      }
+      if (session.status === 'processing') {
+        return res.status(409).json({ error: 'checkout_in_progress', message: 'Checkout em andamento. Aguarde e tente novamente.' });
+      }
+      // status === 'failed' → reopen and retry with the same key
+      await retryCheckoutSession(session.id);
+    }
+
+    const backUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+    // Record checkout_started event
+    await recordBillingEvent(user.id, null, 'checkout_started', undefined, price.amount, {
+      plan_id: planId,
+      price_id: price.id,
+      checkout_key: idempotencyKey,
+      experiment_variant_id: (price as any).experiment_variant_id,
+    });
+    await trackEvent({ event_name: 'checkout_started', user_id: user.id, visitor_key: visitorKey || undefined, properties: { plan_id: planId, amount: price.amount } });
+
     // NOTE: Mercado Pago's PreApproval API does not accept a per-request
     // notification_url (unlike Payments/Preferences). For subscriptions,
     // the webhook URL must be configured once in the Mercado Pago
     // Developer Panel: App > Webhooks > "Assinaturas" (preapproval) topic,
     // pointing to `${FRONTEND_URL}/api/subscription/webhook`.
-    const response = await preapproval_create(
-      getMercadoPagoClient(),
-      plan.name + ' - Mensal',
-      price.amount,
-      price.currency,
-      `${backUrl}/subscription/callback`,
-      req.body.email || undefined,
-      `user_${user.id}_${Date.now()}`
-    );
+    try {
+      const response = await preapproval_create(
+        getMercadoPagoClient(),
+        plan.name + ' - Mensal',
+        price.amount,
+        price.currency,
+        `${backUrl}/subscription/callback`,
+        req.body.email || req.session.userEmail || undefined,
+        `user_${user.id}_${session.id}`
+      );
 
-    if (!response.id || !response.init_point) {
-      throw new Error('Invalid response from Mercado Pago');
+      if (!response.id || !response.init_point) {
+        throw new Error('Invalid response from Mercado Pago');
+      }
+
+      // Save subscription reference with plan + contracted price.
+      // idempotencyKey is user-scoped+unique so a replayed checkout never
+      // duplicates the subscription row.
+      await createSubscription(user.id, response.id, undefined, {
+        planId,
+        priceId: price.id,
+        contractedAmount: price.amount,
+        contractedCurrency: price.currency,
+        idempotencyKey: `chk_u${user.id}_${idempotencyKey}`,
+      });
+
+      await completeCheckoutSession(session.id, response.id, response.init_point);
+
+      return res.json({
+        checkoutUrl: response.init_point,
+        preapprovalId: response.id,
+        planId,
+        planName: plan.name,
+        price: price.amount
+      });
+    } catch (err) {
+      await failCheckoutSession(session.id, err instanceof Error ? err.message : String(err));
+      throw err;
     }
-
-    // Save subscription reference in our database with plan + contracted price
-    await createSubscription(user.id, response.id, undefined, {
-      planId,
-      priceId: price.id,
-      contractedAmount: price.amount,
-      contractedCurrency: price.currency,
-      idempotencyKey: idempotencyKey || response.id,
-    });
-
-    res.json({
-      checkoutUrl: response.init_point,
-      preapprovalId: response.id,
-      planId,
-      planName: plan.name,
-      price: price.amount
-    });
   } catch (error) {
     console.error('Error creating checkout:', error);
     res.status(500).json({ error: 'Failed to create checkout' });
@@ -251,7 +318,91 @@ async function preapproval_create(
   });
 }
 
-// Webhook to receive payment notifications from Mercado Pago
+/** GET /authorized_payments/{id} — SDK has no class for it; call REST directly. */
+async function getAuthorizedPayment(authorizedPaymentId: string | number) {
+  const accessToken = process.env.MP_ACCESS_TOKEN;
+  if (!accessToken) throw new Error('MP_ACCESS_TOKEN not configured');
+  const resp = await fetch(`${MP_API_URL}/authorized_payments/${authorizedPaymentId}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  if (!resp.ok) {
+    throw new Error(`authorized_payment ${authorizedPaymentId} fetch failed: ${resp.status}`);
+  }
+  return resp.json() as Promise<{
+    id: number;
+    preapproval_id: string;
+    status: string;
+    transaction_amount?: number;
+    payment?: { id?: number; status?: string };
+  }>;
+}
+
+/** Sync our subscription row from the MP preapproval resource. */
+async function syncSubscriptionFromPreapproval(preapprovalId: string) {
+  const client = getMercadoPagoClient();
+  const preapproval = new PreApproval(client);
+  const details = await preapproval.get({ id: preapprovalId });
+  if (!details.id) return null;
+
+  const status = details.status || 'pending';
+  let periodStart: Date | undefined;
+  let periodEnd: Date | undefined;
+
+  if (details.next_payment_date) {
+    periodEnd = new Date(details.next_payment_date);
+    periodStart = new Date(periodEnd);
+    periodStart.setMonth(periodStart.getMonth() - 1);
+  }
+
+  const updated = await updateSubscriptionByPreapprovalId(details.id, status, periodStart, periodEnd);
+  const sub = updated ?? await getSubscriptionByPreapprovalId(details.id);
+
+  await recordBillingEvent(
+    sub?.user_id ?? null,
+    details.id,
+    'webhook_status_update',
+    status,
+    undefined,
+    { next_payment_date: details.next_payment_date }
+  );
+
+  if (status === 'authorized' && sub?.user_id) {
+    await recordBillingEvent(sub.user_id, details.id, 'subscription_activated', status, undefined, {
+      plan_id: sub.plan_id,
+    });
+    await trackEvent({ event_name: 'subscription_activated', user_id: sub.user_id, properties: { plan_id: sub.plan_id } });
+    await markReferralSubscribed(sub.user_id).catch(() => {});
+    // Trial → paid conversion: close the still-running trial so the user is
+    // billed from now on (remaining trial days are forfeited).
+    const trialing = await pool.query(
+      `SELECT * FROM "subscriptions" WHERE "user_id" = $1 AND "status" = 'trialing' LIMIT 1`,
+      [sub.user_id]
+    );
+    if (trialing.rows[0]) {
+      await updateSubscriptionByPreapprovalId(trialing.rows[0].mp_preapproval_id, 'converted');
+      await recordBillingEvent(sub.user_id, trialing.rows[0].mp_preapproval_id, 'trial_converted', 'converted', undefined, {
+        plan_id: trialing.rows[0].plan_id,
+        converted_to: details.id,
+      });
+    }
+  }
+
+  if (status === 'cancelled' && sub?.user_id) {
+    await recordBillingEvent(sub.user_id, details.id, 'subscription_cancelled', status, undefined, {
+      plan_id: sub.plan_id,
+    });
+    await trackEvent({ event_name: 'subscription_cancelled', user_id: sub.user_id, properties: { plan_id: sub.plan_id } });
+  }
+
+  return sub;
+}
+
+/**
+ * Webhook to receive payment notifications from Mercado Pago.
+ * Current event types (per MP docs): subscription_preapproval,
+ * subscription_preapproval_plan, subscription_authorized_payment, payment.
+ * We also accept the legacy 'preapproval' type.
+ */
 router.post('/webhook', async (req: Request, res: Response) => {
   try {
     if (!isValidWebhookSignature(req)) {
@@ -259,73 +410,64 @@ router.post('/webhook', async (req: Request, res: Response) => {
       return res.sendStatus(401);
     }
 
-    const { type, data } = req.body;
+    const { type, data } = req.body || {};
 
-    console.log('Webhook received:', { type, data });
+    // Dedup per NOTIFICATION (MP assigns each delivery a unique body.id).
+    // Different events about the same subscription are all processed;
+    // retried deliveries of the same notification are skipped — unless the
+    // previous processing failed, in which case we retry instead of losing
+    // the event.
+    const notificationId = req.body?.id;
+    const eventKey = notificationId
+      ? `mp_notif_${notificationId}`
+      : `mp_hash_${crypto.createHash('sha256').update(JSON.stringify(req.body)).digest('hex').slice(0, 32)}`;
 
-    if (type === 'preapproval' && data?.id) {
-      // Idempotency: dedup by provider + event key (preapproval id + type).
-      // If we already processed this exact event, skip silently.
-      const eventKey = `preapproval:${data.id}`;
-      const isNew = await recordWebhookEventIfNew('mercado_pago', eventKey, req.body);
-      if (!isNew) {
-        console.log(`Webhook event ${eventKey} already processed — skipping (idempotent)`);
-        return res.sendStatus(200);
+    const record = await recordWebhookEvent('mercado_pago', eventKey, req.body);
+    if (record === 'duplicate') {
+      return res.sendStatus(200);
+    }
+
+    try {
+      if ((type === 'subscription_preapproval' || type === 'preapproval') && data?.id) {
+        await syncSubscriptionFromPreapproval(String(data.id));
+      } else if (type === 'subscription_authorized_payment' && data?.id) {
+        const payment = await getAuthorizedPayment(data.id);
+        if (payment.preapproval_id) {
+          // Refresh period/status from the preapproval, then record the
+          // payment outcome (processed = renewal paid, etc.)
+          await syncSubscriptionFromPreapproval(payment.preapproval_id);
+          const sub = await getSubscriptionByPreapprovalId(payment.preapproval_id);
+          await recordBillingEvent(
+            sub?.user_id ?? null,
+            payment.preapproval_id,
+            payment.status === 'processed' ? 'payment_received' : 'payment_status',
+            payment.status,
+            payment.transaction_amount,
+            { authorized_payment_id: data.id, payment_status: payment.payment?.status }
+          );
+        }
+      } else if (type === 'payment' && data?.id) {
+        // Audit trail only — subscription renewals arrive via
+        // subscription_authorized_payment; standalone payments are logged.
+        await recordBillingEvent(null, null, 'webhook_payment', undefined, undefined, {
+          payment_id: data.id,
+        });
+      } else {
+        console.log('Webhook received (unhandled type):', { type, data });
       }
 
-      const client = getMercadoPagoClient();
-      const preapproval = new PreApproval(client);
-
-      // Get preapproval details from Mercado Pago
-      const details = await preapproval.get({ id: data.id });
-
-      if (details.id) {
-        // Map Mercado Pago status to our status
-        const status = details.status || 'pending';
-        
-        let periodStart: Date | undefined;
-        let periodEnd: Date | undefined;
-
-        if (details.next_payment_date) {
-          periodEnd = new Date(details.next_payment_date);
-          periodStart = new Date(periodEnd);
-          periodStart.setMonth(periodStart.getMonth() - 1);
-        }
-
-        await updateSubscriptionByPreapprovalId(
-          details.id,
-          status,
-          periodStart,
-          periodEnd
-        );
-
-        // Audit trail
-        const sub = await getSubscriptionByPreapprovalId(details.id);
-        await recordBillingEvent(
-          sub?.user_id ?? null,
-          details.id,
-          'webhook_status_update',
-          status,
-          undefined,
-          { next_payment_date: details.next_payment_date }
-        );
-
-        // Record subscription_activated event when status becomes authorized
-        if (status === 'authorized' && sub?.user_id) {
-          await recordBillingEvent(sub.user_id, details.id, 'subscription_activated', status, undefined, {
-            plan_id: sub.plan_id,
-          });
-        }
-
-        // Record subscription_cancelled event
-        if (status === 'cancelled' && sub?.user_id) {
-          await recordBillingEvent(sub.user_id, details.id, 'subscription_cancelled', status, undefined, {
-            plan_id: sub.plan_id,
-          });
-        }
-
-        console.log(`Subscription ${details.id} updated to status: ${status}`);
-      }
+      await markWebhookEventProcessed('mercado_pago', eventKey);
+    } catch (processingError) {
+      // Keep the event marked failed so a retried delivery reprocesses
+      // instead of being deduplicated away. Return 503 so Mercado Pago
+      // actually retries — it only redelivers on non-2xx responses.
+      await markWebhookEventFailed(
+        'mercado_pago',
+        eventKey,
+        processingError instanceof Error ? processingError.message : String(processingError)
+      );
+      console.error('Webhook processing failed (MP will redeliver):', processingError);
+      return res.sendStatus(503);
     }
 
     res.sendStatus(200);
@@ -370,7 +512,8 @@ router.post('/cancel', async (req: Request, res: Response) => {
       body: { status: 'cancelled' }
     });
 
-    // Update in our database
+    // Update in our database. current_period_end stays as-is: access is kept
+    // until the end of the contracted period (enforced by entitlement checks).
     await updateSubscriptionByPreapprovalId(
       subscription.mp_preapproval_id,
       'cancelled'
@@ -379,6 +522,7 @@ router.post('/cancel', async (req: Request, res: Response) => {
     await recordBillingEvent(user.id, subscription.mp_preapproval_id, 'subscription_cancelled', 'cancelled', undefined, {
       plan_id: subscription.plan_id,
     });
+    await trackEvent({ event_name: 'subscription_cancelled', user_id: user.id, properties: { plan_id: subscription.plan_id } });
 
     res.json({ success: true, message: 'Assinatura cancelada com sucesso' });
   } catch (error) {

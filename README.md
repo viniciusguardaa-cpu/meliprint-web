@@ -65,10 +65,66 @@ npm run build
    - `NODE_ENV=production`
 4. Deploy automático
 
+## Agente de impressão (AutoPrint)
+
+O agente roda no computador ligado à impressora térmica e imprime etiquetas
+assim que o Mercado Livre as libera.
+
+### Cliente final (Windows)
+
+O cliente não precisa de Node, terminal ou `.env`:
+
+1. Baixa `LabelGoAgent-Setup.exe` (gerado por `agent/installer/build.ps1`).
+2. No painel (Impressão Automática) gera o **código de pareamento**.
+3. O wizard do instalador pede o código, lista as impressoras, imprime uma
+   etiqueta de teste e agenda o início automático junto ao Windows.
+
+### Desenvolvimento / instalação manual
+
+```bash
+cd agent
+npm install
+node agent.js --setup          # wizard: pareamento + impressora + teste
+node agent.js                  # modo normal
+node agent.js --check          # smoke check (CI)
+node agent.js --list-printers
+node agent.js --test-print <impressora>
+npm test                       # testes node:test (recibos, confirmação)
+```
+
+Configuração também aceita `agent/.env` ou variáveis `LABELGO_*`
+(`LABELGO_SERVER_URL`, `LABELGO_AGENT_TOKEN`, `LABELGO_PRINTER_NAME`,
+`LABELGO_POLL_INTERVAL`, `LABELGO_STATE_DIR`). Legado `PRINTLY_*` e
+`MELIPRINT_*` continuam funcionando.
+
+Comportamento de confiabilidade: o agente grava um recibo local após o spooler
+aceitar a etiqueta; se a confirmação ao servidor falhar (rede, restart), só a
+confirmação é retentada — a etiqueta nunca é reimpressa sozinha. Jobs com
+resultado incerto ficam `needs_review` para conferência no painel.
+
+### Variáveis de ambiente adicionais (server)
+
+```env
+DATABASE_URL=postgres://...
+MP_ACCESS_TOKEN=...            # Mercado Pago (assinaturas)
+MP_WEBHOOK_SECRET=...          # assinatura do webhook MP (obrigatório em prod)
+# MP_WEBHOOK_ALLOW_UNSIGNED=1  # só dev — nunca em produção
+ADMIN_SECRET=...               # chave do painel /admin
+ENCRYPTION_KEY=...             # criptografia de tokens ML
+REDIS_URL=...                  # opcional; sessão cai para Postgres
+```
+
+### Migrações e testes com Postgres descartável
+
+```bash
+bash server/scripts/test-migrations.sh          # fresh + upgrade + idempotência
+TEST_DATABASE_URL=postgres://... npm test --workspace=server  # inclui teste real de migrations
+```
+
 ## Estrutura
 
 ```
-meliprint-web/
+labelgo-web/
 ├── client/          # Frontend React + Vite
 │   ├── src/
 │   │   ├── pages/
@@ -78,8 +134,14 @@ meliprint-web/
 ├── server/          # Backend Express
 │   ├── src/
 │   │   ├── routes/
+│   │   ├── jobs/    # poller ML, reconciler de cobrança
 │   │   └── services/
+│   ├── migrations/  # SQL versionado (schema_migrations)
 │   └── package.json
+├── agent/           # Agente de impressão (macOS/Linux/Windows)
+│   ├── lib/         # config, api, jobs, recibos, setup wizard
+│   ├── printers/    # adapters CUPS / Windows
+│   └── installer/   # build exe + Inno Setup (Windows)
 └── package.json     # Workspace root
 ```
 

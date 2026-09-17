@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { track } from '../lib/analytics';
 
 export default function Login() {
   const { user, loading, login } = useAuth();
@@ -19,7 +20,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-12">
           <div className="mb-8 w-full flex justify-center">
-            <img src="/logo.png" alt="Printly" className="w-full max-w-sm h-auto" />
+            <img src="/logo.png" alt="LabelGo" className="w-full max-w-sm h-auto" />
           </div>
           <p className="text-white text-xl mt-2 text-center font-medium">
             Impressão rápida de etiquetas do Mercado Livre
@@ -33,7 +34,7 @@ export default function Login() {
         )}
 
         <button
-          onClick={login}
+          onClick={() => { track('ml_oauth_started'); login(); }}
           disabled={loading}
           className="w-full bg-white hover:bg-white/90 text-brand-500 font-semibold py-4 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-3 disabled:opacity-50 shadow-lg"
         >
