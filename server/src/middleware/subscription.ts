@@ -16,6 +16,9 @@ export async function requireActiveSubscription(req: Request, res: Response, nex
     if (!user) {
       return res.status(403).json({ error: 'subscription_required', message: 'Assinatura ativa necessária para usar este recurso' });
     }
+    if (user.blocked_at) {
+      return res.status(403).json({ error: 'account_blocked', message: 'Conta suspensa. Fale com o suporte.' });
+    }
 
     // Check if user has free lifetime access
     const userEmail = user.email?.toLowerCase();
@@ -61,6 +64,9 @@ export function requirePlanFeature(feature: PlanFeature) {
       const user = await getUserById(req.session.userId);
       if (!user) {
         return res.status(403).json({ error: 'subscription_required', message: 'Assinatura ativa necessária' });
+      }
+      if (user.blocked_at) {
+        return res.status(403).json({ error: 'account_blocked', message: 'Conta suspensa. Fale com o suporte.' });
       }
 
       const userEmail = user.email?.toLowerCase();

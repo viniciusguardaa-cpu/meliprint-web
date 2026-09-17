@@ -12,6 +12,7 @@ interface User {
   nickname: string;
   email?: string;
   emailVerified?: boolean;
+  blocked?: boolean;
   accounts?: ConnectedAccount[];
 }
 

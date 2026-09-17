@@ -3,10 +3,15 @@ import { requireAdmin } from '../middleware/adminAuth.js';
 import pool, {
   getAllSubscribers,
   getAdminStats,
+  getAdminUserDetail,
+  getAdminTimeseries,
   getFreeAccessList,
   addFreeAccess,
   removeFreeAccess,
-  getAgentStatusCounts
+  getAgentStatusCounts,
+  getUserById,
+  setUserBlocked,
+  grantUserTrialDays
 } from '../db.js';
 import { getGrowthMetrics } from '../services/analytics.js';
 import { getExperimentResults } from '../services/pricing.js';
@@ -81,6 +86,89 @@ router.get('/stats', async (_req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching admin stats:', error);
     res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// Daily signups/prints/cancellations + period totals for the charts.
+router.get('/timeseries', async (req: Request, res: Response) => {
+  try {
+    const days = Number(req.query.days) || 30;
+    res.json(await getAdminTimeseries(days));
+  } catch (error) {
+    console.error('Error fetching admin timeseries:', error);
+    res.status(500).json({ error: 'Failed to fetch timeseries' });
+  }
+});
+
+// Full detail of a single client: identity, subscriptions, usage, agent, UTM.
+router.get('/users/:id', async (req: Request, res: Response) => {
+  const userId = Number(req.params.id);
+  if (!Number.isFinite(userId)) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+  try {
+    const detail = await getAdminUserDetail(userId);
+    if (!detail.user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(detail);
+  } catch (error) {
+    console.error('Error fetching user detail:', error);
+    res.status(500).json({ error: 'Failed to fetch user detail' });
+  }
+});
+
+// Suspend / reactivate a client account.
+router.post('/users/:id/block', async (req: Request, res: Response) => {
+  const userId = Number(req.params.id);
+  if (!Number.isFinite(userId)) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+  try {
+    const updated = await setUserBlocked(userId, true);
+    if (!updated) return res.status(404).json({ error: 'User not found' });
+    res.json({ ok: true, blockedAt: updated.blocked_at });
+  } catch (error) {
+    console.error('Error blocking user:', error);
+    res.status(500).json({ error: 'Failed to block user' });
+  }
+});
+
+router.post('/users/:id/unblock', async (req: Request, res: Response) => {
+  const userId = Number(req.params.id);
+  if (!Number.isFinite(userId)) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+  try {
+    const updated = await setUserBlocked(userId, false);
+    if (!updated) return res.status(404).json({ error: 'User not found' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error unblocking user:', error);
+    res.status(500).json({ error: 'Failed to unblock user' });
+  }
+});
+
+// Grant or extend a trial by N days (admin override — bypasses the
+// one-trial-per-account rule on purpose).
+router.post('/users/:id/extend-trial', async (req: Request, res: Response) => {
+  const userId = Number(req.params.id);
+  const days = Number(req.body?.days);
+  if (!Number.isFinite(userId)) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+  if (!Number.isFinite(days) || days < 1 || days > 365) {
+    return res.status(400).json({ error: 'days must be between 1 and 365' });
+  }
+  try {
+    if (!(await getUserById(userId))) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const { subscription, created } = await grantUserTrialDays(userId, Math.floor(days));
+    res.json({ ok: true, created, trialEndsAt: subscription.trial_ends_at });
+  } catch (error) {
+    console.error('Error extending trial:', error);
+    res.status(500).json({ error: 'Failed to extend trial' });
   }
 });
 

@@ -10,6 +10,9 @@ export default defineConfig({
     },
   },
   server: {
+    // Listen on all interfaces: Mercado Pago rejects `localhost` in back_url,
+    // so the app must also be reachable via http://127.0.0.1:5173.
+    host: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

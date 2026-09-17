@@ -21,6 +21,26 @@ import NotFound from './pages/NotFound';
 import { useAuth } from './hooks/useAuth';
 import { useSubscription } from './hooks/useSubscription';
 
+function BlockedScreen() {
+  const { logout } = useAuth();
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="bg-surface rounded-2xl border border-border shadow-lg p-8 max-w-sm w-full text-center">
+        <h1 className="text-xl font-bold text-foreground mb-2">Conta suspensa</h1>
+        <p className="text-muted-foreground text-sm mb-6">
+          Sua conta foi suspensa. Entre em contato com o suporte para mais informações.
+        </p>
+        <button
+          onClick={logout}
+          className="text-primary text-sm font-medium hover:underline"
+        >
+          Sair da conta
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
@@ -34,6 +54,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user.blocked) {
+    return <BlockedScreen />;
   }
 
   return <>{children}</>;
@@ -53,6 +77,10 @@ function SubscriberRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user.blocked) {
+    return <BlockedScreen />;
   }
 
   if (!isActive) {

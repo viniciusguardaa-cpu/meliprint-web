@@ -39,6 +39,15 @@ function getMercadoPagoClient() {
   return new MercadoPagoConfig({ accessToken });
 }
 
+/** The MP SDK throws the raw API error body (a plain object), not an Error. */
+function describeError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object' && 'message' in err) {
+    return String((err as { message: unknown }).message);
+  }
+  return String(err);
+}
+
 // Get subscription status for current user
 router.get('/status', async (req: Request, res: Response) => {
   if (!req.session.userId) {
@@ -286,7 +295,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
         price: price.amount
       });
     } catch (err) {
-      await failCheckoutSession(session.id, err instanceof Error ? err.message : String(err));
+      await failCheckoutSession(session.id, describeError(err));
       throw err;
     }
   } catch (error) {
@@ -352,7 +361,10 @@ async function syncSubscriptionFromPreapproval(preapprovalId: string) {
   let periodStart: Date | undefined;
   let periodEnd: Date | undefined;
 
-  if (details.next_payment_date) {
+  // Only trust next_payment_date once billing is live — for 'pending'
+  // preapprovals MP sets it to creation time, which would write a bogus
+  // period end in the past.
+  if (details.next_payment_date && (status === 'authorized' || status === 'active')) {
     periodEnd = new Date(details.next_payment_date);
     periodStart = new Date(periodEnd);
     periodStart.setMonth(periodStart.getMonth() - 1);

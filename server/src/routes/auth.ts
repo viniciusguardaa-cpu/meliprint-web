@@ -480,6 +480,7 @@ router.get('/me', async (req: Request, res: Response) => {
     nickname: user.nickname,
     email: user.email,
     emailVerified: user.email_verified === true,
+    blocked: user.blocked_at != null,
     accounts: accounts.map((a: any) => ({
       id: a.id,
       provider: a.provider,
