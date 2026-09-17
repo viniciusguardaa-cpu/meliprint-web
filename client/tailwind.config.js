@@ -24,6 +24,7 @@ export default {
           DEFAULT: 'rgb(var(--secondary) / <alpha-value>)',
           hover: 'rgb(var(--secondary-hover) / <alpha-value>)',
           foreground: 'rgb(var(--foreground) / <alpha-value>)',
+          border: 'rgb(var(--secondary-border) / <alpha-value>)',
         },
         background: 'rgb(var(--background) / <alpha-value>)',
         surface: 'rgb(var(--surface) / <alpha-value>)',
@@ -32,6 +33,7 @@ export default {
           foreground: 'rgb(var(--foreground-muted) / <alpha-value>)',
         },
         foreground: 'rgb(var(--foreground) / <alpha-value>)',
+        placeholder: 'rgb(var(--placeholder) / <alpha-value>)',
         border: 'rgb(var(--border) / <alpha-value>)',
         success: {
           DEFAULT: 'rgb(var(--success) / <alpha-value>)',

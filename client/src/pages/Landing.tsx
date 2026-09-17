@@ -217,7 +217,7 @@ export default function Landing() {
       </section>
 
       {/* Features Section */}
-      <section className="py-10 sm:py-16 bg-surface">
+      <section className="py-10 sm:py-16 bg-background">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-3 sm:mb-4">
@@ -320,7 +320,7 @@ export default function Landing() {
             </p>
             <button
               onClick={handleCTA}
-              className="bg-white text-primary px-8 py-4 rounded-xl font-semibold text-lg hover:bg-secondary hover:text-foreground transition-colors"
+              className="bg-white text-primary px-8 py-4 rounded-xl font-semibold text-lg hover:bg-secondary hover:text-foreground transition-all duration-150 hover:-translate-y-px"
             >
               Começar Agora
             </button>

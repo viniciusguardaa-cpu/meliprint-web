@@ -79,7 +79,7 @@ export default function ZplToPdf() {
             value={zpl}
             onChange={(e) => setZpl(e.target.value)}
             placeholder="^XA^FO50,50^A0N,50,50^FDHello World^FS^XZ"
-            className="w-full h-48 p-3 bg-surface border border-gray-300 rounded-lg font-mono text-sm placeholder:text-[#98A2B3] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
+            className="w-full h-48 p-3 bg-surface border border-gray-300 rounded-lg font-mono text-sm placeholder:text-placeholder focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
           />
 
           {error && (
@@ -124,7 +124,7 @@ export default function ZplToPdf() {
           </p>
           <button
             onClick={() => navigate('/pricing')}
-            className="bg-white text-primary font-semibold px-6 py-3 rounded-xl hover:bg-secondary hover:text-foreground transition-colors inline-flex items-center gap-2"
+            className="bg-white text-primary font-semibold px-6 py-3 rounded-xl hover:bg-secondary hover:text-foreground transition-all duration-150 hover:-translate-y-px inline-flex items-center gap-2"
           >
             Testar grátis por 7 dias
             <ArrowRight className="w-4 h-4" />

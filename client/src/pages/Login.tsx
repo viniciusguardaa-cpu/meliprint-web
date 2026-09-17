@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { track } from '../lib/analytics';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
+import AuthShell from '../components/AuthShell';
 
 export default function Login() {
   const { user, loading, login, loginWithEmail } = useAuth();
@@ -37,101 +38,88 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-400 via-brand-500 to-brand-700 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="flex flex-col items-center mb-8">
-          <div className="mb-6 w-full flex justify-center">
-            <img src="/logo.png" alt="LabelGo" className="w-full max-w-sm h-auto" />
-          </div>
-          <p className="text-white text-xl text-center font-medium">
-            Impressão rápida de etiquetas de marketplace
-          </p>
+    <AuthShell
+      subtitle="Impressão rápida de etiquetas de marketplace"
+      footer="Conecte seus marketplaces e imprima etiquetas em segundos"
+    >
+      {(error || formError) && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
+          {formError || 'Erro na autenticação. Tente novamente.'}
         </div>
+      )}
 
-        <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
-          {(error || formError) && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
-              {formError || 'Erro na autenticação. Tente novamente.'}
-            </div>
-          )}
-
-          <form onSubmit={handleEmailLogin} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                E-mail
-              </label>
-              <Input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="voce@exemplo.com"
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Senha
-              </label>
-              <Input
-                id="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full"
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={submitting || loading}
-              className="w-full py-3 font-semibold"
-            >
-              {submitting ? 'Entrando...' : 'Entrar'}
-            </Button>
-          </form>
-
-          <div className="flex items-center justify-between mt-3 text-sm">
-            <Link to="/esqueci-senha" className="text-brand-600 hover:underline">
-              Esqueci a senha
-            </Link>
-            <Link to="/cadastro" className="text-brand-600 hover:underline font-medium">
-              Criar conta
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs text-gray-400 uppercase">ou</span>
-            <div className="flex-1 h-px bg-gray-200" />
-          </div>
-
-          <button
-            onClick={() => { track('ml_oauth_started'); login(); }}
-            disabled={loading}
-            className="w-full bg-yellow-400 hover:bg-yellow-400/90 text-gray-900 font-semibold py-3 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-3 disabled:opacity-50"
-          >
-            {loading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div>
-            ) : (
-              <>
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
-                </svg>
-                Entrar com Mercado Livre
-              </>
-            )}
-          </button>
+      <form onSubmit={handleEmailLogin} className="space-y-4">
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
+            E-mail
+          </label>
+          <Input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="voce@exemplo.com"
+            className="w-full"
+          />
         </div>
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">
+            Senha
+          </label>
+          <Input
+            id="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            className="w-full"
+          />
+        </div>
+        <Button
+          type="submit"
+          size="lg"
+          disabled={submitting || loading}
+          className="w-full"
+        >
+          {submitting ? 'Entrando...' : 'Entrar'}
+        </Button>
+      </form>
 
-        <p className="text-center text-white/80 text-sm mt-6">
-          Conecte seus marketplaces e imprima etiquetas em segundos
-        </p>
+      <div className="flex items-center justify-between mt-3 text-sm">
+        <Link to="/esqueci-senha" className="text-primary hover:underline">
+          Esqueci a senha
+        </Link>
+        <Link to="/cadastro" className="text-primary hover:underline font-medium">
+          Criar conta
+        </Link>
       </div>
-    </div>
+
+      <div className="flex items-center gap-3 my-6">
+        <div className="flex-1 h-px bg-border" />
+        <span className="text-xs text-muted-foreground uppercase">ou</span>
+        <div className="flex-1 h-px bg-border" />
+      </div>
+
+      <button
+        onClick={() => { track('ml_oauth_started'); login(); }}
+        disabled={loading}
+        className="w-full bg-yellow-400 hover:bg-yellow-400/90 text-foreground font-semibold py-3 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-3 disabled:opacity-50"
+      >
+        {loading ? (
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground"></div>
+        ) : (
+          <>
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+            </svg>
+            Entrar com Mercado Livre
+          </>
+        )}
+      </button>
+    </AuthShell>
   );
 }

@@ -40,7 +40,7 @@ export default function SeoPage({ title, description, h1, sections, cta = true }
             </p>
             <button
               onClick={() => navigate('/pricing')}
-              className="bg-white text-primary font-semibold px-6 py-3 rounded-xl hover:bg-secondary hover:text-foreground transition-colors inline-flex items-center gap-2"
+              className="bg-white text-primary font-semibold px-6 py-3 rounded-xl hover:bg-secondary hover:text-foreground transition-all duration-150 hover:-translate-y-px inline-flex items-center gap-2"
             >
               Testar grátis por 7 dias
               <ArrowRight className="w-4 h-4" />

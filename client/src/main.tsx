@@ -21,8 +21,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             background: 'rgb(var(--surface))',
             color: 'rgb(var(--foreground))',
           },
-          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
-          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
+          success: { iconTheme: { primary: 'rgb(var(--success))', secondary: '#fff' } },
+          error: { iconTheme: { primary: 'rgb(var(--danger))', secondary: '#fff' } },
         }}
       />
     </BrowserRouter>

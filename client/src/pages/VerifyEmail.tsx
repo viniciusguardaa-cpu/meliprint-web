@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import AuthShell from '../components/AuthShell';
+import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
@@ -22,34 +24,37 @@ export default function VerifyEmail() {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-400 via-brand-500 to-brand-700 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-          {status === 'loading' && (
-            <p className="text-gray-600">Verificando seu e-mail...</p>
-          )}
-          {status === 'ok' && (
-            <>
-              <h1 className="text-lg font-semibold text-gray-800 mb-2">E-mail confirmado!</h1>
-              <p className="text-sm text-gray-500 mb-6">Sua conta está verificada.</p>
-              <Link to="/dashboard" className="text-brand-600 hover:underline font-medium">
-                Ir para o dashboard
-              </Link>
-            </>
-          )}
-          {status === 'error' && (
-            <>
-              <h1 className="text-lg font-semibold text-gray-800 mb-2">Link inválido</h1>
-              <p className="text-sm text-gray-500 mb-6">
-                Este link de verificação expirou ou já foi utilizado.
-              </p>
-              <Link to="/dashboard" className="text-brand-600 hover:underline font-medium">
-                Voltar ao dashboard
-              </Link>
-            </>
-          )}
-        </div>
+    <AuthShell>
+      <div className="text-center">
+        {status === 'loading' && (
+          <>
+            <Loader2 className="w-10 h-10 text-primary mx-auto mb-4 animate-spin" />
+            <p className="text-muted-foreground">Verificando seu e-mail...</p>
+          </>
+        )}
+        {status === 'ok' && (
+          <>
+            <CheckCircle className="w-10 h-10 text-success mx-auto mb-4" />
+            <h1 className="text-lg font-semibold text-foreground mb-2">E-mail confirmado!</h1>
+            <p className="text-sm text-muted-foreground mb-6">Sua conta está verificada.</p>
+            <Link to="/dashboard" className="text-primary hover:underline font-medium">
+              Ir para o dashboard
+            </Link>
+          </>
+        )}
+        {status === 'error' && (
+          <>
+            <XCircle className="w-10 h-10 text-danger mx-auto mb-4" />
+            <h1 className="text-lg font-semibold text-foreground mb-2">Link inválido</h1>
+            <p className="text-sm text-muted-foreground mb-6">
+              Este link de verificação expirou ou já foi utilizado.
+            </p>
+            <Link to="/dashboard" className="text-primary hover:underline font-medium">
+              Voltar ao dashboard
+            </Link>
+          </>
+        )}
       </div>
-    </div>
+    </AuthShell>
   );
 }

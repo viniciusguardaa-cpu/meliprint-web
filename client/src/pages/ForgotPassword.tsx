@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
+import AuthShell from '../components/AuthShell';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -26,53 +27,45 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-400 via-brand-500 to-brand-700 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="flex flex-col items-center mb-8">
-          <img src="/logo.png" alt="LabelGo" className="w-full max-w-xs h-auto" />
+    <AuthShell>
+      {sent ? (
+        <div className="text-center">
+          <h1 className="text-lg font-semibold text-foreground mb-2">Verifique seu e-mail</h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            Se existir uma conta para <strong>{email}</strong>, enviamos um link para redefinir a senha.
+            O link expira em 30 minutos.
+          </p>
+          <Link to="/login" className="text-primary hover:underline font-medium text-sm">
+            Voltar ao login
+          </Link>
         </div>
-
-        <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
-          {sent ? (
-            <div className="text-center">
-              <h1 className="text-lg font-semibold text-gray-800 mb-2">Verifique seu e-mail</h1>
-              <p className="text-sm text-gray-500 mb-6">
-                Se existir uma conta para <strong>{email}</strong>, enviamos um link para redefinir a senha.
-                O link expira em 30 minutos.
-              </p>
-              <Link to="/login" className="text-brand-600 hover:underline font-medium text-sm">
-                Voltar ao login
-              </Link>
-            </div>
-          ) : (
-            <>
-              <h1 className="text-lg font-semibold text-gray-800 mb-1">Esqueci a senha</h1>
-              <p className="text-sm text-gray-500 mb-6">
-                Informe seu e-mail para receber o link de redefinição.
-              </p>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <Input
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="voce@exemplo.com"
-                  className="w-full"
-                />
-                <Button type="submit" disabled={submitting} className="w-full py-3 font-semibold">
-                  {submitting ? 'Enviando...' : 'Enviar link de redefinição'}
-                </Button>
-              </form>
-              <p className="text-center text-sm text-gray-500 mt-6">
-                <Link to="/login" className="text-brand-600 hover:underline font-medium">
-                  Voltar ao login
-                </Link>
-              </p>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+      ) : (
+        <>
+          <h1 className="text-lg font-semibold text-foreground mb-1">Esqueci a senha</h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            Informe seu e-mail para receber o link de redefinição.
+          </p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="voce@exemplo.com"
+              className="w-full"
+            />
+            <Button type="submit" size="lg" disabled={submitting} className="w-full">
+              {submitting ? 'Enviando...' : 'Enviar link de redefinição'}
+            </Button>
+          </form>
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            <Link to="/login" className="text-primary hover:underline font-medium">
+              Voltar ao login
+            </Link>
+          </p>
+        </>
+      )}
+    </AuthShell>
   );
 }
