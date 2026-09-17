@@ -76,7 +76,7 @@ export default function Terms() {
             <h2 className="text-lg font-semibold text-gray-900">7. Contato</h2>
             <p>
               Dúvidas sobre estes Termos podem ser enviadas para{' '}
-              <strong>marcos@companhiadopapel.com.br</strong>.
+              <strong>suporte@labelgo.com.br</strong>.
             </p>
           </section>
         </div>

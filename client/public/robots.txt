@@ -6,4 +6,4 @@ Disallow: /admin
 Disallow: /subscription
 Disallow: /print/
 
-Sitemap: https://app.labelgo.com.br/sitemap.xml
+Sitemap: https://labelgo.com.br/sitemap.xml

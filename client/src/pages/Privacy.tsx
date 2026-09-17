@@ -57,7 +57,7 @@ export default function Privacy() {
             <p>
               Mantemos seus dados enquanto sua conta estiver ativa. Você pode solicitar a
               exclusão dos seus dados a qualquer momento entrando em contato pelo email{' '}
-              <strong>marcos@companhiadopapel.com.br</strong>, respeitando obrigações legais de guarda
+              <strong>suporte@labelgo.com.br</strong>, respeitando obrigações legais de guarda
               de dados fiscais quando aplicável.
             </p>
           </section>
@@ -85,7 +85,7 @@ export default function Privacy() {
             <h2 className="text-lg font-semibold text-gray-900">8. Contato</h2>
             <p>
               Para exercer seus direitos ou tirar dúvidas sobre esta política, contate{' '}
-              <strong>marcos@companhiadopapel.com.br</strong>.
+              <strong>suporte@labelgo.com.br</strong>.
             </p>
           </section>
         </div>
