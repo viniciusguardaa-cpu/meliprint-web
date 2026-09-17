@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
 import { CreditCard, Calendar, AlertTriangle, ArrowLeft, Loader2, Zap } from 'lucide-react';
 import Header from '../components/Header';
+import { Button } from '../components/ui/button';
 import toast from 'react-hot-toast';
 import { getVisitorKey } from '../lib/analytics';
 
@@ -93,32 +94,32 @@ export default function Subscription() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Header showDashboard />
 
       <main className="max-w-2xl mx-auto px-4 py-8">
         {/* Back button */}
         <button
           onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Voltar ao Dashboard
         </button>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Minha Assinatura</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-6">Minha Assinatura</h1>
 
         {subscription?.hasSubscription ? (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden animate-fade-in">
+          <div className="bg-surface rounded-xl border border-border shadow-sm overflow-hidden animate-fade-in">
             {/* Status badge */}
-            <div className={`text-white text-center py-2 text-sm font-semibold ${isCancelledWithAccess ? 'bg-yellow-500' : isTrialing ? 'bg-brand-500' : 'bg-green-500'
+            <div className={`text-center py-2 text-sm font-semibold ${isCancelledWithAccess ? 'bg-warning text-warning-foreground' : isTrialing ? 'bg-secondary text-secondary-foreground' : 'bg-success text-success-foreground'
               }`}>
               {isCancelledWithAccess
                 ? 'CANCELADA — ACESSO ATÉ O FIM DO PERÍODO'
@@ -129,48 +130,48 @@ export default function Subscription() {
 
             <div className="p-6">
               {/* Plan info */}
-              <div className="flex items-center justify-between mb-6 pb-6 border-b">
+              <div className="flex items-center justify-between mb-6 pb-6 border-b border-border">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">
+                  <h2 className="text-xl font-bold text-foreground">
                     {subscription.planName || 'LabelGo Pro'}
                   </h2>
-                  <p className="text-gray-500">{isTrialing ? 'Teste gratuito' : 'Plano mensal'}</p>
+                  <p className="text-muted-foreground">{isTrialing ? 'Teste gratuito' : 'Plano mensal'}</p>
                 </div>
                 <div className="text-right">
-                  <div className="text-3xl font-bold text-gray-900">
+                  <div className="text-3xl font-bold text-foreground">
                     R$ {subscription.price?.toFixed(2).replace('.', ',')}
                   </div>
-                  <p className="text-gray-500">por mês</p>
+                  <p className="text-muted-foreground">por mês</p>
                 </div>
               </div>
 
               {/* Details */}
               <div className="space-y-4 mb-8">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center">
-                    <CreditCard className="w-5 h-5 text-brand-600" />
+                  <div className="w-10 h-10 bg-secondary/60 rounded-full flex items-center justify-center">
+                    <CreditCard className="w-5 h-5 text-foreground" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Status</p>
-                    <p className="font-medium text-gray-900">
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <p className="font-medium text-foreground">
                       {statusLabel(subscription.status)}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-purple-600" />
+                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       {isTrialing
                         ? 'Teste termina em'
                         : isCancelledWithAccess
                           ? 'Acesso até'
                           : 'Próxima cobrança'}
                     </p>
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-foreground">
                       {isTrialing
                         ? `${formatDate(subscription.trialEndsAt)} (${subscription.trialDaysRemaining ?? '-'} dia(s) restantes)`
                         : isCancelledWithAccess
@@ -183,10 +184,11 @@ export default function Subscription() {
 
               {/* Trial conversion CTA */}
               {isTrialing && (
-                <button
+                <Button
+                  size="lg"
                   onClick={handleSubscribe}
                   disabled={subscribing}
-                  className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mb-3"
+                  className="w-full mb-3"
                 >
                   {subscribing ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -196,37 +198,39 @@ export default function Subscription() {
                       Assinar agora — R$ {subscription.price?.toFixed(2).replace('.', ',')}/mês
                     </>
                   )}
-                </button>
+                </Button>
               )}
 
               {/* Cancel button (hide once already cancelled) */}
               {!isCancelledWithAccess && (
-                <button
+                <Button
+                  variant="destructiveOutline"
+                  size="lg"
                   onClick={() => setShowCancelModal(true)}
-                  className="w-full border border-red-300 text-red-600 hover:bg-red-50 font-medium py-3 px-6 rounded-lg transition-colors"
+                  className="w-full"
                 >
                   {isTrialing ? 'Cancelar teste' : 'Cancelar assinatura'}
-                </button>
+                </Button>
               )}
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-md p-8 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CreditCard className="w-8 h-8 text-gray-400" />
+          <div className="bg-surface rounded-xl border border-border shadow-sm p-8 text-center">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+              <CreditCard className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">
+            <h2 className="text-xl font-bold text-foreground mb-2">
               Sem assinatura ativa
             </h2>
-            <p className="text-gray-500 mb-6">
+            <p className="text-muted-foreground mb-6">
               Assine para ter acesso completo ao LabelGo
             </p>
-            <button
+            <Button
+              size="lg"
               onClick={() => navigate('/pricing')}
-              className="bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
             >
               Ver planos
-            </button>
+            </Button>
           </div>
         )}
       </main>
@@ -234,41 +238,45 @@ export default function Subscription() {
       {/* Cancel Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+          <div className="bg-surface rounded-2xl border border-border max-w-md w-full p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
+                <AlertTriangle className="w-6 h-6 text-danger" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900">
+              <h3 className="text-xl font-bold text-foreground">
                 {isTrialing ? 'Cancelar teste?' : 'Cancelar assinatura?'}
               </h3>
             </div>
 
-            <p className="text-gray-600 mb-6">
+            <p className="text-muted-foreground mb-6">
               {isTrialing
                 ? 'Seu acesso de teste será encerrado. O teste gratuito só pode ser usado uma vez por conta.'
                 : 'Tem certeza que deseja cancelar sua assinatura? Você manterá acesso até o fim do período já pago.'}
             </p>
 
             <div className="flex gap-3">
-              <button
+              <Button
+                variant="outline"
+                size="lg"
                 onClick={() => setShowCancelModal(false)}
                 disabled={canceling}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
+                className="flex-1"
               >
                 Manter assinatura
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="destructive"
+                size="lg"
                 onClick={handleCancel}
                 disabled={canceling}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1"
               >
                 {canceling ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   'Sim, cancelar'
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

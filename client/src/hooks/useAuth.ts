@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
 
+export interface ConnectedAccount {
+  id: number;
+  provider: string;
+  externalUserId: string;
+  nickname?: string;
+}
+
 interface User {
   userId: number;
   nickname: string;
+  email?: string;
+  emailVerified?: boolean;
+  accounts?: ConnectedAccount[];
 }
 
 export function useAuth() {
@@ -29,18 +39,71 @@ export function useAuth() {
     }
   };
 
+  /** Start an OAuth flow for a provider (login or connect when logged in). */
+  const startOAuth = async (provider: string) => {
+    const res = await fetch(`/api/auth/oauth/${provider}/start`, { credentials: 'include' });
+    const data = await res.json();
+    if (data.authUrl) {
+      window.location.href = data.authUrl;
+    } else {
+      throw new Error(data.error || 'auth_url_failed');
+    }
+  };
+
+  /** Login with Mercado Livre — kept for the main CTA. */
   const login = async () => {
     try {
-      const res = await fetch('/api/auth/login', { credentials: 'include' });
-      const data = await res.json();
-      if (data.authUrl) {
-        window.location.href = data.authUrl;
-      } else if (data.error) {
-        alert('Erro: ' + data.error + '\n\nVerifique se o arquivo .env está configurado.');
-      }
+      await startOAuth('mercadolivre');
     } catch (err) {
       alert('Erro ao conectar com o servidor. Verifique se o backend está rodando.');
     }
+  };
+
+  const loginWithEmail = async (email: string, password: string): Promise<string | null> => {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return data.message || 'E-mail ou senha incorretos';
+    }
+    setUser(data.user);
+    return null;
+  };
+
+  const register = async (email: string, password: string, nickname?: string): Promise<string | null> => {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password, nickname })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return data.message || 'Erro ao criar conta';
+    }
+    setUser(data.user);
+    return null;
+  };
+
+  /** Connect an additional marketplace account (requires session). */
+  const connectAccount = async (provider: string) => {
+    await startOAuth(provider);
+  };
+
+  const disconnectAccount = async (accountId: number): Promise<boolean> => {
+    const res = await fetch(`/api/auth/accounts/${accountId}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    if (res.ok) {
+      await checkAuth();
+      return true;
+    }
+    return false;
   };
 
   const logout = async () => {
@@ -52,5 +115,5 @@ export function useAuth() {
     window.location.href = '/login';
   };
 
-  return { user, loading, login, logout, checkAuth };
+  return { user, loading, login, loginWithEmail, register, connectAccount, disconnectAccount, logout, checkAuth };
 }

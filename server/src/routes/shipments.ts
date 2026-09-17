@@ -1,81 +1,24 @@
 import { Router, Request, Response } from 'express';
-import { getOrders, getShipment, searchShipments, Order, Shipment } from '../services/mercadolivre.js';
+import { getProvider } from '../providers/index.js';
+import type { NormalizedShipment } from '../providers/types.js';
+import { getFreshAccountContext } from '../services/accounts.js';
 import { requireActiveSubscription } from '../middleware/subscription.js';
 import { getPlan } from '../services/pricing.js';
-import { getUserByMlId, getPrintEvents } from '../db.js';
+import { getMarketplaceAccountsForUser, getPrintEvents } from '../db.js';
 
 const router = Router();
 router.use(requireActiveSubscription);
 
-interface OrderItem {
-  title: string;
-  quantity: number;
-  sku?: string;
-}
-
-interface ShipmentWithOrder {
-  shipmentId: number;
-  orderId: number;
-  buyerNickname: string;
-  items: string;
-  status: string;
-  substatus: string;
-  canPrint: boolean;
-  city?: string;
-  state?: string;
-  /** Pro (sla_queue): dispatch deadline from ML lead_time.buffering. */
-  dispatchDeadline?: string;
-  /** Pro (packing_check): structured items for pre-print confirmation. */
-  orderItems?: OrderItem[];
-}
-
-const BATCH_SIZE = 25;
-const BATCH_DELAY_MS = 50;
-
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function isWithinRange(date: Date, from?: string, to?: string): boolean {
-  if (from) {
-    const df = new Date(from);
-    if (!Number.isNaN(df.getTime()) && date < df) return false;
-  }
-  if (to) {
-    const dt = new Date(to);
-    if (!Number.isNaN(dt.getTime()) && date > dt) return false;
-  }
-  return true;
-}
-
-async function processBatchWithDelay<T, R>(
-  items: T[],
-  batchSize: number,
-  delayMs: number,
-  fn: (item: T) => Promise<R | null>
-): Promise<R[]> {
-  const results: R[] = [];
-  for (let i = 0; i < items.length; i += batchSize) {
-    if (i > 0) await sleep(delayMs);
-    const batch = items.slice(i, i + batchSize);
-    const batchResults = await Promise.all(batch.map(fn));
-    for (const r of batchResults) {
-      if (r !== null) results.push(r);
-    }
-  }
-  return results;
-}
-
 router.get('/', async (req: Request, res: Response) => {
-  if (!req.session.accessToken || !req.session.userId) {
+  if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
   try {
-    const accessToken = req.session.accessToken;
-    const sellerId = req.session.userId;
+    const userId = req.session.userId;
     const dateFrom = req.query.date_from as string | undefined;
     const dateTo = req.query.date_to as string | undefined;
+    const providerFilter = req.query.provider as string | undefined;
 
     // Pro-only fields are gated server-side: Start plans never receive them.
     const planId = (req as any).planId as string | undefined;
@@ -83,119 +26,40 @@ router.get('/', async (req: Request, res: Response) => {
     const showSla = plan?.sla_queue === true;
     const showPacking = plan?.packing_check === true;
 
-    // Step 1: Source of truth - all ready_to_ship shipments
-    const searchIds = new Set<number>();
-    try {
-      const readyToShipIds = await searchShipments(accessToken, sellerId, 'ready_to_ship');
-      for (const id of readyToShipIds) searchIds.add(id);
-      console.log(`[shipments] search API: ready_to_ship total=${searchIds.size}`);
-    } catch (error) {
-      console.error('[shipments] search API failed:', error);
+    // Resolve connected marketplace accounts (optionally filtered by provider).
+    const accounts = (await getMarketplaceAccountsForUser(userId))
+      .filter((a: any) => !providerFilter || a.provider === providerFilter);
+
+    if (accounts.length === 0) {
+      return res.json({ ready: [], reprint: [] });
     }
 
-    // Step 2: Always fetch orders to build shipping_id → order map.
-    // As of Oct 2025, ML discontinued order_id/external_reference from shipment
-    // responses, so we can no longer get the order_id from a shipment. Instead,
-    // we fetch orders (which still contain shipping.id) and match by shipment ID.
-    const ordersByShipmentId = new Map<number, Order>();
-    try {
-      const orders = await getOrders(accessToken, sellerId, dateFrom, dateTo);
-      for (const order of orders) {
-        if (order.shipping?.id) {
-          ordersByShipmentId.set(order.shipping.id, order);
-          // Also add to shipment IDs as fallback (helps if search returns empty)
-          if (!searchIds.has(order.shipping.id)) {
-            searchIds.add(order.shipping.id);
-          }
-        }
+    // Fetch each account's shipments through its provider; failures in one
+    // marketplace don't take down the others.
+    const rows: NormalizedShipment[] = [];
+    await Promise.all(accounts.map(async (account: any) => {
+      const provider = getProvider(account.provider);
+      if (!provider) {
+        console.error(`[shipments] Unknown provider: ${account.provider}`);
+        return;
       }
-      console.log(`[shipments] orders scan: ${orders.length} orders, ${ordersByShipmentId.size} mapped to shipments`);
-    } catch (error) {
-      console.error('[shipments] orders scan failed:', error);
-    }
-
-    const allShipmentIds = Array.from(searchIds);
-    console.log(`[shipments] total unique IDs to resolve: ${allShipmentIds.length}`);
-
-    // Step 3: Resolve shipments
-    const failedShipmentIds: number[] = [];
-    const shipments = await processBatchWithDelay(
-      allShipmentIds,
-      BATCH_SIZE,
-      BATCH_DELAY_MS,
-      async (shipmentId): Promise<Shipment | null> => {
-        try {
-          const shipment = await getShipment(accessToken, shipmentId);
-          if (shipment.status !== 'ready_to_ship') return null;
-          return shipment;
-        } catch {
-          try {
-            await sleep(500);
-            const shipment = await getShipment(accessToken, shipmentId);
-            if (shipment.status !== 'ready_to_ship') return null;
-            return shipment;
-          } catch {
-            failedShipmentIds.push(shipmentId);
-            return null;
-          }
-        }
+      const ctx = await getFreshAccountContext(account);
+      if (!ctx) {
+        console.error(`[shipments] Could not get token for account ${account.id} (${account.provider})`);
+        return;
       }
-    );
-
-    if (failedShipmentIds.length > 0) {
-      console.error(`[shipments] ${failedShipmentIds.length} shipments failed after retry: ${failedShipmentIds.join(',')}`);
-    }
-
-    // Step 4: Build rows using the shipping_id → order map (no order_id from shipment)
-    let rows: ShipmentWithOrder[] = shipments.map((shipment) => {
-      const order = ordersByShipmentId.get(shipment.id);
-      const items = order
-        ? order.order_items.map(item => `${item.quantity}x ${item.item.title}`).join(', ')
-        : '';
-
-      const row: ShipmentWithOrder = {
-        shipmentId: shipment.id,
-        orderId: order?.id || 0,
-        buyerNickname: order?.buyer?.nickname || '-',
-        items: items.length > 100 ? items.substring(0, 97) + '...' : items,
-        status: shipment.status,
-        substatus: shipment.substatus || '',
-        canPrint: shipment.substatus !== 'invoice_pending',
-        city: shipment.receiver_address?.city?.name,
-        state: shipment.receiver_address?.state?.name
-      };
-
-      if (showSla) {
-        // ML lead_time.buffering = deadline for the seller to hand the package
-        // to the carrier ("despachar até").
-        const deadline = shipment.lead_time?.buffering?.date;
-        if (deadline) row.dispatchDeadline = deadline;
+      try {
+        const accountRows = await provider.listReadyShipments(ctx, {
+          dateFrom,
+          dateTo,
+          includeSla: showSla,
+          includePacking: showPacking
+        });
+        rows.push(...accountRows);
+      } catch (error) {
+        console.error(`[shipments] ${account.provider} account ${account.id} failed:`, error);
       }
-
-      if (showPacking && order) {
-        row.orderItems = order.order_items.map((item) => ({
-          title: item.item.title,
-          quantity: item.quantity,
-          sku: item.item.seller_sku || undefined
-        }));
-      }
-
-      return row;
-    });
-
-    // Step 5: Optional date filter (based on order.date_created when available)
-    if (dateFrom || dateTo) {
-      rows = rows.filter((r) => {
-        const order = ordersByShipmentId.get(r.shipmentId);
-        const created = (order as any)?.date_created as string | undefined;
-        if (!created) return true;
-        const d = new Date(created);
-        if (Number.isNaN(d.getTime())) return true;
-        return isWithinRange(d, dateFrom, dateTo);
-      });
-    }
-
-    console.log(`[shipments] ready_to_ship rows=${rows.length} shipments_failed=${failedShipmentIds.length}`);
+    }));
 
     const ready = rows.filter((s) => s.substatus === 'ready_to_print');
     const reprint = rows.filter((s) => s.substatus !== 'ready_to_print');
@@ -203,7 +67,7 @@ router.get('/', async (req: Request, res: Response) => {
     // Pro SLA queue: most urgent dispatch first — earliest deadline on top,
     // shipments without deadline data go last.
     if (showSla) {
-      const byDeadline = (a: ShipmentWithOrder, b: ShipmentWithOrder) => {
+      const byDeadline = (a: NormalizedShipment, b: NormalizedShipment) => {
         if (!a.dispatchDeadline && !b.dispatchDeadline) return 0;
         if (!a.dispatchDeadline) return 1;
         if (!b.dispatchDeadline) return -1;
@@ -213,7 +77,7 @@ router.get('/', async (req: Request, res: Response) => {
       reprint.sort(byDeadline);
     }
 
-    console.log(`[shipments] ready=${ready.length} reprint=${reprint.length}`);
+    console.log(`[shipments] accounts=${accounts.length} ready=${ready.length} reprint=${reprint.length}`);
     res.json({ ready, reprint });
   } catch (error) {
     console.error('Failed to get shipments:', error);
@@ -237,13 +101,8 @@ router.get('/print-history', async (req: Request, res: Response) => {
     });
   }
 
-  const user = await getUserByMlId(req.session.userId);
-  if (!user) {
-    return res.status(403).json({ error: 'subscription_required' });
-  }
-
   const limit = Math.min(Number(req.query.limit) || 50, 200);
-  const events = await getPrintEvents(user.id, limit);
+  const events = await getPrintEvents(req.session.userId, limit);
   res.json({ events });
 });
 

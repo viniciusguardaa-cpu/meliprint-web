@@ -11,16 +11,39 @@ export default {
       },
       colors: {
         brand: {
-          50: '#EDF4FF',
-          100: '#DEEAFF',
-          200: '#B2CFFF',
-          300: '#70A5FF',
-          400: '#337EFF',
-          500: '#005AFB',
-          600: '#0550D1',
-          700: '#0441A9',
-          800: '#033386',
-          900: '#032663',
+          wasabi: '#EAEF55',
+          persimmon: '#FE5D31',
+          charcoal: '#111827',
+        },
+        primary: {
+          DEFAULT: 'rgb(var(--primary) / <alpha-value>)',
+          hover: 'rgb(var(--primary-hover) / <alpha-value>)',
+          foreground: '#FFFFFF',
+        },
+        secondary: {
+          DEFAULT: 'rgb(var(--secondary) / <alpha-value>)',
+          hover: 'rgb(var(--secondary-hover) / <alpha-value>)',
+          foreground: 'rgb(var(--foreground) / <alpha-value>)',
+        },
+        background: 'rgb(var(--background) / <alpha-value>)',
+        surface: 'rgb(var(--surface) / <alpha-value>)',
+        muted: {
+          DEFAULT: 'rgb(var(--muted) / <alpha-value>)',
+          foreground: 'rgb(var(--foreground-muted) / <alpha-value>)',
+        },
+        foreground: 'rgb(var(--foreground) / <alpha-value>)',
+        border: 'rgb(var(--border) / <alpha-value>)',
+        success: {
+          DEFAULT: 'rgb(var(--success) / <alpha-value>)',
+          foreground: '#FFFFFF',
+        },
+        warning: {
+          DEFAULT: 'rgb(var(--warning) / <alpha-value>)',
+          foreground: 'rgb(var(--foreground) / <alpha-value>)',
+        },
+        danger: {
+          DEFAULT: 'rgb(var(--danger) / <alpha-value>)',
+          foreground: '#FFFFFF',
         },
       },
       keyframes: {

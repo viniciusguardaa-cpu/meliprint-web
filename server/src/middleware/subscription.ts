@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { getUserByMlId, getEntitledSubscription, isFreeAccessEmail } from '../db.js';
+import { getUserById, getEntitledSubscription, isFreeAccessEmail } from '../db.js';
 import { getPlan } from '../services/pricing.js';
 
 /**
@@ -12,16 +12,17 @@ export async function requireActiveSubscription(req: Request, res: Response, nex
   }
 
   try {
-    // Check if user has free lifetime access
-    const userEmail = req.session.userEmail?.toLowerCase();
-    if (userEmail && await isFreeAccessEmail(userEmail)) {
-      (req as any).planId = 'pro';
-      return next();
-    }
-
-    const user = await getUserByMlId(req.session.userId);
+    const user = await getUserById(req.session.userId);
     if (!user) {
       return res.status(403).json({ error: 'subscription_required', message: 'Assinatura ativa necessária para usar este recurso' });
+    }
+
+    // Check if user has free lifetime access
+    const userEmail = user.email?.toLowerCase();
+    if (userEmail && await isFreeAccessEmail(userEmail)) {
+      (req as any).planId = 'pro';
+      (req as any).userId = user.id;
+      return next();
     }
 
     // Entitled = authorized/active, in-window trial, or cancelled but still
@@ -33,6 +34,7 @@ export async function requireActiveSubscription(req: Request, res: Response, nex
 
     (req as any).planId = subscription.plan_id;
     (req as any).subscription = subscription;
+    (req as any).userId = user.id;
     next();
   } catch (error) {
     console.error('Error checking subscription in middleware:', error);
@@ -56,15 +58,16 @@ export function requirePlanFeature(feature: PlanFeature) {
     }
 
     try {
-      const userEmail = req.session.userEmail?.toLowerCase();
-      if (userEmail && await isFreeAccessEmail(userEmail)) {
-        (req as any).planId = 'pro';
-        return next();
-      }
-
-      const user = await getUserByMlId(req.session.userId);
+      const user = await getUserById(req.session.userId);
       if (!user) {
         return res.status(403).json({ error: 'subscription_required', message: 'Assinatura ativa necessária' });
+      }
+
+      const userEmail = user.email?.toLowerCase();
+      if (userEmail && await isFreeAccessEmail(userEmail)) {
+        (req as any).planId = 'pro';
+        (req as any).userId = user.id;
+        return next();
       }
 
       const subscription = await getEntitledSubscription(user.id);
@@ -92,6 +95,7 @@ export function requirePlanFeature(feature: PlanFeature) {
 
       (req as any).planId = planId;
       (req as any).subscription = subscription;
+      (req as any).userId = user.id;
       next();
     } catch (error) {
       console.error('Error checking plan feature:', error);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Button } from '../components/ui/button';
 
 export default function SubscriptionCallback() {
   const navigate = useNavigate();
@@ -42,15 +43,15 @@ export default function SubscriptionCallback() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4 text-center">
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="bg-surface rounded-2xl border border-border shadow-lg p-8 max-w-md w-full mx-4 text-center">
         {status === 'loading' && (
           <>
-            <Loader2 className="w-16 h-16 text-brand-500 mx-auto mb-4 animate-spin" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <Loader2 className="w-16 h-16 text-primary mx-auto mb-4 animate-spin" />
+            <h1 className="text-2xl font-bold text-foreground mb-2">
               Processando assinatura...
             </h1>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               Aguarde enquanto confirmamos seu pagamento.
             </p>
           </>
@@ -58,14 +59,14 @@ export default function SubscriptionCallback() {
 
         {status === 'success' && (
           <>
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-foreground mb-2">
               Assinatura ativada!
             </h1>
-            <p className="text-gray-600 mb-6">
+            <p className="text-muted-foreground mb-6">
               Obrigado! Você agora tem acesso completo ao LabelGo.
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Redirecionando para o dashboard...
             </p>
           </>
@@ -73,27 +74,28 @@ export default function SubscriptionCallback() {
 
         {status === 'error' && (
           <>
-            <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <XCircle className="w-16 h-16 text-danger mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-foreground mb-2">
               Algo deu errado
             </h1>
-            <p className="text-gray-600 mb-6">
+            <p className="text-muted-foreground mb-6">
               Não conseguimos confirmar sua assinatura. Se você completou o pagamento,
               aguarde alguns minutos e tente acessar novamente.
             </p>
             <div className="flex gap-3 justify-center">
-              <a
-                href="/pricing"
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg transition-colors"
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => { window.location.href = '/pricing'; }}
               >
                 Tentar novamente
-              </a>
-              <a
-                href="/dashboard"
-                className="bg-brand-500 hover:bg-brand-600 text-white px-6 py-3 rounded-lg transition-colors"
+              </Button>
+              <Button
+                size="lg"
+                onClick={() => { window.location.href = '/dashboard'; }}
               >
                 Ir para Dashboard
-              </a>
+              </Button>
             </div>
           </>
         )}

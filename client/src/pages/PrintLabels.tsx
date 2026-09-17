@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Button } from '../components/ui/button';
 
 type InvoiceItem = {
-  shipmentId: number;
+  shipmentId: string;
   invoice: any;
 };
 
@@ -15,11 +16,16 @@ export default function PrintLabels() {
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [printReady, setPrintReady] = useState(false);
 
+  // Which connected account these labels belong to (optional — defaults to
+  // the user's mercadolivre account server-side for backwards compat).
+  const accountId = searchParams.get('account_id') || '';
+  const provider = searchParams.get('provider') || '';
+
   const rawIds = searchParams.get('shipment_ids') || searchParams.get('shipmentIds') || '';
   const shipmentIds = rawIds
     .split(',')
-    .map((s) => Number(s.trim()))
-    .filter((n) => Number.isFinite(n) && n > 0);
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 
   useEffect(() => {
     const run = async () => {
@@ -33,7 +39,10 @@ export default function PrintLabels() {
       setError(null);
 
       try {
-        const url = `/api/labels/pdf?shipment_ids=${encodeURIComponent(shipmentIds.join(','))}`;
+        const params = new URLSearchParams({ shipment_ids: shipmentIds.join(',') });
+        if (accountId) params.set('account_id', accountId);
+        if (provider) params.set('provider', provider);
+        const url = `/api/labels/pdf?${params.toString()}`;
         setPdfUrl(url);
 
         // Record the print for the Pro history tab (best-effort, non-blocking).
@@ -41,7 +50,7 @@ export default function PrintLabels() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ shipmentIds })
+          body: JSON.stringify({ shipmentIds, accountId: accountId || undefined, provider: provider || undefined })
         }).catch(() => { });
 
         try {
@@ -49,7 +58,7 @@ export default function PrintLabels() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ shipmentIds })
+            body: JSON.stringify({ shipmentIds, accountId: accountId || undefined })
           });
 
           if (invRes.ok) {
@@ -111,30 +120,29 @@ export default function PrintLabels() {
         }
       `}</style>
 
-      <div className="no-print sticky top-0 z-10 bg-white border-b px-4 py-3 flex items-center justify-between">
-        <div className="text-sm text-gray-600">
+      <div className="no-print sticky top-0 z-10 bg-surface border-b border-border px-4 py-3 flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
           {loading ? 'Carregando...' : error ? error : `Etiquetas (${shipmentIds.length})`}
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             onClick={() => window.print()}
             disabled={!printReady}
-            className="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
           >
             Imprimir
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
             onClick={openInvoices}
             disabled={invoices.length === 0}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
           >
             Abrir NFs
-          </button>
+          </Button>
         </div>
       </div>
 
       {error ? (
-        <div className="p-6 text-gray-700">{error}</div>
+        <div className="p-6 text-foreground">{error}</div>
       ) : pdfUrl ? (
         <iframe
           src={pdfUrl}
@@ -148,8 +156,8 @@ export default function PrintLabels() {
       ) : null}
 
       {invoices.length > 0 && (
-        <div className="no-print p-4 border-t">
-          <div className="text-sm font-semibold text-gray-700 mb-2">NFs</div>
+        <div className="no-print p-4 border-t border-border">
+          <div className="text-sm font-semibold text-foreground mb-2">NFs</div>
           <div className="space-y-2">
             {invoices
               .map((i) => ({
@@ -163,7 +171,7 @@ export default function PrintLabels() {
                   href={x.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="block text-brand-500 underline text-sm"
+                  className="block text-primary underline text-sm"
                 >
                   NF do envio {x.shipmentId}
                 </a>

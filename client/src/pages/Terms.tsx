@@ -3,18 +3,18 @@ import { ArrowLeft } from 'lucide-react';
 
 export default function Terms() {
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-md p-8">
-        <Link to="/" className="flex items-center gap-2 text-gray-500 hover:text-gray-800 text-sm mb-6">
+    <div className="min-h-screen bg-background py-12 px-4">
+      <div className="max-w-3xl mx-auto bg-surface rounded-2xl border border-border shadow-sm p-8">
+        <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm mb-6">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Link>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Termos de Uso</h1>
-        <p className="text-sm text-gray-400 mb-8">Última atualização: 17 de setembro de 2026</p>
+        <h1 className="text-2xl font-bold text-foreground mb-2">Termos de Uso</h1>
+        <p className="text-sm text-muted-foreground mb-8">Última atualização: 17 de setembro de 2026</p>
 
-        <div className="prose prose-sm max-w-none text-gray-700 space-y-6">
+        <div className="prose prose-sm max-w-none text-foreground space-y-6">
           <section>
-            <h2 className="text-lg font-semibold text-gray-900">1. Sobre o serviço</h2>
+            <h2 className="text-lg font-semibold text-foreground">1. Sobre o serviço</h2>
             <p>
               O LabelGo ("nós", "nosso" ou "serviço") é uma plataforma que permite a impressão
               rápida de etiquetas de envio do Mercado Livre em formato ZPL/PDF, oferecida por{' '}
@@ -24,7 +24,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900">2. Cadastro e acesso</h2>
+            <h2 className="text-lg font-semibold text-foreground">2. Cadastro e acesso</h2>
             <p>
               O acesso ao LabelGo é feito exclusivamente através de login com sua conta do
               Mercado Livre (OAuth). Ao autorizar o acesso, você declara ser o legítimo
@@ -33,7 +33,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900">3. Assinatura e pagamento</h2>
+            <h2 className="text-lg font-semibold text-foreground">3. Assinatura e pagamento</h2>
             <p>
               O uso completo da plataforma requer uma assinatura mensal no valor vigente
               exibido na página de planos, cobrada automaticamente via Mercado Pago até que
@@ -43,7 +43,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900">4. Uso permitido</h2>
+            <h2 className="text-lg font-semibold text-foreground">4. Uso permitido</h2>
             <p>
               Você concorda em usar o LabelGo apenas para gerar etiquetas e documentos
               fiscais relacionados aos seus próprios envios no Mercado Livre, não sendo
@@ -53,7 +53,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900">5. Limitação de responsabilidade</h2>
+            <h2 className="text-lg font-semibold text-foreground">5. Limitação de responsabilidade</h2>
             <p>
               O LabelGo depende de APIs de terceiros (Mercado Livre e Mercado Pago) para
               funcionar. Não nos responsabilizamos por indisponibilidades, alterações ou
@@ -62,7 +62,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900">6. Cancelamento e reembolso</h2>
+            <h2 className="text-lg font-semibold text-foreground">6. Cancelamento e reembolso</h2>
             <p>
               Assinaturas podem ser canceladas a qualquer momento na área "Minha Assinatura",
               sem multa ou fidelidade, e o acesso permanece ativo até o fim do período já pago.
@@ -73,7 +73,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900">7. Contato</h2>
+            <h2 className="text-lg font-semibold text-foreground">7. Contato</h2>
             <p>
               Dúvidas sobre estes Termos podem ser enviadas para{' '}
               <strong>suporte@labelgo.com.br</strong>.

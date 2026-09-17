@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Download, Loader2, ArrowRight, CheckCircle } from 'lucide-react';
 import Header from '../components/Header';
+import { Button } from '../components/ui/button';
 
 export default function ZplToPdf() {
   const navigate = useNavigate();
@@ -55,30 +56,30 @@ export default function ZplToPdf() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-background">
       <Header />
 
       <main className="max-w-3xl mx-auto px-4 py-12">
         {/* Hero */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">
+          <h1 className="text-3xl font-bold text-foreground mb-3">
             Conversor de ZPL para PDF — Grátis
           </h1>
-          <p className="text-gray-600">
+          <p className="text-muted-foreground">
             Cole seu código ZPL e baixe o PDF da etiqueta. Sem login, sem cadastro.
           </p>
         </div>
 
         {/* Tool */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="bg-surface rounded-2xl border border-border shadow-sm p-6 mb-6">
+          <label className="block text-sm font-medium text-foreground mb-2">
             Código ZPL
           </label>
           <textarea
             value={zpl}
             onChange={(e) => setZpl(e.target.value)}
             placeholder="^XA^FO50,50^A0N,50,50^FDHello World^FS^XZ"
-            className="w-full h-48 p-3 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+            className="w-full h-48 p-3 bg-surface border border-gray-300 rounded-lg font-mono text-sm placeholder:text-[#98A2B3] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
           />
 
           {error && (
@@ -94,10 +95,11 @@ export default function ZplToPdf() {
             </div>
           )}
 
-          <button
+          <Button
+            size="lg"
             onClick={handleConvert}
             disabled={loading || !zpl.trim()}
-            className="mt-4 w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="mt-4 w-full"
           >
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -107,22 +109,22 @@ export default function ZplToPdf() {
                 Converter para PDF
               </>
             )}
-          </button>
+          </Button>
         </div>
 
         {/* CTA */}
-        <div className="bg-gradient-to-r from-brand-500 to-brand-600 rounded-2xl p-6 text-white text-center">
+        <div className="bg-primary rounded-2xl p-6 text-white text-center">
           <FileText className="w-10 h-10 mx-auto mb-3" />
           <h2 className="text-xl font-bold mb-2">
             Cansado de converter etiquetas manualmente?
           </h2>
-          <p className="text-brand-100 mb-4">
+          <p className="text-white/80 mb-4">
             Conecte seu Mercado Livre ao LabelGo e imprima etiquetas em segundos.
             Com o LabelGo Pro, suas etiquetas saem automaticamente na impressora.
           </p>
           <button
             onClick={() => navigate('/pricing')}
-            className="bg-white text-brand-600 font-semibold px-6 py-3 rounded-xl hover:bg-brand-50 transition-colors inline-flex items-center gap-2"
+            className="bg-white text-primary font-semibold px-6 py-3 rounded-xl hover:bg-secondary hover:text-foreground transition-colors inline-flex items-center gap-2"
           >
             Testar grátis por 7 dias
             <ArrowRight className="w-4 h-4" />
@@ -130,8 +132,8 @@ export default function ZplToPdf() {
         </div>
 
         {/* SEO content */}
-        <div className="mt-8 prose prose-sm text-gray-600">
-          <h2 className="text-lg font-semibold text-gray-900">Sobre ZPL e etiquetas térmicas</h2>
+        <div className="mt-8 prose prose-sm text-muted-foreground">
+          <h2 className="text-lg font-semibold text-foreground">Sobre ZPL e etiquetas térmicas</h2>
           <p>
             ZPL (Zebra Programming Language) é a linguagem usada por impressoras térmicas
             Zebra e compatíveis para imprimir etiquetas. O LabelGo converte seu código ZPL

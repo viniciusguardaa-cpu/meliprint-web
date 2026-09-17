@@ -1,5 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 import Dashboard from './pages/Dashboard';
 import PrintLabels from './pages/PrintLabels';
 import AutoPrint from './pages/AutoPrint';
@@ -12,6 +16,7 @@ import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import ZplToPdf from './pages/ZplToPdf';
 import SeoPage from './pages/SeoPage';
+import NotFound from './pages/NotFound';
 import { useAuth } from './hooks/useAuth';
 import { useSubscription } from './hooks/useSubscription';
 
@@ -20,8 +25,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -39,8 +44,8 @@ function SubscriberRoute({ children }: { children: React.ReactNode }) {
 
   if (authLoading || subLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -61,6 +66,10 @@ function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/cadastro" element={<Register />} />
+      <Route path="/esqueci-senha" element={<ForgotPassword />} />
+      <Route path="/redefinir-senha" element={<ResetPassword />} />
+      <Route path="/verificar-email" element={<VerifyEmail />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/termos" element={<Terms />} />
       <Route path="/privacidade" element={<Privacy />} />
@@ -168,6 +177,7 @@ function App() {
           </SubscriberRoute>
         }
       />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

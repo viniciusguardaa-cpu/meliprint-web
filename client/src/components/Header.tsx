@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { LogOut, CreditCard, Zap } from 'lucide-react';
+import { Button } from './ui/button';
+import Logo from './Logo';
 
 interface HeaderProps {
   showSubscription?: boolean;
@@ -12,51 +14,39 @@ export default function Header({ showSubscription = false, showDashboard = false
   const { user, logout } = useAuth();
 
   return (
-    <header className="bg-brand-500 shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+    <header className="bg-surface/80 backdrop-blur-md border-b border-border sticky top-0 z-40">
+      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <a href="/" className="flex-shrink-0">
-          <img src="/logo.png" alt="LabelGo" className="h-10 w-auto" />
+          <Logo className="h-9" />
         </a>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {user && (
-            <span className="text-white/90 font-medium text-sm hidden sm:block">
+            <span className="text-muted-foreground font-medium text-sm hidden sm:block mr-1">
               {user.nickname}
             </span>
           )}
           {showDashboard && (
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            >
+            <Button variant="ghost" onClick={() => navigate('/dashboard')}>
               Dashboard
-            </button>
+            </Button>
           )}
           {showSubscription && (
-            <button
-              onClick={() => navigate('/auto-print')}
-              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
-            >
+            <Button variant="ghost" onClick={() => navigate('/auto-print')}>
               <Zap className="w-4 h-4" />
               <span className="hidden sm:inline">Auto Print</span>
-            </button>
+            </Button>
           )}
           {showSubscription && (
-            <button
-              onClick={() => navigate('/subscription')}
-              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
-            >
+            <Button variant="ghost" onClick={() => navigate('/subscription')}>
               <CreditCard className="w-4 h-4" />
               <span className="hidden sm:inline">Assinatura</span>
-            </button>
+            </Button>
           )}
           {user && (
-            <button
-              onClick={logout}
-              className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
-            >
+            <Button variant="outline" onClick={logout}>
               <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline">Sair</span>
-            </button>
+            </Button>
           )}
         </div>
       </div>

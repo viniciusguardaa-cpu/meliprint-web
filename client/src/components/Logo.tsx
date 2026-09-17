@@ -1,15 +1,17 @@
+import { cn } from '../lib/utils';
+
 interface LogoProps {
   className?: string;
+  /** `light` renders the wordmark in white for dark backgrounds. */
+  variant?: 'default' | 'light';
 }
 
-export default function Logo({ className = '' }: LogoProps) {
+export default function Logo({ className = '', variant = 'default' }: LogoProps) {
   return (
-    <div className={`flex items-center ${className}`}>
-      <img
-        src="/logo.png"
-        alt="LabelGo"
-        className="h-8 w-auto"
-      />
-    </div>
+    <img
+      src="/logo.png"
+      alt="LabelGo"
+      className={cn('h-8 w-auto', variant === 'light' && 'brightness-0 invert', className)}
+    />
   );
 }

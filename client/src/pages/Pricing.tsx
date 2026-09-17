@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Check, Zap, Shield, Loader2 } from 'lucide-react';
 import Header from '../components/Header';
+import { Button } from '../components/ui/button';
 import { getVisitorKey, track } from '../lib/analytics';
 
 interface Plan {
@@ -116,8 +117,8 @@ export default function Pricing() {
 
   if (plansLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-brand-500 animate-spin" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
       </div>
     );
   }
@@ -126,22 +127,22 @@ export default function Pricing() {
   const canTrial = subStatus?.canTrial !== false && !isTrialing;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-background">
       <Header showDashboard />
 
       <main className="max-w-5xl mx-auto px-4 py-16">
         {/* Hero */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          <h1 className="text-4xl font-bold text-foreground mb-4">
             Imprima etiquetas do Mercado Livre em segundos
           </h1>
-          <p className="text-xl text-gray-600">
+          <p className="text-xl text-muted-foreground">
             {canTrial
               ? 'Teste grátis por 7 dias. Sem cartão de crédito.'
               : 'Assine e imprima em segundos — direto do navegador.'}
           </p>
           {isTrialing && (
-            <p className="mt-3 inline-block bg-brand-50 text-brand-700 px-4 py-2 rounded-full text-sm font-medium">
+            <p className="mt-3 inline-block bg-secondary/60 text-secondary-foreground px-4 py-2 rounded-full text-sm font-medium">
               Trial ativo — restam {subStatus?.trialDaysRemaining ?? '-'} dia(s)
             </p>
           )}
@@ -154,37 +155,37 @@ export default function Pricing() {
             return (
               <div
                 key={plan.id}
-                className={`bg-white rounded-2xl shadow-xl overflow-hidden border-2 ${isPro ? 'border-brand-500' : 'border-gray-200'
+                className={`bg-surface rounded-2xl shadow-lg overflow-hidden border-2 ${isPro ? 'border-primary' : 'border-border'
                   }`}
               >
                 {isPro && (
-                  <div className="bg-brand-500 text-white text-center py-2 text-sm font-semibold">
+                  <div className="bg-secondary text-secondary-foreground text-center py-2 text-sm font-semibold">
                     RECOMENDADO
                   </div>
                 )}
                 {!isPro && (
-                  <div className="bg-gray-100 text-gray-600 text-center py-2 text-sm font-semibold">
+                  <div className="bg-muted text-muted-foreground text-center py-2 text-sm font-semibold">
                     PLANO MENSAL
                   </div>
                 )}
 
                 <div className="p-8">
                   {/* Plan name */}
-                  <h2 className="text-xl font-bold text-gray-900 mb-1">{plan.name}</h2>
-                  <p className="text-gray-500 text-sm mb-6">{plan.description}</p>
+                  <h2 className="text-xl font-bold text-foreground mb-1">{plan.name}</h2>
+                  <p className="text-muted-foreground text-sm mb-6">{plan.description}</p>
 
                   {/* Price */}
                   <div className="text-center mb-8">
                     <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-2xl font-medium text-gray-500">R$</span>
-                      <span className="text-6xl font-bold text-gray-900">
+                      <span className="text-2xl font-medium text-muted-foreground">R$</span>
+                      <span className="text-6xl font-bold text-foreground">
                         {plan.price ? Math.floor(plan.price.amount) : '-'}
                       </span>
-                      <span className="text-2xl font-medium text-gray-500">
+                      <span className="text-2xl font-medium text-muted-foreground">
                         ,{plan.price ? (plan.price.amount % 1).toFixed(2).slice(2) : '00'}
                       </span>
                     </div>
-                    <p className="text-gray-500 mt-2">por mês</p>
+                    <p className="text-muted-foreground mt-2">por mês</p>
                   </div>
 
                   {/* Features */}
@@ -194,7 +195,7 @@ export default function Pricing() {
                         <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
                           <Check className="w-4 h-4 text-green-600" />
                         </div>
-                        <span className="text-gray-700 text-sm">{feature}</span>
+                        <span className="text-foreground/80 text-sm">{feature}</span>
                       </li>
                     ))}
                   </ul>
@@ -210,10 +211,11 @@ export default function Pricing() {
                   {isPro ? (
                     <>
                       {canTrial && (
-                        <button
+                        <Button
+                          size="xl"
                           onClick={() => handleSubscribe(plan.id, true)}
                           disabled={loading}
-                          className="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-4 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3"
+                          className="w-full mb-3"
                         >
                           {loading ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
@@ -223,14 +225,14 @@ export default function Pricing() {
                               Testar grátis por 7 dias
                             </>
                           )}
-                        </button>
+                        </Button>
                       )}
                       <button
                         onClick={() => handleSubscribe(plan.id, false)}
                         disabled={loading}
-                        className={`w-full font-semibold py-4 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3 ${canTrial
-                          ? 'bg-gray-900 hover:bg-gray-800 text-white'
-                          : 'bg-brand-500 hover:bg-brand-600 text-white'
+                        className={`w-full font-semibold py-4 px-6 rounded-xl transition-all duration-150 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2 mb-3 ${canTrial
+                          ? 'bg-foreground text-white hover:bg-foreground/90'
+                          : 'bg-primary text-primary-foreground hover:bg-primary-hover'
                           }`}
                       >
                         {loading ? (
@@ -241,16 +243,18 @@ export default function Pricing() {
                       </button>
                     </>
                   ) : (
-                    <button
+                    <Button
+                      variant="outline"
+                      size="xl"
                       onClick={() => handleSubscribe(plan.id, false)}
                       disabled={loading}
-                      className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-4 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full"
                     >
                       Assinar Agora
-                    </button>
+                    </Button>
                   )}
 
-                  <p className="text-center text-sm text-gray-500 mt-4">
+                  <p className="text-center text-sm text-muted-foreground mt-4">
                     Cancele quando quiser. Sem fidelidade.
                   </p>
                 </div>
@@ -260,7 +264,7 @@ export default function Pricing() {
         </div>
 
         {/* Trust badges */}
-        <div className="mt-8 flex items-center justify-center gap-6 text-gray-400 text-sm">
+        <div className="mt-8 flex items-center justify-center gap-6 text-muted-foreground text-sm">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4" />
             Pagamento seguro

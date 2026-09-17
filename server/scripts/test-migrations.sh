@@ -129,8 +129,15 @@ done
   BEGIN
     SELECT COUNT(*) INTO n FROM subscriptions WHERE mp_preapproval_id='pa_legacy_1' AND status='authorized';
     IF n <> 1 THEN RAISE EXCEPTION 'legacy subscription lost'; END IF;
-    SELECT COUNT(*) INTO n FROM print_queue WHERE shipment_id=424242 AND status='printed';
+    SELECT COUNT(*) INTO n FROM print_queue WHERE shipment_id='424242' AND status='printed';
     IF n <> 1 THEN RAISE EXCEPTION 'legacy print job lost'; END IF;
+    -- shipment_id is TEXT after 0009 (provider-external ids); legacy row keeps provider='mercadolivre'
+    SELECT COUNT(*) INTO n FROM print_queue WHERE provider='mercadolivre' AND content_type='zpl';
+    IF n < 1 THEN RAISE EXCEPTION 'print_queue provider defaults missing'; END IF;
+    -- legacy ML user got a backfilled marketplace account
+    SELECT COUNT(*) INTO n FROM marketplace_accounts
+      WHERE provider='mercadolivre' AND external_user_id='999001';
+    IF n <> 1 THEN RAISE EXCEPTION 'legacy ML account not backfilled'; END IF;
     -- old dedup row coexists with a new delivery of the same shipment
     INSERT INTO ml_notifications (topic, resource, user_id, delivery_key, processed)
       VALUES ('shipments', '/shipments/424242', 999001, 'dlv_2', false);

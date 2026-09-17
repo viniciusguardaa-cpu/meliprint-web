@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import pg from 'pg';
 import { encrypt, decrypt, isLegacyPlaintext } from './services/crypto.js';
 
@@ -47,6 +48,219 @@ export async function getUserByMlId(mlUserId: number) {
     [mlUserId]
   );
   return result.rows[0] || null;
+}
+
+export async function getUserById(id: number) {
+  const result = await pool.query(
+    `SELECT * FROM "users" WHERE "id" = $1`,
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+export async function getUserByEmail(email: string) {
+  const result = await pool.query(
+    `SELECT * FROM "users" WHERE LOWER("email") = LOWER($1)`,
+    [email]
+  );
+  return result.rows[0] || null;
+}
+
+export async function createUser(fields: {
+  email: string;
+  nickname: string;
+  passwordHash?: string | null;
+  emailVerified?: boolean;
+}) {
+  const result = await pool.query(
+    `INSERT INTO "users" ("nickname", "email", "password_hash", "email_verified")
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
+    [fields.nickname, fields.email.toLowerCase(), fields.passwordHash ?? null, fields.emailVerified ?? false]
+  );
+  return result.rows[0];
+}
+
+export async function setUserPassword(userId: number, passwordHash: string) {
+  await pool.query(
+    `UPDATE "users" SET "password_hash" = $2, "email_verified" = true, "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1`,
+    [userId, passwordHash]
+  );
+}
+
+export async function markEmailVerified(userId: number) {
+  await pool.query(
+    `UPDATE "users" SET "email_verified" = true, "updated_at" = CURRENT_TIMESTAMP WHERE "id" = $1`,
+    [userId]
+  );
+}
+
+/** Keeps the legacy users.ml_user_id convenience column in sync on ML connect. */
+export async function setUserMlId(userId: number, mlUserId: string) {
+  await pool.query(
+    `UPDATE "users" SET "ml_user_id" = $2, "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1 AND "ml_user_id" IS NULL`,
+    [userId, Number(mlUserId)]
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Marketplace accounts: connected provider identities + tokens (encrypted).
+// ---------------------------------------------------------------------------
+
+function decryptAccount(row: any) {
+  if (!row) return row;
+  row.access_token = row.access_token ? decrypt(row.access_token) : null;
+  row.refresh_token = row.refresh_token ? decrypt(row.refresh_token) : null;
+  return row;
+}
+
+export async function getMarketplaceAccountsForUser(userId: number) {
+  const result = await pool.query(
+    `SELECT * FROM "marketplace_accounts"
+     WHERE "user_id" = $1 AND "status" = 'active'
+     ORDER BY "created_at" ASC`,
+    [userId]
+  );
+  return result.rows.map(decryptAccount);
+}
+
+export async function getMarketplaceAccountById(accountId: number) {
+  const result = await pool.query(
+    `SELECT * FROM "marketplace_accounts" WHERE "id" = $1`,
+    [accountId]
+  );
+  return decryptAccount(result.rows[0] || null);
+}
+
+export async function getMarketplaceAccountByExternal(provider: string, externalUserId: string) {
+  const result = await pool.query(
+    `SELECT * FROM "marketplace_accounts"
+     WHERE "provider" = $1 AND "external_user_id" = $2 AND "status" = 'active'`,
+    [provider, externalUserId]
+  );
+  return decryptAccount(result.rows[0] || null);
+}
+
+export async function getMarketplaceAccountForUser(userId: number, provider: string) {
+  const result = await pool.query(
+    `SELECT * FROM "marketplace_accounts"
+     WHERE "user_id" = $1 AND "provider" = $2 AND "status" = 'active'
+     ORDER BY "created_at" ASC LIMIT 1`,
+    [userId, provider]
+  );
+  return decryptAccount(result.rows[0] || null);
+}
+
+/**
+ * Insert or refresh a connected account. On (provider, external_user_id)
+ * conflict only tokens/metadata are updated — ownership (user_id) is never
+ * reassigned here; callers must check row.user_id in connect flows.
+ */
+export async function upsertMarketplaceAccount(
+  userId: number,
+  provider: string,
+  externalUserId: string,
+  fields: {
+    nickname?: string;
+    email?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    tokenExpiresAt?: number;
+  }
+) {
+  const encAccess = fields.accessToken !== undefined ? encrypt(fields.accessToken) : undefined;
+  const encRefresh = fields.refreshToken !== undefined ? encrypt(fields.refreshToken) : undefined;
+  const result = await pool.query(
+    `INSERT INTO "marketplace_accounts"
+       ("user_id", "provider", "external_user_id", "nickname", "email",
+        "access_token", "refresh_token", "token_expires_at", "updated_at")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+     ON CONFLICT ("provider", "external_user_id") DO UPDATE SET
+       "nickname" = COALESCE($4, "marketplace_accounts"."nickname"),
+       "email" = COALESCE($5, "marketplace_accounts"."email"),
+       "access_token" = COALESCE($6, "marketplace_accounts"."access_token"),
+       "refresh_token" = COALESCE($7, "marketplace_accounts"."refresh_token"),
+       "token_expires_at" = COALESCE($8, "marketplace_accounts"."token_expires_at"),
+       "status" = 'active',
+       "updated_at" = CURRENT_TIMESTAMP
+     RETURNING *`,
+    [
+      userId,
+      provider,
+      externalUserId,
+      fields.nickname ?? null,
+      fields.email ?? null,
+      encAccess ?? null,
+      encRefresh ?? null,
+      fields.tokenExpiresAt ?? null
+    ]
+  );
+  return decryptAccount(result.rows[0]);
+}
+
+export async function updateMarketplaceAccountTokens(
+  accountId: number,
+  tokens: { accessToken: string; refreshToken?: string; expiresAt?: number }
+) {
+  await pool.query(
+    `UPDATE "marketplace_accounts" SET
+       "access_token" = $2,
+       "refresh_token" = COALESCE($3, "refresh_token"),
+       "token_expires_at" = COALESCE($4, "token_expires_at"),
+       "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1`,
+    [
+      accountId,
+      encrypt(tokens.accessToken),
+      tokens.refreshToken ? encrypt(tokens.refreshToken) : null,
+      tokens.expiresAt ?? null
+    ]
+  );
+}
+
+/** Disconnect an account (owner-scoped). Rows are deleted, not tombstoned. */
+export async function deleteMarketplaceAccount(accountId: number, userId: number) {
+  const result = await pool.query(
+    `DELETE FROM "marketplace_accounts" WHERE "id" = $1 AND "user_id" = $2 RETURNING *`,
+    [accountId, userId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function countMarketplaceAccounts(userId: number): Promise<number> {
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS c FROM "marketplace_accounts" WHERE "user_id" = $1 AND "status" = 'active'`,
+    [userId]
+  );
+  return result.rows[0]?.c ?? 0;
+}
+
+// ---------------------------------------------------------------------------
+// Auth tokens: email verification + password reset (single-use, expiring).
+// ---------------------------------------------------------------------------
+
+export async function createAuthToken(userId: number, type: 'verify_email' | 'reset_password', ttlMinutes: number) {
+  const token = crypto.randomBytes(32).toString('hex');
+  const result = await pool.query(
+    `INSERT INTO "auth_tokens" ("user_id", "token", "type", "expires_at")
+     VALUES ($1, $2, $3, CURRENT_TIMESTAMP + ($4 || ' minutes')::INTERVAL)
+     RETURNING *`,
+    [userId, token, type, String(ttlMinutes)]
+  );
+  return result.rows[0];
+}
+
+/** Consume a token: returns the user_id when valid+unused+unexpired, else null. */
+export async function consumeAuthToken(token: string, type: 'verify_email' | 'reset_password') {
+  const result = await pool.query(
+    `UPDATE "auth_tokens" SET "used_at" = CURRENT_TIMESTAMP
+     WHERE "token" = $1 AND "type" = $2 AND "used_at" IS NULL AND "expires_at" > CURRENT_TIMESTAMP
+     RETURNING "user_id"`,
+    [token, type]
+  );
+  return result.rows[0]?.user_id ?? null;
 }
 
 // Subscription operations
@@ -470,14 +684,14 @@ export async function getAutoPrintConfigByAgentToken(token: string) {
 // Print queue operations
 // ---------------------------------------------------------------------------
 
-export async function addPrintQueueJob(userId: number, shipmentId: number, zpl: string) {
+export async function addPrintQueueJob(userId: number, shipmentId: number | string, zpl: string, provider = 'mercadolivre') {
   // INSERT ... ON CONFLICT DO NOTHING so we never duplicate a shipment already queued
   const result = await pool.query(
-    `INSERT INTO "print_queue" ("user_id", "shipment_id", "zpl", "status")
-     VALUES ($1, $2, $3, 'pending')
-     ON CONFLICT ("user_id", "shipment_id") DO NOTHING
+    `INSERT INTO "print_queue" ("user_id", "provider", "shipment_id", "zpl", "status")
+     VALUES ($1, $2, $3, $4, 'pending')
+     ON CONFLICT ("user_id", "provider", "shipment_id") DO NOTHING
      RETURNING *`,
-    [userId, shipmentId, zpl]
+    [userId, provider, String(shipmentId), zpl]
   );
   return result.rows[0] || null;
 }
@@ -506,7 +720,7 @@ export async function claimPrintJobs(userId: number, agentId: string, limit = 5)
        "updated_at" = CURRENT_TIMESTAMP
      WHERE "id" IN (
        SELECT "id" FROM "print_queue"
-       WHERE "user_id" = $1 AND "status" = 'pending'
+       WHERE "user_id" = $1 AND "status" = 'pending' AND "content_type" = 'zpl'
        ORDER BY "created_at" ASC
        LIMIT $2
        FOR UPDATE SKIP LOCKED
@@ -655,19 +869,24 @@ export async function getPrintQueueStats(userId: number) {
 // ---------------------------------------------------------------------------
 
 /** Record that a user printed labels via the browser (batch of shipment ids). */
-export async function recordPrintEvents(userId: number, shipmentIds: number[], source: 'browser' | 'agent' = 'browser') {
+export async function recordPrintEvents(
+  userId: number,
+  shipmentIds: Array<number | string>,
+  source: 'browser' | 'agent' = 'browser',
+  provider = 'mercadolivre'
+) {
   if (shipmentIds.length === 0) return;
-  const values = shipmentIds.map((_, i) => `($1, $${i + 2}, $${shipmentIds.length + 2})`).join(', ');
+  const values = shipmentIds.map((_, i) => `($1, $${i + 2}, $${shipmentIds.length + 2}, $${shipmentIds.length + 3})`).join(', ');
   await pool.query(
-    `INSERT INTO "print_events" ("user_id", "shipment_id", "source") VALUES ${values}`,
-    [userId, ...shipmentIds, source]
+    `INSERT INTO "print_events" ("user_id", "shipment_id", "source", "provider") VALUES ${values}`,
+    [userId, ...shipmentIds.map(String), source, provider]
   );
 }
 
 /** Recent print history for the Pro history tab. */
 export async function getPrintEvents(userId: number, limit = 50) {
   const result = await pool.query(
-    `SELECT "id", "shipment_id", "source", "created_at"
+    `SELECT "id", "provider", "shipment_id", "source", "created_at"
      FROM "print_events"
      WHERE "user_id" = $1
      ORDER BY "created_at" DESC

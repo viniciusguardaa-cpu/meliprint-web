@@ -1,5 +1,14 @@
-import { getAutoPrintEnabledConfigs, updateAutoPrintTokens, updateAutoPrintLastPolled, addPrintQueueJob, releaseStaleJobs, markStaleAgentsOffline, getUnprocessedMLNotifications } from '../db.js';
-import { searchShipments, getShipment, getShipmentLabelsZPL, refreshAccessToken } from '../services/mercadolivre.js';
+import {
+  getAutoPrintEnabledConfigs,
+  updateAutoPrintLastPolled,
+  addPrintQueueJob,
+  releaseStaleJobs,
+  markStaleAgentsOffline,
+  getUnprocessedMLNotifications,
+  getMarketplaceAccountsForUser
+} from '../db.js';
+import { getProvider } from '../providers/index.js';
+import { getFreshAccountContext } from '../services/accounts.js';
 import { reprocessNotificationRow } from '../routes/notifications.js';
 
 const POLL_INTERVAL_MS = 5 * 60_000; // 5 minutes — reconciliation fallback.
@@ -11,97 +20,67 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function ensureFreshToken(config: any): Promise<string | null> {
-  let accessToken: string = config.ml_access_token;
-  const expiresAt = config.ml_token_expires_at ?? 0;
-
-  // Refresh if token expires in the next 5 minutes
-  if (Date.now() > expiresAt - 5 * 60 * 1000) {
-    try {
-      const clientId = process.env.ML_CLIENT_ID!;
-      const clientSecret = process.env.ML_CLIENT_SECRET!;
-      const tokens = await refreshAccessToken(config.ml_refresh_token, clientId, clientSecret);
-      accessToken = tokens.access_token;
-      await updateAutoPrintTokens(config.user_id, tokens.access_token, tokens.refresh_token, Date.now() + tokens.expires_in * 1000);
-      console.log(`[autoPrintPoller] Refreshed token for user ${config.user_id}`);
-    } catch (error) {
-      console.error(`[autoPrintPoller] Token refresh failed for user ${config.user_id}:`, error);
-      return null;
-    }
-  }
-
-  return accessToken;
-}
-
+/**
+ * Poll one user's connected accounts. Each marketplace account is polled
+ * through its provider — new providers are picked up automatically once the
+ * user connects an account.
+ */
 async function pollUser(config: any) {
-  const accessToken = await ensureFreshToken(config);
-  if (!accessToken) return;
-
-  const sellerId = config.ml_seller_id;
-  if (!sellerId) {
-    console.warn(`[autoPrintPoller] No seller_id for user ${config.user_id}, skipping`);
+  const accounts = await getMarketplaceAccountsForUser(config.user_id);
+  if (accounts.length === 0) {
+    console.warn(`[autoPrintPoller] No marketplace accounts for user ${config.user_id}, skipping`);
     return;
   }
 
-  try {
-    // Search for ready_to_ship shipments with ready_to_print substatus
-    const shipmentIds = await searchShipments(accessToken, sellerId, 'ready_to_ship', 'ready_to_print');
-    console.log(`[autoPrintPoller] User ${config.user_id}: found ${shipmentIds.length} ready_to_print shipments`);
-
-    if (shipmentIds.length === 0) {
-      await updateAutoPrintLastPolled(config.user_id);
-      return;
+  for (const account of accounts) {
+    const provider = getProvider(account.provider);
+    if (!provider) {
+      console.error(`[autoPrintPoller] Unknown provider: ${account.provider}`);
+      continue;
     }
 
-    // Fetch ZPL per shipment so each print job contains exactly ONE label.
-    // Fetching the whole batch at once returns a single ZPL blob containing
-    // every label — storing that blob once per shipment would print the
-    // entire batch N times (one per job). Per-shipment fetch keeps a 1:1
-    // relationship between job and label content.
-    let queued = 0;
-    for (let i = 0; i < shipmentIds.length; i += BATCH_SIZE) {
-      const batch = shipmentIds.slice(i, i + BATCH_SIZE);
+    const ctx = await getFreshAccountContext(account);
+    if (!ctx) {
+      console.error(`[autoPrintPoller] Could not get token for account ${account.id} (${account.provider})`);
+      continue;
+    }
 
-      // Verify each shipment is still ready_to_print (status can change between search and fetch)
-      const validShipments: number[] = [];
-      for (const id of batch) {
-        try {
-          const shipment = await getShipment(accessToken, id);
-          if (shipment.status === 'ready_to_ship' && shipment.substatus === 'ready_to_print') {
-            validShipments.push(id);
+    try {
+      const shipmentIds = await provider.listPrintableShipmentIds(ctx);
+      console.log(`[autoPrintPoller] User ${config.user_id} ${account.provider}#${account.id}: ${shipmentIds.length} ready_to_print shipments`);
+
+      if (shipmentIds.length === 0) continue;
+
+      // Fetch the label per shipment so each print job contains exactly ONE
+      // label — batch fetches return a single blob for all shipments.
+      let queued = 0;
+      for (let i = 0; i < shipmentIds.length; i += BATCH_SIZE) {
+        const batch = shipmentIds.slice(i, i + BATCH_SIZE);
+        for (const shipmentId of batch) {
+          try {
+            const zpl = await provider.getLabelsZPL(ctx, [shipmentId]);
+            if (!zpl || !zpl.trim()) continue;
+            await addPrintQueueJob(config.user_id, shipmentId, zpl, account.provider);
+            queued++;
+            // Small delay to respect provider rate limits between calls.
+            await sleep(150);
+          } catch (error) {
+            console.error(`[autoPrintPoller] Failed to get label for ${account.provider} shipment ${shipmentId}:`, error);
           }
-        } catch {
-          // skip invalid shipments
+        }
+        if (i + BATCH_SIZE < shipmentIds.length) {
+          await sleep(300);
         }
       }
-
-      if (validShipments.length === 0) continue;
-
-      for (const shipmentId of validShipments) {
-        try {
-          const zpl = await getShipmentLabelsZPL(accessToken, [shipmentId]);
-          if (!zpl || !zpl.trim()) continue;
-          await addPrintQueueJob(config.user_id, shipmentId, zpl);
-          queued++;
-          // Small delay to respect ML rate limits between single-shipment calls.
-          await sleep(150);
-        } catch (error) {
-          console.error(`[autoPrintPoller] Failed to get ZPL for user ${config.user_id} shipment ${shipmentId}:`, error);
-        }
+      if (queued > 0) {
+        console.log(`[autoPrintPoller] User ${config.user_id}: queued ${queued} shipments (one label per job)`);
       }
-
-      if (i + BATCH_SIZE < shipmentIds.length) {
-        await sleep(300);
-      }
+    } catch (error) {
+      console.error(`[autoPrintPoller] Poll failed for user ${config.user_id} account ${account.id}:`, error);
     }
-    if (queued > 0) {
-      console.log(`[autoPrintPoller] User ${config.user_id}: queued ${queued} shipments (one label per job)`);
-    }
-
-    await updateAutoPrintLastPolled(config.user_id);
-  } catch (error) {
-    console.error(`[autoPrintPoller] Poll failed for user ${config.user_id}:`, error);
   }
+
+  await updateAutoPrintLastPolled(config.user_id);
 }
 
 export function startAutoPrintPoller() {
@@ -132,7 +111,7 @@ export function startAutoPrintPoller() {
       if (configs.length === 0) return;
 
       console.log(`[autoPrintPoller] Polling ${configs.length} user(s) with auto-print enabled`);
-      // Poll users sequentially to avoid hammering the ML API
+      // Poll users sequentially to avoid hammering provider APIs
       for (const config of configs) {
         await pollUser(config);
       }

@@ -10,11 +10,12 @@ import {
   retryFailedJob,
   getPrintQueueStats,
   updateAgentHeartbeat,
-  getUserByMlId,
+  getUserById,
   hasProAccess,
   getJobsNeedingReview,
   resolveJobReview,
-  createPairingCode
+  createPairingCode,
+  getMarketplaceAccountForUser
 } from '../db.js';
 import { requireActiveSubscription, requirePlanFeature } from '../middleware/subscription.js';
 import { trackEvent } from '../services/analytics.js';
@@ -25,28 +26,35 @@ const router = Router();
 // Routes protected by session (user is logged in via browser)
 // ---------------------------------------------------------------------------
 
-// Enable auto-print: copies session ML tokens to DB, generates agent token
+// Enable auto-print: requires a connected marketplace account (its tokens in
+// marketplace_accounts are what the poller uses), then generates agent token.
 // Requires Pro plan (auto_print feature)
 router.post('/enable', requirePlanFeature('auto_print'), async (req: Request, res: Response) => {
-  if (!req.session.accessToken || !req.session.refreshToken || !req.session.userId) {
+  if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
   const printerName = (req.body?.printerName as string | undefined)?.trim() || undefined;
 
-  const user = await getUserByMlId(req.session.userId);
+  const user = await getUserById(req.session.userId);
   if (!user) {
     return res.status(403).json({ error: 'subscription_required' });
+  }
+
+  // Auto-print today polls Mercado Livre — the account must be connected so
+  // the poller can fetch a fresh token from marketplace_accounts.
+  const mlAccount = await getMarketplaceAccountForUser(user.id, 'mercadolivre');
+  if (!mlAccount) {
+    return res.status(400).json({
+      error: 'account_not_connected',
+      message: 'Conecte sua conta do Mercado Livre antes de ativar a impressão automática.'
+    });
   }
 
   const agentToken = crypto.randomBytes(32).toString('hex');
 
   const config = await upsertAutoPrintConfig(user.id, {
     enabled: true,
-    mlAccessToken: req.session.accessToken,
-    mlRefreshToken: req.session.refreshToken,
-    mlTokenExpiresAt: req.session.tokenExpiresAt ?? Date.now() + 21600 * 1000,
-    mlSellerId: req.session.userId,
     agentToken,
     printerName
   });
@@ -64,7 +72,7 @@ router.post('/disable', requireActiveSubscription, async (req: Request, res: Res
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  const user = await getUserByMlId(req.session.userId);
+  const user = await getUserById(req.session.userId!);
   if (!user) {
     return res.status(403).json({ error: 'subscription_required' });
   }
@@ -79,7 +87,7 @@ router.get('/status', requireActiveSubscription, async (req: Request, res: Respo
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  const user = await getUserByMlId(req.session.userId);
+  const user = await getUserById(req.session.userId!);
   if (!user) {
     return res.status(403).json({ error: 'subscription_required' });
   }
@@ -109,7 +117,7 @@ router.post('/printer', requireActiveSubscription, async (req: Request, res: Res
     return res.status(400).json({ error: 'printerName is required' });
   }
 
-  const user = await getUserByMlId(req.session.userId);
+  const user = await getUserById(req.session.userId!);
   if (!user) {
     return res.status(403).json({ error: 'subscription_required' });
   }
@@ -123,7 +131,7 @@ router.post('/queue/:id/retry', requireActiveSubscription, async (req: Request, 
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
-  const user = await getUserByMlId(req.session.userId);
+  const user = await getUserById(req.session.userId!);
   if (!user) {
     return res.status(403).json({ error: 'subscription_required' });
   }
@@ -144,7 +152,7 @@ router.get('/queue/review', requireActiveSubscription, async (req: Request, res:
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
-  const user = await getUserByMlId(req.session.userId);
+  const user = await getUserById(req.session.userId!);
   if (!user) {
     return res.status(403).json({ error: 'subscription_required' });
   }
@@ -158,7 +166,7 @@ router.post('/queue/:id/resolve', requireActiveSubscription, async (req: Request
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
-  const user = await getUserByMlId(req.session.userId);
+  const user = await getUserById(req.session.userId!);
   if (!user) {
     return res.status(403).json({ error: 'subscription_required' });
   }
@@ -179,7 +187,7 @@ router.post('/pairing-code', requirePlanFeature('auto_print'), async (req: Reque
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
-  const user = await getUserByMlId(req.session.userId);
+  const user = await getUserById(req.session.userId!);
   if (!user) {
     return res.status(403).json({ error: 'subscription_required' });
   }

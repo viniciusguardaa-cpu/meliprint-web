@@ -2,8 +2,7 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { MercadoPagoConfig, PreApproval } from 'mercadopago';
 import {
-  findOrCreateUser,
-  getUserByMlId,
+  getUserById,
   getActiveSubscription,
   getEntitledSubscription,
   createSubscription,
@@ -47,8 +46,10 @@ router.get('/status', async (req: Request, res: Response) => {
   }
 
   try {
+    const user = await getUserById(req.session.userId!);
+
     // Check if user has free lifetime access
-    const userEmail = req.session.userEmail?.toLowerCase();
+    const userEmail = user?.email?.toLowerCase();
     if (userEmail && await isFreeAccessEmail(userEmail)) {
       return res.json({
         hasSubscription: true,
@@ -65,8 +66,6 @@ router.get('/status', async (req: Request, res: Response) => {
         canTrial: false
       });
     }
-
-    const user = await getUserByMlId(req.session.userId);
 
     if (!user) {
       return res.json({ hasSubscription: false, status: null, canTrial: true });
@@ -115,7 +114,7 @@ router.get('/status', async (req: Request, res: Response) => {
 
 // Create checkout for subscription (paid or trial)
 router.post('/checkout', async (req: Request, res: Response) => {
-  if (!req.session.userId || !req.session.userNickname) {
+  if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
@@ -139,11 +138,10 @@ router.post('/checkout', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Preço não encontrado para este plano' });
     }
 
-    // Create or get user in our database
-    const user = await findOrCreateUser(
-      req.session.userId,
-      req.session.userNickname
-    );
+    const user = await getUserById(req.session.userId!);
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
 
     // Attach the visitor's pricing assignment (if any) to their account.
     if (visitorKey) {
@@ -259,7 +257,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
         price.amount,
         price.currency,
         `${backUrl}/subscription/callback`,
-        req.body.email || req.session.userEmail || undefined,
+        req.body.email || user.email || undefined,
         `user_${user.id}_${session.id}`
       );
 
@@ -490,7 +488,7 @@ router.post('/cancel', async (req: Request, res: Response) => {
   }
 
   try {
-    const user = await getUserByMlId(req.session.userId);
+    const user = await getUserById(req.session.userId!);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }

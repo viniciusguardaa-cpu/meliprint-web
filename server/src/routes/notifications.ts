@@ -5,11 +5,12 @@ import {
   markMLNotificationProcessed,
   markMLNotificationFailed,
   getAutoPrintEnabledConfigs,
-  updateAutoPrintTokens,
   addPrintQueueJob,
-  getUserByMlId
+  getMarketplaceAccountByExternal
 } from '../db.js';
-import { getShipment, getShipmentLabelsZPL, refreshAccessToken } from '../services/mercadolivre.js';
+import { getProvider } from '../providers/index.js';
+import { getFreshAccountContext } from '../services/accounts.js';
+import { getShipment } from '../services/mercadolivre.js';
 
 const router = Router();
 
@@ -121,49 +122,45 @@ async function processShipmentNotification(resource: string, mlUserId?: number) 
     return;
   }
 
-  // Find the user and their auto-print config.
-  const user = await getUserByMlId(mlUserId);
-  if (!user) {
-    console.log(`[ml-notifications] User ${mlUserId} not found — skipping shipment ${shipmentId}`);
+  // Find the connected ML account this notification belongs to.
+  const account = await getMarketplaceAccountByExternal('mercadolivre', String(mlUserId));
+  if (!account) {
+    console.log(`[ml-notifications] No account for ML user ${mlUserId} — skipping shipment ${shipmentId}`);
     return;
   }
 
   // Entitled configs only (getAutoPrintEnabledConfigs already filters by
   // active Pro subscription / free access) — lapsed accounts get no new jobs.
   const configs = await getAutoPrintEnabledConfigs();
-  const config = configs.find((c: any) => c.user_id === user.id);
+  const config = configs.find((c: any) => c.user_id === account.user_id);
   if (!config) {
-    console.log(`[ml-notifications] Auto-print not enabled/entitled for user ${user.id} — skipping`);
+    console.log(`[ml-notifications] Auto-print not enabled/entitled for user ${account.user_id} — skipping`);
     return;
   }
 
-  // Ensure fresh token.
-  let accessToken: string = config.ml_access_token;
-  const expiresAt = config.ml_token_expires_at ?? 0;
-  if (Date.now() > expiresAt - 5 * 60 * 1000) {
-    const clientId = process.env.ML_CLIENT_ID!;
-    const clientSecret = process.env.ML_CLIENT_SECRET!;
-    const tokens = await refreshAccessToken(config.ml_refresh_token, clientId, clientSecret);
-    accessToken = tokens.access_token;
-    await updateAutoPrintTokens(config.user_id, tokens.access_token, tokens.refresh_token, Date.now() + tokens.expires_in * 1000);
+  // Fresh token from the connected account (refresh persisted centrally).
+  const provider = getProvider('mercadolivre')!;
+  const ctx = await getFreshAccountContext(account);
+  if (!ctx) {
+    throw new Error(`Could not get fresh token for account ${account.id}`);
   }
 
   // Fetch the shipment to check its status. Errors propagate so the
   // notification stays unprocessed and is retried by the sweeper.
-  const shipment = await getShipment(accessToken, shipmentId);
+  const shipment = await getShipment(ctx.accessToken, shipmentId);
   if (shipment.status !== 'ready_to_ship' || shipment.substatus !== 'ready_to_print') {
     console.log(`[ml-notifications] Shipment ${shipmentId} not ready_to_print (status=${shipment.status} substatus=${shipment.substatus})`);
     return;
   }
 
   // Fetch ZPL for this single shipment and queue it.
-  const zpl = await getShipmentLabelsZPL(accessToken, [shipmentId]);
+  const zpl = await provider.getLabelsZPL(ctx, [String(shipmentId)]);
   if (!zpl || !zpl.trim()) {
     console.log(`[ml-notifications] Empty ZPL for shipment ${shipmentId}`);
     return;
   }
 
-  await addPrintQueueJob(config.user_id, shipmentId, zpl);
+  await addPrintQueueJob(config.user_id, shipmentId, zpl, 'mercadolivre');
   console.log(`[ml-notifications] Queued shipment ${shipmentId} for user ${config.user_id} (event-driven)`);
 }
 

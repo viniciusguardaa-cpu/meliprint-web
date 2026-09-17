@@ -128,7 +128,18 @@ describe('print queue multi-tenant ownership (SQL verification)', () => {
     const [sql, params] = mockQuery.mock.calls[0];
     expect(sql).toContain('ON CONFLICT');
     expect(sql).toContain('DO NOTHING');
-    expect(params).toEqual([42, 999, 'ZPL_CONTENT']);
+    // Provider-aware dedup key: (user_id, provider, shipment_id), ids stored as text.
+    expect(params).toEqual([42, 'mercadolivre', '999', 'ZPL_CONTENT']);
+  });
+
+  it('addPrintQueueJob accepts an explicit provider', async () => {
+    const { addPrintQueueJob } = await import('../db.js');
+    mockQuery.mockResolvedValue({ rows: [{ id: 1 }] });
+
+    await addPrintQueueJob(42, 'SHOPEE-SN-1', 'ZPL_CONTENT', 'shopee');
+
+    const [sql, params] = mockQuery.mock.calls[0];
+    expect(params).toEqual([42, 'shopee', 'SHOPEE-SN-1', 'ZPL_CONTENT']);
   });
 
   it('updateAgentHeartbeat filters by user_id', async () => {
