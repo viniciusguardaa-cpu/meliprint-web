@@ -5,11 +5,20 @@ terminal ou edição de `.env` pelo cliente.
 
 ## Fluxo do cliente
 
-1. Baixa e executa `LabelGoAgent-Setup.exe` (instalação por usuário, sem admin).
+1. Na página Impressão Automática clica em **Baixar LabelGo Agent (Windows)**
+   e executa `LabelGoAgent-Setup.exe` (instalação por usuário, sem admin).
 2. No painel do LabelGo (Impressão Automática) clica em **Gerar código de pareamento**.
 3. Ao fim da instalação, marca "Configurar o LabelGo Agent agora" e digita o código.
 4. Escolhe a impressora, imprime a etiqueta de teste.
 5. O agente passa a iniciar sozinho junto com o Windows (chave `Run` do HKCU).
+
+## Hospedagem do instalador
+
+O botão de download aponta para `/downloads/LabelGoAgent-Setup.exe` por padrão.
+Para publicar, copie `installer\Output\LabelGoAgent-Setup.exe` para
+`client/public/downloads/` antes do deploy do client (Netlify serve o arquivo
+direto, sem passar pelo redirect do SPA). Para hospedar em outro lugar
+(GitHub Releases, S3 etc.), defina `VITE_AGENT_DOWNLOAD_URL` no build do client.
 
 ## Build (requer Windows)
 

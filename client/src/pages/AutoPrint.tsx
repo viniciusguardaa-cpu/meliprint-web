@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Printer, Zap, Copy, Check, Loader2, AlertCircle, Link2, AlertTriangle } from 'lucide-react';
+import { Printer, Zap, Copy, Check, Loader2, AlertCircle, Link2, AlertTriangle, Download } from 'lucide-react';
 import Header from '../components/Header';
-import { Button } from '../components/ui/button';
+import { Button, buttonVariants } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import toast from 'react-hot-toast';
@@ -24,6 +24,12 @@ interface ReviewJob {
   last_error: string | null;
   sent_to_printer_at: string | null;
 }
+
+// O instalador padrão é servido de client/public/downloads (deploy Netlify).
+// Para hospedar em outro lugar (GitHub Releases, S3...), defina
+// VITE_AGENT_DOWNLOAD_URL no build do client.
+const AGENT_DOWNLOAD_URL =
+  import.meta.env.VITE_AGENT_DOWNLOAD_URL || '/downloads/LabelGoAgent-Setup.exe';
 
 export default function AutoPrint() {
   useAuth();
@@ -350,8 +356,25 @@ export default function AutoPrint() {
                 </li>
               </ol>
 
-              {pairingCode ? (
-                <div className="bg-secondary/20 border border-secondary rounded-lg p-4 text-center">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <a
+                  href={AGENT_DOWNLOAD_URL}
+                  download
+                  className={buttonVariants({ variant: 'secondary' })}
+                >
+                  <Download className="w-4 h-4" />
+                  Baixar LabelGo Agent (Windows)
+                </a>
+                {!pairingCode && (
+                  <Button onClick={handlePairingCode} disabled={pairing}>
+                    {pairing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+                    Gerar código de pareamento
+                  </Button>
+                )}
+              </div>
+
+              {pairingCode && (
+                <div className="bg-secondary/20 border border-secondary rounded-lg p-4 text-center mt-4">
                   <p className="text-xs text-foreground/70 mb-1">Código de pareamento (válido por 10 min)</p>
                   <div className="flex items-center justify-center gap-3">
                     <span className="text-3xl font-mono font-bold tracking-widest text-foreground">
@@ -365,11 +388,6 @@ export default function AutoPrint() {
                     </button>
                   </div>
                 </div>
-              ) : (
-                <Button onClick={handlePairingCode} disabled={pairing}>
-                  {pairing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-                  Gerar código de pareamento
-                </Button>
               )}
             </div>
 

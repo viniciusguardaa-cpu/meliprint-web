@@ -1,0 +1,4 @@
+Coloque aqui o LabelGoAgent-Setup.exe gerado por agent/installer/build.ps1.
+Ele será servido em /downloads/LabelGoAgent-Setup.exe (o botão de download
+na página Impressão Automática aponta para esse caminho, ou para
+VITE_AGENT_DOWNLOAD_URL se definido no build).
