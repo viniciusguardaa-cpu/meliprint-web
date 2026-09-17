@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { LogOut, CreditCard, Zap } from 'lucide-react';
+import { LogOut, CreditCard, Zap, Settings } from 'lucide-react';
 import { Button } from './ui/button';
 import Logo from './Logo';
 
@@ -40,6 +40,12 @@ export default function Header({ showSubscription = false, showDashboard = false
             <Button variant="ghost" onClick={() => navigate('/subscription')}>
               <CreditCard className="w-4 h-4" />
               <span className="hidden sm:inline">Assinatura</span>
+            </Button>
+          )}
+          {user && (
+            <Button variant="ghost" onClick={() => navigate('/configuracoes')} title="Configurações">
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">Configurações</span>
             </Button>
           )}
           {user && (

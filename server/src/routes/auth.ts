@@ -36,6 +36,8 @@ declare module 'express-session' {
       verifier: string;
       state: string;
       mode: 'login' | 'connect';
+      /** Frontend path to redirect back to after a connect flow. */
+      returnTo?: string;
     };
   }
 }
@@ -257,11 +259,19 @@ function handleOAuthStart(req: Request, res: Response, providerId: string) {
     const codeChallenge = generateCodeChallenge(codeVerifier);
     const state = generateState();
 
+    // Optional post-connect redirect target — must be a relative frontend
+    // path ("/configuracoes"), never an absolute URL (open redirect guard).
+    const returnTo = typeof req.query.return_to === 'string'
+      && /^\/(?!\/)/.test(req.query.return_to)
+      ? req.query.return_to
+      : undefined;
+
     req.session.oauth = {
       provider: provider.id,
       verifier: codeVerifier,
       state,
-      mode: req.session.userId ? 'connect' : 'login'
+      mode: req.session.userId ? 'connect' : 'login',
+      returnTo
     };
 
     const redirectUri = getOAuthRedirectUri(provider.id);
@@ -310,8 +320,9 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
 
     if (pending.mode === 'connect' && req.session.userId) {
       // Connect flow: attach to the logged-in user — never to someone else.
+      const returnTo = pending.returnTo || '/dashboard';
       if (existing && existing.user_id !== req.session.userId) {
-        return res.redirect(`${frontendUrl()}/dashboard?error=account_in_use`);
+        return res.redirect(`${frontendUrl()}${returnTo}?error=account_in_use`);
       }
       await upsertMarketplaceAccount(req.session.userId, providerId, identity.externalUserId, {
         nickname: identity.nickname,
@@ -328,7 +339,7 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
         user_id: req.session.userId,
         properties: { provider: providerId }
       });
-      return res.redirect(`${frontendUrl()}/dashboard?connected=${providerId}`);
+      return res.redirect(`${frontendUrl()}${returnTo}?connected=${providerId}`);
     }
 
     // Login flow: resolve to an internal user — existing account owner,

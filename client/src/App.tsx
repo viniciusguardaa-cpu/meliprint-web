@@ -10,6 +10,7 @@ import AutoPrint from './pages/AutoPrint';
 import Pricing from './pages/Pricing';
 import SubscriptionCallback from './pages/SubscriptionCallback';
 import Subscription from './pages/Subscription';
+import Settings from './pages/Settings';
 import Landing from './pages/Landing';
 import Admin from './pages/Admin';
 import Terms from './pages/Terms';
@@ -150,6 +151,14 @@ function App() {
         element={
           <ProtectedRoute>
             <Subscription />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/configuracoes"
+        element={
+          <ProtectedRoute>
+            <Settings />
           </ProtectedRoute>
         }
       />

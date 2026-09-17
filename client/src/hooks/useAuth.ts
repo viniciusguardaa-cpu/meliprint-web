@@ -40,8 +40,9 @@ export function useAuth() {
   };
 
   /** Start an OAuth flow for a provider (login or connect when logged in). */
-  const startOAuth = async (provider: string) => {
-    const res = await fetch(`/api/auth/oauth/${provider}/start`, { credentials: 'include' });
+  const startOAuth = async (provider: string, returnTo?: string) => {
+    const qs = returnTo ? `?return_to=${encodeURIComponent(returnTo)}` : '';
+    const res = await fetch(`/api/auth/oauth/${provider}/start${qs}`, { credentials: 'include' });
     const data = await res.json().catch(() => ({}));
     if (data.authUrl) {
       window.location.href = data.authUrl;
@@ -93,8 +94,8 @@ export function useAuth() {
   };
 
   /** Connect an additional marketplace account (requires session). */
-  const connectAccount = async (provider: string) => {
-    await startOAuth(provider);
+  const connectAccount = async (provider: string, returnTo?: string) => {
+    await startOAuth(provider, returnTo);
   };
 
   const disconnectAccount = async (accountId: number): Promise<boolean> => {
