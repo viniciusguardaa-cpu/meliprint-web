@@ -59,6 +59,9 @@ router.get('/status', async (req: Request, res: Response) => {
         price: 0,
         isFreeAccess: true,
         autoPrint: true,
+        slaQueue: true,
+        packingCheck: true,
+        printHistory: true,
         canTrial: false
       });
     }
@@ -99,6 +102,9 @@ router.get('/status', async (req: Request, res: Response) => {
       planName,
       price: Number(subscription.contracted_amount || subscription.price) || 0,
       autoPrint: plan?.auto_print ?? false,
+      slaQueue: plan?.sla_queue ?? false,
+      packingCheck: plan?.packing_check ?? false,
+      printHistory: plan?.print_history ?? false,
       canTrial
     });
   } catch (error) {

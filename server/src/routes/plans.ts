@@ -38,6 +38,9 @@ router.get('/', async (req: Request, res: Response) => {
         name: plan.name,
         description: plan.description,
         autoPrint: plan.auto_print,
+        slaQueue: plan.sla_queue,
+        packingCheck: plan.packing_check,
+        printHistory: plan.print_history,
         features: plan.features,
         price: displayPrice ? {
           amount: displayPrice.amount,

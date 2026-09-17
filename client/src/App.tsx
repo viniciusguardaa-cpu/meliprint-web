@@ -88,7 +88,7 @@ function App() {
           sections={[
             { heading: 'Como gerar etiquetas do Mercado Livre', body: 'Após uma venda, acesse a seção de envios no painel do vendedor. O status deve estar "pronto para enviar" para que a etiqueta esteja disponível.' },
             { heading: 'Formatos disponíveis', body: 'O Mercado Livre oferece etiquetas em PDF (impressora comum) e ZPL2 (impressora térmica). O LabelGo automatiza esse processo conectando sua conta.' },
-            { heading: 'Automatize com LabelGo', body: 'Com o LabelGo Pro, quando uma venda cai, a etiqueta é gerada automaticamente e enviada para sua impressora. Sem intervenção manual.' },
+            { heading: 'Automatize com LabelGo', body: 'No plano Pro, com o agente opcional instalado, quando uma venda cai a etiqueta é gerada e enviada automaticamente para sua impressora. Sem intervenção manual.' },
           ]}
         />
       } />
@@ -100,7 +100,7 @@ function App() {
           sections={[
             { heading: 'Passo 1: Conectar conta', body: 'Conecte sua conta do Mercado Livre ao LabelGo via OAuth. Isso permite buscar envios e gerar etiquetas automaticamente.' },
             { heading: 'Passo 2: Visualizar envios', body: 'O LabelGo mostra todos os envios prontos para impressão, separados entre "prontos para imprimir" e "reimpressão".' },
-            { heading: 'Passo 3: Imprimir', body: 'Escolha PDF (impressora comum) ou ZPL (impressora térmica). Com o LabelGo Pro, a impressão é automática.' },
+            { heading: 'Passo 3: Imprimir', body: 'Escolha PDF (impressora comum) ou ZPL (impressora térmica) e imprima pelo navegador, sem instalar nada. No Pro, a impressão pode ser automática com o agente opcional.' },
           ]}
         />
       } />
@@ -123,8 +123,8 @@ function App() {
           h1="Impressora térmica para Mercado Livre: qual escolher"
           sections={[
             { heading: 'Modelos recomendados', body: 'Zebra GC420t (entrada), Zebra ZD420 (intermediária), Bixolon SLP-DL420, Elgin i9. Todas suportam ZPL2 e etiquetas 10x15cm.' },
-            { heading: 'Conectando ao LabelGo', body: 'O LabelGo Agent detecta impressoras térmicas conectadas via USB e envia ZPL diretamente. Sem drivers complexos.' },
-            { heading: 'Impressão automática', body: 'Com o LabelGo Pro, a impressora térmica imprime etiquetas automaticamente quando uma venda é confirmada no Mercado Livre.' },
+            { heading: 'Conectando ao LabelGo', body: 'Pelo navegador, o LabelGo imprime ZPL em qualquer térmica — sem instalar nada. No Pro, o agente opcional detecta a impressora via USB e envia direto, sem diálogo.' },
+            { heading: 'Impressão automática', body: 'Com o LabelGo Pro e o agente opcional instalado, a impressora térmica imprime etiquetas automaticamente quando uma venda é confirmada no Mercado Livre.' },
           ]}
         />
       } />

@@ -9,6 +9,9 @@ export interface Plan {
   name: string;
   description: string;
   auto_print: boolean;
+  sla_queue: boolean;
+  packing_check: boolean;
+  print_history: boolean;
   is_active: boolean;
   sort_order: number;
   features: string[];
@@ -40,6 +43,9 @@ export async function getActivePlans(): Promise<PlanWithPrice[]> {
     name: row.name,
     description: row.description,
     auto_print: row.auto_print,
+    sla_queue: row.sla_queue ?? false,
+    packing_check: row.packing_check ?? false,
+    print_history: row.print_history ?? false,
     is_active: row.is_active,
     sort_order: row.sort_order,
     features: typeof row.features === 'string' ? JSON.parse(row.features) : (row.features || []),
@@ -63,6 +69,9 @@ export async function getPlan(planId: string): Promise<Plan | null> {
     name: row.name,
     description: row.description,
     auto_print: row.auto_print,
+    sla_queue: row.sla_queue ?? false,
+    packing_check: row.packing_check ?? false,
+    print_history: row.print_history ?? false,
     is_active: row.is_active,
     sort_order: row.sort_order,
     features: typeof row.features === 'string' ? JSON.parse(row.features) : (row.features || []),
@@ -86,10 +95,10 @@ export async function getPriceForPlan(planId: string, billingPeriod = 'monthly')
   };
 }
 
-/** Check if a plan grants auto-print access. */
-export async function planHasAutoPrint(planId: string): Promise<boolean> {
+/** Check if a plan grants a specific feature (auto_print, sla_queue, packing_check, print_history). */
+export async function planHasFeature(planId: string, feature: 'auto_print' | 'sla_queue' | 'packing_check' | 'print_history'): Promise<boolean> {
   const plan = await getPlan(planId);
-  return plan?.auto_print ?? false;
+  return plan ? plan[feature] === true : false;
 }
 
 // ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ export default function Terms() {
         </Link>
 
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Termos de Uso</h1>
-        <p className="text-sm text-gray-400 mb-8">Última atualização: [DATA]</p>
+        <p className="text-sm text-gray-400 mb-8">Última atualização: 17 de setembro de 2026</p>
 
         <div className="prose prose-sm max-w-none text-gray-700 space-y-6">
           <section>
@@ -64,10 +64,11 @@ export default function Terms() {
           <section>
             <h2 className="text-lg font-semibold text-gray-900">6. Cancelamento e reembolso</h2>
             <p>
-              Assinaturas podem ser canceladas a qualquer momento. [DEFINIR POLÍTICA DE
-              REEMBOLSO: ex. "não há reembolso proporcional de períodos já pagos" ou "reembolso
-              integral em até 7 dias corridos após a contratação, conforme Código de Defesa do
-              Consumidor art. 49"].
+              Assinaturas podem ser canceladas a qualquer momento na área "Minha Assinatura",
+              sem multa ou fidelidade, e o acesso permanece ativo até o fim do período já pago.
+              Conforme o art. 49 do Código de Defesa do Consumidor, você pode solicitar o
+              reembolso integral em até 7 (sete) dias corridos após a primeira contratação.
+              Após esse prazo, não há reembolso proporcional de períodos já pagos.
             </p>
           </section>
 
@@ -75,7 +76,7 @@ export default function Terms() {
             <h2 className="text-lg font-semibold text-gray-900">7. Contato</h2>
             <p>
               Dúvidas sobre estes Termos podem ser enviadas para{' '}
-              <strong>[EMAIL DE SUPORTE]</strong>.
+              <strong>marcos@companhiadopapel.com.br</strong>.
             </p>
           </section>
         </div>

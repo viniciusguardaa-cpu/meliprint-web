@@ -20,7 +20,7 @@ router.post('/zpl-to-pdf', async (req: Request, res: Response) => {
   const visitorKey = (req.header('x-visitor-key') as string) || '';
 
   try {
-    const response = await fetch('http://api.labelary.com/v1/printers/0/8/4/8', {
+    const response = await fetch('https://api.labelary.com/v1/printers/8dpmm/labels/4x6/', {
       method: 'POST',
       headers: { 'Accept': 'application/pdf', 'Content-Type': 'application/x-www-form-urlencoded' },
       body: zpl,

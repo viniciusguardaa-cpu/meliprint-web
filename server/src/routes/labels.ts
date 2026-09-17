@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getShipmentLabelsPDF, getShipmentLabelsZPL, getInvoiceData } from '../services/mercadolivre.js';
 import { requireActiveSubscription } from '../middleware/subscription.js';
+import { getUserByMlId, recordPrintEvents } from '../db.js';
 
 const router = Router();
 router.use(requireActiveSubscription);
@@ -77,6 +78,33 @@ router.post('/pdf', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Failed to get labels pdf:', error);
     res.status(500).json({ error: 'Failed to generate labels' });
+  }
+});
+
+// Record that the user printed a batch of labels via the browser.
+// Feeds the Pro print-history tab. Best-effort: logging failure must not
+// block printing.
+router.post('/print-log', async (req: Request, res: Response) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  const { shipmentIds } = req.body;
+  if (!Array.isArray(shipmentIds) || shipmentIds.length === 0 || shipmentIds.length > 200) {
+    return res.status(400).json({ error: 'shipmentIds must be a non-empty array (max 200)' });
+  }
+  const ids = shipmentIds.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+
+  try {
+    const user = await getUserByMlId(req.session.userId);
+    if (!user) {
+      return res.status(403).json({ error: 'subscription_required' });
+    }
+    await recordPrintEvents(user.id, ids, 'browser');
+    res.json({ ok: true, recorded: ids.length });
+  } catch (error) {
+    console.error('Failed to record print events:', error);
+    res.status(500).json({ error: 'Failed to record print events' });
   }
 });
 

@@ -13,6 +13,12 @@ export interface SubscriptionStatus {
   planName: string | null;
   price: number | null;
   autoPrint?: boolean;
+  /** Pro: dispatch-deadline queue on the dashboard. */
+  slaQueue?: boolean;
+  /** Pro: packing check (items confirmation) before printing. */
+  packingCheck?: boolean;
+  /** Pro: browser print history tab. */
+  printHistory?: boolean;
   isFreeAccess?: boolean;
   /** Whether this account can still start a free trial (one per account). */
   canTrial?: boolean;

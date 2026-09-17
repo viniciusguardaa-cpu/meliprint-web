@@ -261,8 +261,8 @@ export default function Admin() {
         {/* Stats cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-xl shadow-md p-6 flex items-center gap-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <Users className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center">
+              <Users className="w-6 h-6 text-brand-600" />
             </div>
             <div>
               <p className="text-sm text-gray-500">Total de usuários</p>

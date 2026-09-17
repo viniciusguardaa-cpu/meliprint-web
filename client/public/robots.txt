@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /auto-print
+Disallow: /admin
+Disallow: /subscription
+Disallow: /print/
+
+Sitemap: https://app.labelgo.com.br/sitemap.xml

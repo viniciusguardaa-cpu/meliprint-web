@@ -116,13 +116,13 @@ export default function ZplToPdf() {
           <h2 className="text-xl font-bold mb-2">
             Cansado de converter etiquetas manualmente?
           </h2>
-          <p className="text-blue-100 mb-4">
+          <p className="text-brand-100 mb-4">
             Conecte seu Mercado Livre ao LabelGo e imprima etiquetas em segundos.
             Com o LabelGo Pro, suas etiquetas saem automaticamente na impressora.
           </p>
           <button
             onClick={() => navigate('/pricing')}
-            className="bg-white text-brand-600 font-semibold px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors inline-flex items-center gap-2"
+            className="bg-white text-brand-600 font-semibold px-6 py-3 rounded-xl hover:bg-brand-50 transition-colors inline-flex items-center gap-2"
           >
             Testar grátis por 7 dias
             <ArrowRight className="w-4 h-4" />

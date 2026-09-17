@@ -1,9 +1,17 @@
 import { Router, Request, Response } from 'express';
 import { getOrders, getShipment, searchShipments, Order, Shipment } from '../services/mercadolivre.js';
 import { requireActiveSubscription } from '../middleware/subscription.js';
+import { getPlan } from '../services/pricing.js';
+import { getUserByMlId, getPrintEvents } from '../db.js';
 
 const router = Router();
 router.use(requireActiveSubscription);
+
+interface OrderItem {
+  title: string;
+  quantity: number;
+  sku?: string;
+}
 
 interface ShipmentWithOrder {
   shipmentId: number;
@@ -15,6 +23,10 @@ interface ShipmentWithOrder {
   canPrint: boolean;
   city?: string;
   state?: string;
+  /** Pro (sla_queue): dispatch deadline from ML lead_time.buffering. */
+  dispatchDeadline?: string;
+  /** Pro (packing_check): structured items for pre-print confirmation. */
+  orderItems?: OrderItem[];
 }
 
 const BATCH_SIZE = 25;
@@ -64,6 +76,12 @@ router.get('/', async (req: Request, res: Response) => {
     const sellerId = req.session.userId;
     const dateFrom = req.query.date_from as string | undefined;
     const dateTo = req.query.date_to as string | undefined;
+
+    // Pro-only fields are gated server-side: Start plans never receive them.
+    const planId = (req as any).planId as string | undefined;
+    const plan = planId ? await getPlan(planId) : null;
+    const showSla = plan?.sla_queue === true;
+    const showPacking = plan?.packing_check === true;
 
     // Step 1: Source of truth - all ready_to_ship shipments
     const searchIds = new Set<number>();
@@ -135,7 +153,7 @@ router.get('/', async (req: Request, res: Response) => {
         ? order.order_items.map(item => `${item.quantity}x ${item.item.title}`).join(', ')
         : '';
 
-      return {
+      const row: ShipmentWithOrder = {
         shipmentId: shipment.id,
         orderId: order?.id || 0,
         buyerNickname: order?.buyer?.nickname || '-',
@@ -146,6 +164,23 @@ router.get('/', async (req: Request, res: Response) => {
         city: shipment.receiver_address?.city?.name,
         state: shipment.receiver_address?.state?.name
       };
+
+      if (showSla) {
+        // ML lead_time.buffering = deadline for the seller to hand the package
+        // to the carrier ("despachar até").
+        const deadline = shipment.lead_time?.buffering?.date;
+        if (deadline) row.dispatchDeadline = deadline;
+      }
+
+      if (showPacking && order) {
+        row.orderItems = order.order_items.map((item) => ({
+          title: item.item.title,
+          quantity: item.quantity,
+          sku: item.item.seller_sku || undefined
+        }));
+      }
+
+      return row;
     });
 
     // Step 5: Optional date filter (based on order.date_created when available)
@@ -165,12 +200,51 @@ router.get('/', async (req: Request, res: Response) => {
     const ready = rows.filter((s) => s.substatus === 'ready_to_print');
     const reprint = rows.filter((s) => s.substatus !== 'ready_to_print');
 
+    // Pro SLA queue: most urgent dispatch first — earliest deadline on top,
+    // shipments without deadline data go last.
+    if (showSla) {
+      const byDeadline = (a: ShipmentWithOrder, b: ShipmentWithOrder) => {
+        if (!a.dispatchDeadline && !b.dispatchDeadline) return 0;
+        if (!a.dispatchDeadline) return 1;
+        if (!b.dispatchDeadline) return -1;
+        return a.dispatchDeadline.localeCompare(b.dispatchDeadline);
+      };
+      ready.sort(byDeadline);
+      reprint.sort(byDeadline);
+    }
+
     console.log(`[shipments] ready=${ready.length} reprint=${reprint.length}`);
     res.json({ ready, reprint });
   } catch (error) {
     console.error('Failed to get shipments:', error);
     res.status(500).json({ error: 'Failed to get shipments' });
   }
+});
+
+// Pro (print_history): recent labels this account printed via the browser.
+// Agent-driven prints are tracked separately in print_queue.
+router.get('/print-history', async (req: Request, res: Response) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  const planId = (req as any).planId as string | undefined;
+  const plan = planId ? await getPlan(planId) : null;
+  if (plan?.print_history !== true) {
+    return res.status(403).json({
+      error: 'plan_upgrade_required',
+      message: 'Histórico de impressões disponível no plano Pro.'
+    });
+  }
+
+  const user = await getUserByMlId(req.session.userId);
+  if (!user) {
+    return res.status(403).json({ error: 'subscription_required' });
+  }
+
+  const limit = Math.min(Number(req.query.limit) || 50, 200);
+  const events = await getPrintEvents(user.id, limit);
+  res.json({ events });
 });
 
 export default router;

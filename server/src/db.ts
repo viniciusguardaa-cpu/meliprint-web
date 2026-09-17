@@ -651,6 +651,33 @@ export async function getPrintQueueStats(userId: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Browser print history (Pro: print_history)
+// ---------------------------------------------------------------------------
+
+/** Record that a user printed labels via the browser (batch of shipment ids). */
+export async function recordPrintEvents(userId: number, shipmentIds: number[], source: 'browser' | 'agent' = 'browser') {
+  if (shipmentIds.length === 0) return;
+  const values = shipmentIds.map((_, i) => `($1, $${i + 2}, $${shipmentIds.length + 2})`).join(', ');
+  await pool.query(
+    `INSERT INTO "print_events" ("user_id", "shipment_id", "source") VALUES ${values}`,
+    [userId, ...shipmentIds, source]
+  );
+}
+
+/** Recent print history for the Pro history tab. */
+export async function getPrintEvents(userId: number, limit = 50) {
+  const result = await pool.query(
+    `SELECT "id", "shipment_id", "source", "created_at"
+     FROM "print_events"
+     WHERE "user_id" = $1
+     ORDER BY "created_at" DESC
+     LIMIT $2`,
+    [userId, Math.min(limit, 200)]
+  );
+  return result.rows;
+}
+
+// ---------------------------------------------------------------------------
 // Agent heartbeat
 // ---------------------------------------------------------------------------
 

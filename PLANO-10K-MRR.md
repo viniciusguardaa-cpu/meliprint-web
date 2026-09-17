@@ -48,3 +48,7 @@ Adiar novos marketplaces, ERP, financeiro, comissões automáticas e otimizaçã
 - Conta Mercado Pago sandbox: checkout real, webhooks reais com assinatura.
 - Conta Mercado Livre de teste: OAuth, pedidos, etiquetas reais.
 - Deploy/produção: fora do escopo.
+
+**Reposicionamento — painel online, agente opcional (17/09)**
+
+Decisão de produto: o LabelGo é um único painel online; instalar o agente nunca é obrigatório. Start (R$29,90) imprime em lote pelo navegador; Pro (R$59,90) adiciona ferramentas de expedição que funcionam no site — fila por prazo de despacho (`lead_time.buffering` do shipment ML) e conferência antes de imprimir — além da impressão automática via agente opcional. Flags `plans.sla_queue`/`plans.packing_check` (migration 0008) fazem o gate server-side em `/api/shipments`; o Start nunca recebe `dispatchDeadline`/`orderItems`. Pendente: validar em conta ML real se `buffering.date` corresponde ao prazo exibido ao seller.

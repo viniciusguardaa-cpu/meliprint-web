@@ -97,19 +97,19 @@ describe('plan entitlement & trial expiration', () => {
     expect(price!.amount).toBe(59.90);
   });
 
-  it('planHasAutoPrint returns true for pro, false for start', async () => {
-    const { planHasAutoPrint } = await import('../services/pricing.js');
+  it('planHasFeature returns true for pro, false for start', async () => {
+    const { planHasFeature } = await import('../services/pricing.js');
 
     // Pro plan
     mockQuery.mockResolvedValueOnce({ rows: [{ id: 'pro', auto_print: true }] });
-    expect(await planHasAutoPrint('pro')).toBe(true);
+    expect(await planHasFeature('pro', 'auto_print')).toBe(true);
 
     // Start plan
     mockQuery.mockResolvedValueOnce({ rows: [{ id: 'start', auto_print: false }] });
-    expect(await planHasAutoPrint('start')).toBe(false);
+    expect(await planHasFeature('start', 'auto_print')).toBe(false);
 
     // Nonexistent plan
     mockQuery.mockResolvedValueOnce({ rows: [] });
-    expect(await planHasAutoPrint('nonexistent')).toBe(false);
+    expect(await planHasFeature('nonexistent', 'auto_print')).toBe(false);
   });
 });

@@ -36,6 +36,14 @@ export default function PrintLabels() {
         const url = `/api/labels/pdf?shipment_ids=${encodeURIComponent(shipmentIds.join(','))}`;
         setPdfUrl(url);
 
+        // Record the print for the Pro history tab (best-effort, non-blocking).
+        fetch('/api/labels/print-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ shipmentIds })
+        }).catch(() => { });
+
         try {
           const invRes = await fetch('/api/labels/invoices', {
             method: 'POST',

@@ -138,10 +138,10 @@ export default function Pricing() {
           <p className="text-xl text-gray-600">
             {canTrial
               ? 'Teste grátis por 7 dias. Sem cartão de crédito.'
-              : 'Assine e imprima automaticamente.'}
+              : 'Assine e imprima em segundos — direto do navegador.'}
           </p>
           {isTrialing && (
-            <p className="mt-3 inline-block bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-medium">
+            <p className="mt-3 inline-block bg-brand-50 text-brand-700 px-4 py-2 rounded-full text-sm font-medium">
               Trial ativo — restam {subStatus?.trialDaysRemaining ?? '-'} dia(s)
             </p>
           )}
@@ -229,8 +229,8 @@ export default function Pricing() {
                         onClick={() => handleSubscribe(plan.id, false)}
                         disabled={loading}
                         className={`w-full font-semibold py-4 px-6 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3 ${canTrial
-                            ? 'bg-gray-900 hover:bg-gray-800 text-white'
-                            : 'bg-brand-500 hover:bg-brand-600 text-white'
+                          ? 'bg-gray-900 hover:bg-gray-800 text-white'
+                          : 'bg-brand-500 hover:bg-brand-600 text-white'
                           }`}
                       >
                         {loading ? (

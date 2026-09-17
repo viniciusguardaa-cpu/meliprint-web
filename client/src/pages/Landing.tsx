@@ -64,7 +64,7 @@ export default function Landing() {
     {
       icon: Zap,
       title: 'Impressão Instantânea',
-      description: 'Gere etiquetas ZPL em segundos, direto para sua impressora térmica.'
+      description: 'Gere etiquetas em segundos e imprima pelo navegador — sem instalar nada.'
     },
     {
       icon: Package,
@@ -88,7 +88,7 @@ export default function Landing() {
     'Reduza erros na impressão de etiquetas',
     'Interface simples e intuitiva',
     'Suporte a impressoras térmicas ZPL',
-    'Funciona com qualquer navegador',
+    'Sem instalação — funciona em qualquer navegador',
     'Acesse de qualquer lugar'
   ];
 
@@ -97,7 +97,7 @@ export default function Landing() {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
-          <img src="/logoazul.png" alt="LabelGo" className="h-8 sm:h-12 w-auto" />
+          <img src="/logoazul.png" alt="LabelGo" className="h-16 sm:h-24 w-auto" />
           <div className="flex items-center gap-2 sm:gap-4">
             {user ? (
               <button
@@ -127,12 +127,12 @@ export default function Landing() {
       </header>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 pt-8 sm:pt-12 pb-10 sm:pb-16">
+      <section className="bg-gradient-to-br from-brand-50 via-white to-brand-100 pt-8 sm:pt-12 pb-10 sm:pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             {/* Left - Text */}
             <div className="text-center lg:text-left">
-              <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium mb-4 sm:mb-5">
+              <div className="inline-flex items-center gap-2 bg-brand-100 text-brand-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium mb-4 sm:mb-5">
                 <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 Para vendedores do Mercado Livre
               </div>
@@ -149,7 +149,7 @@ export default function Landing() {
               <div className="flex items-center justify-center lg:justify-start gap-4 sm:gap-5">
                 <button
                   onClick={handleCTA}
-                  className="bg-brand-500 hover:bg-brand-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg shadow-blue-200"
+                  className="bg-brand-500 hover:bg-brand-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all hover:scale-105 flex items-center gap-2 shadow-lg shadow-brand-200"
                 >
                   Começar Agora
                   <ArrowRight className="w-5 h-5" />
@@ -176,7 +176,7 @@ export default function Landing() {
 
             {/* Right - Demo */}
             <div className="relative hidden md:block">
-              <div className="absolute -inset-4 bg-gradient-to-r from-blue-200 to-indigo-200 rounded-3xl blur-2xl opacity-30"></div>
+              <div className="absolute -inset-4 bg-gradient-to-r from-brand-200 to-brand-300 rounded-3xl blur-2xl opacity-30"></div>
               <div className="relative bg-white rounded-2xl shadow-2xl border overflow-hidden">
                 <div className="bg-gray-100 px-4 py-2.5 flex items-center gap-2 border-b">
                   <div className="w-3 h-3 rounded-full bg-red-400"></div>
@@ -237,7 +237,7 @@ export default function Landing() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
             {features.map((feature, index) => (
               <div key={index} className="text-center p-4 sm:p-6">
-                <div className="w-11 h-11 sm:w-14 sm:h-14 bg-blue-100 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                <div className="w-11 h-11 sm:w-14 sm:h-14 bg-brand-100 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
                   <feature.icon className="w-5 h-5 sm:w-7 sm:h-7 text-brand-500" />
                 </div>
                 <h3 className="text-sm sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">
@@ -319,14 +319,14 @@ export default function Landing() {
               <span className="text-3xl sm:text-5xl font-bold">
                 {proPrice !== null ? `R$ ${formatBRL(proPrice)}` : 'R$ 59,90'}
               </span>
-              <span className="text-blue-200">/mês</span>
+              <span className="text-brand-200">/mês</span>
             </div>
-            <p className="text-blue-100 mb-6">
+            <p className="text-brand-100 mb-6">
               Acesso completo • Impressões ilimitadas • Cancele quando quiser
             </p>
             <button
               onClick={handleCTA}
-              className="bg-white text-brand-500 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-blue-50 transition-colors"
+              className="bg-white text-brand-500 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-brand-50 transition-colors"
             >
               Começar Agora
             </button>

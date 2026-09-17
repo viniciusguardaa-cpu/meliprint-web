@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './loadEnv.js';
 import * as Sentry from '@sentry/node';
 import express from 'express';
 import cors from 'cors';

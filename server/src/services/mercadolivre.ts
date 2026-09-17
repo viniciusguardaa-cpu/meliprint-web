@@ -49,9 +49,11 @@ export interface Order {
   buyer: {
     nickname: string;
   };
+  date_created?: string;
   order_items: Array<{
     item: {
       title: string;
+      seller_sku?: string | null;
     };
     quantity: number;
   }>;

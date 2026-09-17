@@ -118,7 +118,7 @@ export default function Subscription() {
         {subscription?.hasSubscription ? (
           <div className="bg-white rounded-xl shadow-md overflow-hidden animate-fade-in">
             {/* Status badge */}
-            <div className={`text-white text-center py-2 text-sm font-semibold ${isCancelledWithAccess ? 'bg-yellow-500' : isTrialing ? 'bg-blue-500' : 'bg-green-500'
+            <div className={`text-white text-center py-2 text-sm font-semibold ${isCancelledWithAccess ? 'bg-yellow-500' : isTrialing ? 'bg-brand-500' : 'bg-green-500'
               }`}>
               {isCancelledWithAccess
                 ? 'CANCELADA — ACESSO ATÉ O FIM DO PERÍODO'
@@ -147,8 +147,8 @@ export default function Subscription() {
               {/* Details */}
               <div className="space-y-4 mb-8">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <CreditCard className="w-5 h-5 text-blue-600" />
+                  <div className="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center">
+                    <CreditCard className="w-5 h-5 text-brand-600" />
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Status</p>

@@ -1,13 +1,16 @@
-# MeliPrint Web
+# LabelGo Web
 
-Aplicação web para impressão rápida de etiquetas do Mercado Livre em formato ZPL.
+Aplicação web para impressão rápida de etiquetas do Mercado Livre em formato ZPL/PDF, direto do navegador.
 
 ## Funcionalidades
 
 - **Login OAuth** com Mercado Livre (PKCE)
 - **Listagem de envios** prontos para impressão
 - **Seleção em lote** de etiquetas
+- **Impressão pelo navegador** (PDF) — sem instalar nada
 - **Download ZPL** para impressoras térmicas
+- **Fila por prazo de despacho** e **conferência antes de imprimir** (Pro)
+- **Impressão automática** via agente local opcional (Pro)
 
 ## Requisitos
 

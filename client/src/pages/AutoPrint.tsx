@@ -40,7 +40,7 @@ export default function AutoPrint() {
       const res = await fetch('/api/auto-print/status', { credentials: 'include' });
       if (res.status === 403) {
         const data = await res.json().catch(() => null);
-        if (data?.error === 'subscription_required') {
+        if (data?.error === 'subscription_required' || data?.error === 'plan_upgrade_required') {
           navigate('/pricing');
           return;
         }
@@ -85,7 +85,14 @@ export default function AutoPrint() {
         credentials: 'include',
         body: JSON.stringify({ printerName: printerName || undefined })
       });
-      if (!res.ok) throw new Error('Falha ao ativar');
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.error === 'plan_upgrade_required') {
+          navigate('/pricing');
+          return;
+        }
+        throw new Error('Falha ao ativar');
+      }
       const data = await res.json();
       setStatus(prev => ({ ...prev, ...data, queue: prev?.queue || { pending: 0, printed: 0, failed: 0 } }));
       toast.success('Impressão automática ativada!');
@@ -138,7 +145,13 @@ export default function AutoPrint() {
         credentials: 'include'
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Falha ao gerar código');
+      if (!res.ok) {
+        if (data?.error === 'plan_upgrade_required') {
+          navigate('/pricing');
+          return;
+        }
+        throw new Error(data.error || 'Falha ao gerar código');
+      }
       setPairingCode({ code: data.code, expiresAt: data.expiresAt });
       toast.success('Código gerado — válido por 10 minutos.');
     } catch (err) {
@@ -200,6 +213,9 @@ export default function AutoPrint() {
           </h1>
           <p className="text-gray-500 mt-1">
             O LabelGo detecta etiquetas liberadas pelo Mercado Livre e imprime automaticamente na sua impressora térmica.
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Opcional — você sempre pode imprimir pelo navegador no Dashboard, sem instalar nada.
           </p>
         </div>
 

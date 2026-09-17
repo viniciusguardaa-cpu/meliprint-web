@@ -40,12 +40,15 @@ export async function requireActiveSubscription(req: Request, res: Response, nex
   }
 }
 
+/** Plan-gated features — each maps to a boolean column on plans. */
+export type PlanFeature = 'auto_print' | 'sla_queue' | 'packing_check' | 'print_history';
+
 /**
  * Require a plan that has a specific feature (e.g., auto_print).
  * Used for Pro-only features like automatic printing.
  * Returns an Express middleware factory.
  */
-export function requirePlanFeature(feature: 'auto_print') {
+export function requirePlanFeature(feature: PlanFeature) {
   return async (req: Request, res: Response, next: NextFunction) => {
     // First, require any active subscription (inline check)
     if (!req.session.userId) {
@@ -79,7 +82,7 @@ export function requirePlanFeature(feature: 'auto_print') {
         return res.status(403).json({ error: 'plan_required', message: 'Plano não encontrado' });
       }
 
-      const hasFeature = feature === 'auto_print' ? plan.auto_print : false;
+      const hasFeature = plan[feature] === true;
       if (!hasFeature) {
         return res.status(403).json({
           error: 'plan_upgrade_required',

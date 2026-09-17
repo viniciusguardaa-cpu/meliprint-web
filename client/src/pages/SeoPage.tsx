@@ -35,12 +35,12 @@ export default function SeoPage({ title, description, h1, sections, cta = true }
         {cta && (
           <div className="bg-gradient-to-r from-brand-500 to-brand-600 rounded-2xl p-6 text-white text-center mt-8">
             <h2 className="text-xl font-bold mb-2">Pronto para automatizar sua expedição?</h2>
-            <p className="text-blue-100 mb-4">
+            <p className="text-brand-100 mb-4">
               Conecte seu Mercado Livre ao LabelGo e imprima etiquetas em segundos.
             </p>
             <button
               onClick={() => navigate('/pricing')}
-              className="bg-white text-brand-600 font-semibold px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors inline-flex items-center gap-2"
+              className="bg-white text-brand-600 font-semibold px-6 py-3 rounded-xl hover:bg-brand-50 transition-colors inline-flex items-center gap-2"
             >
               Testar grátis por 7 dias
               <ArrowRight className="w-4 h-4" />
