@@ -97,7 +97,11 @@ app.use('/api/plans', generalLimiter, plansRoutes);
 app.use('/api/analytics', generalLimiter, analyticsRoutes);
 app.use('/api/tools', generalLimiter, toolsRoutes);
 app.use('/api/notifications', webhookLimiter, notificationsRoutes);
-app.use('/api/auth', authLimiter, authRoutes);
+// /api/auth uses generalLimiter: the SPA polls /me, /accounts and /providers on
+// every navigation — the strict authLimiter (10/min) would throttle normal
+// browsing. authLimiter is mounted per-route inside auth.ts on the credential
+// endpoints (login/register/forgot/reset) where brute force actually matters.
+app.use('/api/auth', generalLimiter, authRoutes);
 app.use('/api/shipments', generalLimiter, shipmentsRoutes);
 app.use('/api/labels', labelsLimiter, labelsRoutes);
 app.use('/api/subscription/webhook', webhookLimiter);

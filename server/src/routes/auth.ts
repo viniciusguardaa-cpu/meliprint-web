@@ -22,6 +22,7 @@ import {
   upsertAutoPrintConfig
 } from '../db.js';
 import { hashPassword, verifyPassword, PASSWORD_MIN_LENGTH } from '../services/password.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/mailer.js';
 import { trackEvent } from '../services/analytics.js';
 
@@ -79,7 +80,7 @@ async function createSessionForUser(req: Request, userId: number) {
 // Email + password auth
 // ---------------------------------------------------------------------------
 
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', authLimiter, async (req: Request, res: Response) => {
   const email = (req.body?.email as string | undefined)?.trim().toLowerCase();
   const password = req.body?.password as string | undefined;
   const nickname = (req.body?.nickname as string | undefined)?.trim()
@@ -125,7 +126,7 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', authLimiter, async (req: Request, res: Response) => {
   const email = (req.body?.email as string | undefined)?.trim().toLowerCase();
   const password = req.body?.password as string | undefined;
 
@@ -147,7 +148,7 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/forgot-password', async (req: Request, res: Response) => {
+router.post('/forgot-password', authLimiter, async (req: Request, res: Response) => {
   const email = (req.body?.email as string | undefined)?.trim().toLowerCase();
 
   // Always 200 — never reveal whether the email exists.
@@ -165,7 +166,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 });
 
 /** Resend the verification email (requires session). */
-router.post('/verify-email/send', async (req: Request, res: Response) => {
+router.post('/verify-email/send', authLimiter, async (req: Request, res: Response) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
@@ -187,7 +188,7 @@ router.post('/verify-email/send', async (req: Request, res: Response) => {
 });
 
 /** Confirm an email verification token (called from the /verificar-email page). */
-router.post('/verify-email', async (req: Request, res: Response) => {
+router.post('/verify-email', authLimiter, async (req: Request, res: Response) => {
   const token = req.body?.token as string | undefined;
   if (!token) {
     return res.status(400).json({ error: 'invalid_token' });
@@ -205,7 +206,7 @@ router.post('/verify-email', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/reset-password', async (req: Request, res: Response) => {
+router.post('/reset-password', authLimiter, async (req: Request, res: Response) => {
   const token = req.body?.token as string | undefined;
   const password = req.body?.password as string | undefined;
 

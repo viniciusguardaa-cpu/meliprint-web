@@ -42,11 +42,12 @@ export function useAuth() {
   /** Start an OAuth flow for a provider (login or connect when logged in). */
   const startOAuth = async (provider: string) => {
     const res = await fetch(`/api/auth/oauth/${provider}/start`, { credentials: 'include' });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (data.authUrl) {
       window.location.href = data.authUrl;
     } else {
-      throw new Error(data.error || 'auth_url_failed');
+      // Surface the real server error (e.g. rate limit) instead of a generic alert.
+      throw new Error(data.message || data.error || 'Erro ao iniciar autenticação');
     }
   };
 
@@ -55,7 +56,9 @@ export function useAuth() {
     try {
       await startOAuth('mercadolivre');
     } catch (err) {
-      alert('Erro ao conectar com o servidor. Verifique se o backend está rodando.');
+      alert(err instanceof Error && err.message
+        ? err.message
+        : 'Erro ao conectar com o servidor. Verifique se o backend está rodando.');
     }
   };
 

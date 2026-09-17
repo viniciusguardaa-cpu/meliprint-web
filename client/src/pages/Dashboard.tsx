@@ -89,6 +89,17 @@ export default function Dashboard() {
 
   const accounts = user?.accounts || [];
 
+  const handleConnectAccount = async (providerId: string) => {
+    setConnectError(null);
+    try {
+      await connectAccount(providerId);
+    } catch (err) {
+      setConnectError(err instanceof Error && err.message
+        ? err.message
+        : 'Não foi possível iniciar a conexão. Tente novamente.');
+    }
+  };
+
   // OAuth connect feedback: ?connected=provider / ?error=account_in_use
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -387,7 +398,7 @@ export default function Dashboard() {
             </p>
             <div className="flex items-center justify-center gap-2 flex-wrap">
               {providers.map((p) => (
-                <Button key={p.id} onClick={() => connectAccount(p.id)}>
+                <Button key={p.id} onClick={() => handleConnectAccount(p.id)}>
                   Conectar {p.displayName}
                 </Button>
               ))}
@@ -421,7 +432,7 @@ export default function Dashboard() {
               .map((p) => (
                 <button
                   key={p.id}
-                  onClick={() => connectAccount(p.id)}
+                  onClick={() => handleConnectAccount(p.id)}
                   className="text-sm text-primary hover:underline font-medium"
                 >
                   + Conectar {p.displayName}
