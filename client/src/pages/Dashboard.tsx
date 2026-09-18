@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
-import { Printer, RefreshCw, CheckSquare, Square, Package, Calendar, AlarmClock, ClipboardCheck } from 'lucide-react';
+import { Printer, RefreshCw, CheckSquare, Square, Package, Calendar, AlarmClock, ClipboardCheck, AlertTriangle } from 'lucide-react';
 import Header from '../components/Header';
 import MarketplaceLogo from '../components/MarketplaceLogo';
 import { Button } from '../components/ui/button';
@@ -40,6 +40,12 @@ interface PrintEvent {
   shipment_id: string;
   source: string;
   created_at: string;
+}
+
+interface ReauthAccount {
+  accountId: number;
+  provider: string;
+  nickname?: string;
 }
 
 const MARKETPLACE_LABELS: Record<string, string> = {
@@ -90,6 +96,7 @@ export default function Dashboard() {
   const [packingShipment, setPackingShipment] = useState<Shipment | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [needsReauth, setNeedsReauth] = useState<ReauthAccount[]>([]);
 
   const accounts = user?.accounts || [];
 
@@ -146,6 +153,7 @@ export default function Dashboard() {
       const data = await res.json();
       setReady(data.ready || []);
       setReprint(data.reprint || []);
+      setNeedsReauth(data.needsReauth || []);
     } catch (err) {
       toast.error('Erro ao carregar envios. Tente novamente.');
       console.error(err);
@@ -186,6 +194,15 @@ export default function Dashboard() {
   // Show the marketplace badge only when the list mixes providers — keeps
   // the single-marketplace UI as clean as before.
   const showMarketplaceBadge = new Set(visibleShipments.map(s => s.marketplace)).size > 1;
+
+  // Accounts needing reconnect: flagged server-side (needsReauth) or already
+  // marked reauth_required on the session user — whichever sees it first.
+  const reauthAccounts: ReauthAccount[] = [
+    ...needsReauth,
+    ...accounts
+      .filter((a) => a.status === 'reauth_required' && !needsReauth.some((n) => n.accountId === a.id))
+      .map((a) => ({ accountId: a.id, provider: a.provider, nickname: a.nickname }))
+  ];
 
   const toggleSelect = (key: string) => {
     const newSelected = new Set(selected);
@@ -390,6 +407,32 @@ export default function Dashboard() {
           </Button>
         </div>
 
+        {/* Reconnect banner — the OAuth grant died, no labels can sync until reconnect */}
+        {reauthAccounts.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm px-4 py-3 mb-6 flex items-center gap-3 flex-wrap">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-800">
+                Conexão expirada com {reauthAccounts.map((a) => `${marketplaceLabel(a.provider)}${a.nickname ? ` (${a.nickname})` : ''}`).join(', ')}
+              </p>
+              <p className="text-sm text-amber-700">
+                Reconecte a conta para voltar a buscar as etiquetas.
+              </p>
+            </div>
+            {reauthAccounts.map((a) => (
+              <Button
+                key={a.accountId}
+                variant="outline"
+                size="sm"
+                onClick={() => handleConnectAccount(a.provider)}
+                className="border-amber-300 text-amber-800 hover:bg-amber-100"
+              >
+                Reconectar {marketplaceLabel(a.provider)}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* Connected marketplace accounts */}
         {accounts.length === 0 ? (
           <div className="bg-surface rounded-xl border border-dashed border-border shadow-sm p-8 mb-6 text-center">
@@ -419,9 +462,13 @@ export default function Dashboard() {
             {accounts.map((a) => (
               <span
                 key={a.id}
-                className="inline-flex items-center gap-1.5 bg-muted rounded-full pl-1.5 pr-1.5 py-1 text-sm text-foreground"
+                className={`inline-flex items-center gap-1.5 rounded-full pl-1.5 pr-1.5 py-1 text-sm ${a.status === 'reauth_required'
+                    ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-300'
+                    : 'bg-muted text-foreground'
+                  }`}
               >
                 <MarketplaceLogo provider={a.provider} size={20} />
+                {a.status === 'reauth_required' && <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />}
                 {marketplaceLabel(a.provider)}{a.nickname ? ` · ${a.nickname}` : ''}
                 <button
                   onClick={async () => {

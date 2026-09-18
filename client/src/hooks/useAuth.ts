@@ -5,6 +5,8 @@ export interface ConnectedAccount {
   provider: string;
   externalUserId: string;
   nickname?: string;
+  /** 'active' | 'reauth_required' — the OAuth grant died, must reconnect. */
+  status?: string;
 }
 
 interface User {

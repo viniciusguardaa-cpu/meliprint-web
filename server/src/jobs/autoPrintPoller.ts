@@ -33,6 +33,12 @@ async function pollUser(config: any) {
   }
 
   for (const account of accounts) {
+    // Reconnect-needed accounts can't refresh — skip quietly (UI shows the
+    // reconnect banner; no point hammering the provider every cycle).
+    if (account.status === 'reauth_required') {
+      console.warn(`[autoPrintPoller] Account ${account.id} (${account.provider}) needs reauth — skipping`);
+      continue;
+    }
     const provider = getProvider(account.provider);
     if (!provider) {
       console.error(`[autoPrintPoller] Unknown provider: ${account.provider}`);

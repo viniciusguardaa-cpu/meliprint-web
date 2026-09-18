@@ -215,6 +215,8 @@ export default function Settings() {
                         <span className="font-medium text-foreground block truncate">{p.displayName}</span>
                         {!available ? (
                           <span className="text-xs text-muted-foreground">Em breve</span>
+                        ) : connected.some((a) => a.status === 'reauth_required') ? (
+                          <Badge variant="warning">Reconexão necessária</Badge>
                         ) : connected.length ? (
                           <Badge variant="success">Conectado</Badge>
                         ) : (
@@ -244,19 +246,41 @@ export default function Settings() {
                       {connected.map((a) => (
                         <li
                           key={a.id}
-                          className="flex items-center justify-between gap-3 bg-muted rounded-lg px-3 py-2"
+                          className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 ${a.status === 'reauth_required' ? 'bg-amber-50 ring-1 ring-amber-200' : 'bg-muted'
+                            }`}
                         >
-                          <span className="text-sm text-foreground">
+                          <span className="text-sm text-foreground min-w-0">
                             {a.nickname || a.externalUserId}
                             <span className="text-muted-foreground"> · ID {a.externalUserId}</span>
+                            {a.status === 'reauth_required' && (
+                              <Badge variant="warning" className="ml-2">Reconectar</Badge>
+                            )}
                           </span>
-                          <button
-                            onClick={() => handleDisconnect(a.id, `${providerName(a.provider)} (${a.nickname || a.externalUserId})`)}
-                            title="Desconectar conta"
-                            className="text-muted-foreground hover:text-danger transition-colors"
-                          >
-                            <Unlink className="w-4 h-4" />
-                          </button>
+                          <span className="flex items-center gap-2 shrink-0">
+                            {a.status === 'reauth_required' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleConnect(a.provider)}
+                                disabled={connecting === a.provider}
+                                className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                              >
+                                {connecting === a.provider ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Link2 className="w-4 h-4" />
+                                )}
+                                Reconectar
+                              </Button>
+                            )}
+                            <button
+                              onClick={() => handleDisconnect(a.id, `${providerName(a.provider)} (${a.nickname || a.externalUserId})`)}
+                              title="Desconectar conta"
+                              className="text-muted-foreground hover:text-danger transition-colors"
+                            >
+                              <Unlink className="w-4 h-4" />
+                            </button>
+                          </span>
                         </li>
                       ))}
                     </ul>

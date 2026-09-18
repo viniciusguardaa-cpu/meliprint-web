@@ -116,10 +116,16 @@ function decryptAccount(row: any) {
   return row;
 }
 
+// Account statuses: 'active' = usable tokens; 'reauth_required' = refresh
+// failed with a definitive auth error and the owner must reconnect.
+// reauth_required accounts are still listed everywhere (UI shows a reconnect
+// banner) and reconnecting flips them back to 'active' via the upsert.
+const LISTABLE_ACCOUNT_STATUSES = `('active', 'reauth_required')`;
+
 export async function getMarketplaceAccountsForUser(userId: number) {
   const result = await pool.query(
     `SELECT * FROM "marketplace_accounts"
-     WHERE "user_id" = $1 AND "status" = 'active'
+     WHERE "user_id" = $1 AND "status" IN ${LISTABLE_ACCOUNT_STATUSES}
      ORDER BY "created_at" ASC`,
     [userId]
   );
@@ -137,7 +143,7 @@ export async function getMarketplaceAccountById(accountId: number) {
 export async function getMarketplaceAccountByExternal(provider: string, externalUserId: string) {
   const result = await pool.query(
     `SELECT * FROM "marketplace_accounts"
-     WHERE "provider" = $1 AND "external_user_id" = $2 AND "status" = 'active'`,
+     WHERE "provider" = $1 AND "external_user_id" = $2 AND "status" IN ${LISTABLE_ACCOUNT_STATUSES}`,
     [provider, externalUserId]
   );
   return decryptAccount(result.rows[0] || null);
@@ -146,7 +152,7 @@ export async function getMarketplaceAccountByExternal(provider: string, external
 export async function getMarketplaceAccountForUser(userId: number, provider: string) {
   const result = await pool.query(
     `SELECT * FROM "marketplace_accounts"
-     WHERE "user_id" = $1 AND "provider" = $2 AND "status" = 'active'
+     WHERE "user_id" = $1 AND "provider" = $2 AND "status" IN ${LISTABLE_ACCOUNT_STATUSES}
      ORDER BY "created_at" ASC LIMIT 1`,
     [userId, provider]
   );
@@ -231,10 +237,23 @@ export async function deleteMarketplaceAccount(accountId: number, userId: number
 
 export async function countMarketplaceAccounts(userId: number): Promise<number> {
   const result = await pool.query(
-    `SELECT COUNT(*)::int AS c FROM "marketplace_accounts" WHERE "user_id" = $1 AND "status" = 'active'`,
+    `SELECT COUNT(*)::int AS c FROM "marketplace_accounts" WHERE "user_id" = $1 AND "status" IN ${LISTABLE_ACCOUNT_STATUSES}`,
     [userId]
   );
   return result.rows[0]?.c ?? 0;
+}
+
+/**
+ * Flag an account as needing reconnection. Called when token refresh fails
+ * with a definitive auth error (revoked grant, missing refresh token).
+ * Reconnecting flips status back to 'active' via upsertMarketplaceAccount.
+ */
+export async function markAccountReauthRequired(accountId: number) {
+  await pool.query(
+    `UPDATE "marketplace_accounts" SET "status" = 'reauth_required', "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1 AND "status" = 'active'`,
+    [accountId]
+  );
 }
 
 // ---------------------------------------------------------------------------

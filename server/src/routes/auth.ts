@@ -440,6 +440,7 @@ router.get('/accounts', async (req: Request, res: Response) => {
       externalUserId: a.external_user_id,
       nickname: a.nickname,
       email: a.email,
+      status: a.status,
       createdAt: a.created_at
     }))
   });
@@ -508,7 +509,8 @@ router.get('/me', async (req: Request, res: Response) => {
       id: a.id,
       provider: a.provider,
       externalUserId: a.external_user_id,
-      nickname: a.nickname
+      nickname: a.nickname,
+      status: a.status
     }))
   });
 });

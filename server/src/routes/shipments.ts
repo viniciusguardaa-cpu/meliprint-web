@@ -30,14 +30,22 @@ router.get('/', async (req: Request, res: Response) => {
     const accounts = (await getMarketplaceAccountsForUser(userId))
       .filter((a: any) => !providerFilter || a.provider === providerFilter);
 
-    if (accounts.length === 0) {
-      return res.json({ ready: [], reprint: [] });
+    // Accounts whose OAuth grant died (refresh token revoked/missing) can't
+    // be fetched — the UI surfaces them as a reconnect banner instead of a
+    // silently empty label list.
+    const needsReauth = accounts
+      .filter((a: any) => a.status === 'reauth_required')
+      .map((a: any) => ({ accountId: a.id, provider: a.provider, nickname: a.nickname }));
+    const fetchable = accounts.filter((a: any) => a.status !== 'reauth_required');
+
+    if (fetchable.length === 0) {
+      return res.json({ ready: [], reprint: [], needsReauth });
     }
 
     // Fetch each account's shipments through its provider; failures in one
     // marketplace don't take down the others.
     const rows: NormalizedShipment[] = [];
-    await Promise.all(accounts.map(async (account: any) => {
+    await Promise.all(fetchable.map(async (account: any) => {
       const provider = getProvider(account.provider);
       if (!provider) {
         console.error(`[shipments] Unknown provider: ${account.provider}`);
@@ -77,8 +85,8 @@ router.get('/', async (req: Request, res: Response) => {
       reprint.sort(byDeadline);
     }
 
-    console.log(`[shipments] accounts=${accounts.length} ready=${ready.length} reprint=${reprint.length}`);
-    res.json({ ready, reprint });
+    console.log(`[shipments] accounts=${fetchable.length} reauth=${needsReauth.length} ready=${ready.length} reprint=${reprint.length}`);
+    res.json({ ready, reprint, needsReauth });
   } catch (error) {
     console.error('Failed to get shipments:', error);
     res.status(500).json({ error: 'Failed to get shipments' });

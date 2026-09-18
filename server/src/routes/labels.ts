@@ -31,7 +31,15 @@ async function resolveAccountContext(req: Request, res: Response): Promise<Accou
       return null;
     }
     account = await getMarketplaceAccountById(id);
-    if (!account || account.user_id !== userId || account.status !== 'active') {
+    if (!account || account.user_id !== userId) {
+      res.status(404).json({ error: 'Marketplace account not found' });
+      return null;
+    }
+    if (account.status === 'reauth_required') {
+      res.status(401).json({ error: 'account_token_expired', message: 'Reconecte sua conta do marketplace.' });
+      return null;
+    }
+    if (account.status !== 'active') {
       res.status(404).json({ error: 'Marketplace account not found' });
       return null;
     }
