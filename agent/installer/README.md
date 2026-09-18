@@ -14,11 +14,14 @@ terminal ou edição de `.env` pelo cliente.
 
 ## Hospedagem do instalador
 
-O botão de download aponta para `/downloads/LabelGoAgent-Setup.exe` por padrão.
-Para publicar, copie `installer\Output\LabelGoAgent-Setup.exe` para
-`client/public/downloads/` antes do deploy do client (Netlify serve o arquivo
-direto, sem passar pelo redirect do SPA). Para hospedar em outro lugar
-(GitHub Releases, S3 etc.), defina `VITE_AGENT_DOWNLOAD_URL` no build do client.
+O workflow `.github/workflows/agent-installer.yml` (runner Windows) compila
+`LabelGoAgent-Setup.exe` e publica no release `agent-latest` do GitHub —
+roda automaticamente em pushes na `main` que tocam `agent/` e também pode
+ser disparado manualmente em Actions → "Agent Installer".
+
+O botão de download no app aponta para `/downloads/LabelGoAgent-Setup.exe`;
+o `netlify.toml` redireciona (301) esse caminho para o asset do release.
+Para hospedar em outro lugar, defina `VITE_AGENT_DOWNLOAD_URL` no build do client.
 
 ## Build (requer Windows)
 
@@ -30,7 +33,7 @@ powershell -ExecutionPolicy Bypass -File installer\build.ps1
 
 O script:
 
-1. `npx @yao-pkg/pkg package.json --targets node18-win-x64 --output dist\labelgo-agent.exe`
+1. `npx @yao-pkg/pkg package.json --targets node22-win-x64 --output dist\labelgo-agent.exe`
    — empacota `agent.js` e todos os módulos ESM em um único exe.
 2. `iscc installer\LabelGoAgent.iss` — compila `installer\Output\LabelGoAgent-Setup.exe`.
 

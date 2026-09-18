@@ -2,6 +2,15 @@
   command = "npm run build --workspace=client"
   publish = "client/dist"
 
+# Windows agent installer — built by .github/workflows/agent-installer.yml and
+# published on the `agent-latest` GitHub release. Redirect instead of committing
+# the binary to the repo.
+[[redirects]]
+  from = "/downloads/LabelGoAgent-Setup.exe"
+  to = "https://github.com/viniciusguardaa-cpu/meliprint-web/releases/download/agent-latest/LabelGoAgent-Setup.exe"
+  status = 302
+  force = true
+
 [[redirects]]
   from = "/api/*"
   to = "https://web-production-c2ba5.up.railway.app/api/:splat"

@@ -9,6 +9,9 @@
 #   1. @yao-pkg/pkg bundles agent.js (ESM) into dist\labelgo-agent.exe
 #   2. Inno Setup (iscc) compiles LabelGoAgent-Setup.exe
 #
+# Em CI, o workflow .github/workflows/agent-installer.yml faz isso num runner
+# Windows e publica o Setup no release `agent-latest` do GitHub.
+#
 # Requirements:
 #   - Node.js 18+ (build machine only — customers do NOT need Node)
 #   - npm i -D @yao-pkg/pkg (or npx)
@@ -20,7 +23,7 @@ Push-Location $agentDir
 try {
     Write-Host "==> Building labelgo-agent.exe with @yao-pkg/pkg..."
     npx --yes @yao-pkg/pkg package.json `
-        --targets node18-win-x64 `
+        --targets node22-win-x64 `
         --output dist\labelgo-agent.exe
 
     if (-not (Test-Path dist\labelgo-agent.exe)) {

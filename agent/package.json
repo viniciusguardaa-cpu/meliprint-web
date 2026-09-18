@@ -12,7 +12,7 @@
     "setup": "node agent.js --setup",
     "check": "node agent.js --check",
     "test": "node --test",
-    "build:exe": "pkg package.json --targets node18-win-x64 --output dist/labelgo-agent.exe"
+    "build:exe": "pkg package.json --targets node22-win-x64 --output dist/labelgo-agent.exe"
   },
   "pkg": {
     "scripts": [

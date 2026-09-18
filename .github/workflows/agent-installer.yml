@@ -1,0 +1,69 @@
+name: Agent Installer
+
+# Builds the Windows installer (labelgo-agent.exe via pkg + LabelGoAgent-Setup.exe
+# via Inno Setup) and publishes it to the `agent-latest` GitHub release.
+# The site serves it at /downloads/LabelGoAgent-Setup.exe via a Netlify redirect.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'agent/**'
+      - '.github/workflows/agent-installer.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: agent/package-lock.json
+
+      - name: Install dependencies (agent)
+        working-directory: agent
+        run: npm ci
+
+      - name: Build labelgo-agent.exe
+        working-directory: agent
+        run: npm run build:exe
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress --yes
+
+      - name: Compile installer
+        shell: pwsh
+        run: & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" agent/installer/LabelGoAgent.iss
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LabelGoAgent-Setup
+          path: agent/installer/Output/LabelGoAgent-Setup.exe
+          retention-days: 30
+
+      - name: Publish agent-latest release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $asset = 'agent/installer/Output/LabelGoAgent-Setup.exe'
+          gh release view agent-latest --repo ${{ github.repository }} *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload agent-latest $asset --clobber --repo ${{ github.repository }}
+          } else {
+            gh release create agent-latest $asset `
+              --title 'LabelGo Agent' `
+              --latest `
+              --notes 'Instalador Windows do LabelGo Agent (build automatico via CI).' `
+              --repo ${{ github.repository }}
+          }

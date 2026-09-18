@@ -77,7 +77,9 @@ assim que o Mercado Livre as libera.
 
 O cliente não precisa de Node, terminal ou `.env`:
 
-1. Baixa `LabelGoAgent-Setup.exe` (gerado por `agent/installer/build.ps1`).
+1. Baixa `LabelGoAgent-Setup.exe` pelo botão na página de Impressão Automática
+   (o CI em `.github/workflows/agent-installer.yml` compila e publica no
+   release `agent-latest`; para build manual, ver `agent/installer/`).
 2. No painel (Impressão Automática) gera o **código de pareamento**.
 3. O wizard do instalador pede o código, lista as impressoras, imprime uma
    etiqueta de teste e agenda o início automático junto ao Windows.

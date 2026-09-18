@@ -25,9 +25,9 @@ interface ReviewJob {
   sent_to_printer_at: string | null;
 }
 
-// O instalador padrão é servido de client/public/downloads (deploy Netlify).
-// Para hospedar em outro lugar (GitHub Releases, S3...), defina
-// VITE_AGENT_DOWNLOAD_URL no build do client.
+// O Netlify redireciona /downloads/LabelGoAgent-Setup.exe para o asset do
+// release `agent-latest` no GitHub (buildado por agent-installer.yml).
+// Para hospedar em outro lugar, defina VITE_AGENT_DOWNLOAD_URL no build.
 const AGENT_DOWNLOAD_URL =
   import.meta.env.VITE_AGENT_DOWNLOAD_URL || '/downloads/LabelGoAgent-Setup.exe';
 
