@@ -39,6 +39,12 @@ async function pollUser(config: any) {
       continue;
     }
 
+    // The agent only prints raw ZPL — PDF-only providers are browser-print
+    // for now. Skip them instead of failing the whole poll.
+    if (!provider.getLabelsZPL) {
+      continue;
+    }
+
     const ctx = await getFreshAccountContext(account);
     if (!ctx) {
       console.error(`[autoPrintPoller] Could not get token for account ${account.id} (${account.provider})`);

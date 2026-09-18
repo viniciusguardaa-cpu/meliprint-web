@@ -153,8 +153,8 @@ async function processShipmentNotification(resource: string, mlUserId?: number) 
     return;
   }
 
-  // Fetch ZPL for this single shipment and queue it.
-  const zpl = await provider.getLabelsZPL(ctx, [String(shipmentId)]);
+  // Fetch ZPL for this single shipment and queue it (ML always provides ZPL).
+  const zpl = await provider.getLabelsZPL?.(ctx, [String(shipmentId)]);
   if (!zpl || !zpl.trim()) {
     console.log(`[ml-notifications] Empty ZPL for shipment ${shipmentId}`);
     return;

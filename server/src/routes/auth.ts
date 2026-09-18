@@ -241,7 +241,13 @@ router.post('/reset-password', authLimiter, async (req: Request, res: Response) 
 
 /** Available providers for the connect-accounts UI. */
 router.get('/providers', (_req: Request, res: Response) => {
-  res.json({ providers: listProviders().map((p) => ({ id: p.id, displayName: p.displayName })) });
+  res.json({
+    providers: listProviders().map((p) => ({
+      id: p.id,
+      displayName: p.displayName,
+      configured: p.isConfigured()
+    }))
+  });
 });
 
 /**
@@ -252,6 +258,12 @@ function handleOAuthStart(req: Request, res: Response, providerId: string) {
   const provider = getProvider(providerId);
   if (!provider) {
     return res.status(404).json({ error: 'unknown_provider' });
+  }
+  if (!provider.isConfigured()) {
+    return res.status(400).json({
+      error: 'provider_not_configured',
+      message: `${provider.displayName} ainda não está configurado neste ambiente.`
+    });
   }
 
   try {
@@ -293,28 +305,39 @@ router.get('/login', (req: Request, res: Response) => {
 
 /** Shared OAuth callback logic for /callback (legacy ML) and /oauth/:provider/callback. */
 async function handleOAuthCallback(req: Request, res: Response, providerId: string) {
-  const { code, state } = req.query;
   const pending = req.session.oauth;
 
   try {
-    if (!code || typeof code !== 'string') {
-      return res.status(400).json({ error: 'Missing authorization code' });
-    }
-
-    // CSRF: state must match the attempt stored at /start, for the same provider.
-    if (!pending || pending.provider !== providerId || typeof state !== 'string' || state !== pending.state) {
-      delete req.session.oauth;
-      return res.status(400).json({ error: 'Invalid or missing OAuth state' });
-    }
-    delete req.session.oauth;
-
     const provider = getProvider(providerId);
     if (!provider) {
       return res.status(404).json({ error: 'unknown_provider' });
     }
 
+    const code = provider.getAuthorizationCode
+      ? provider.getAuthorizationCode(req.query as Record<string, unknown>)
+      : (typeof req.query.code === 'string' ? req.query.code : undefined);
+    if (!code) {
+      return res.status(400).json({ error: 'Missing authorization code' });
+    }
+
+    // CSRF: state must match the attempt stored at /start, for the same
+    // provider — when the provider echoes state at all (Shopee doesn't).
+    const stateOk = provider.oauthState === 'unsupported'
+      ? true
+      : (typeof req.query.state === 'string' && req.query.state === pending?.state);
+    if (!pending || pending.provider !== providerId || !stateOk) {
+      delete req.session.oauth;
+      return res.status(400).json({ error: 'Invalid or missing OAuth state' });
+    }
+    delete req.session.oauth;
+
     const redirectUri = getOAuthRedirectUri(providerId);
-    const { identity, tokens } = await provider.exchangeCode(code, redirectUri, pending.verifier);
+    const { identity, tokens } = await provider.exchangeCode(
+      code,
+      redirectUri,
+      pending.verifier,
+      req.query as Record<string, unknown>
+    );
 
     const existing = await getMarketplaceAccountByExternal(providerId, identity.externalUserId);
 

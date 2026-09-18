@@ -196,6 +196,12 @@ async function listReadyShipments(ctx: AccountContext, opts: ListShipmentsOption
 export const mercadolivreProvider: MarketplaceProvider = {
   id: 'mercadolivre',
   displayName: 'Mercado Livre',
+  labelFormats: ['zpl', 'pdf'],
+  oauthState: 'required',
+
+  isConfigured(): boolean {
+    return !!(process.env.ML_CLIENT_ID && process.env.ML_CLIENT_SECRET);
+  },
 
   getAuthUrl(redirectUri: string, state: string, codeChallenge: string): string {
     return buildMlAuthUrl(mlEnv('ML_CLIENT_ID'), redirectUri, codeChallenge, state);

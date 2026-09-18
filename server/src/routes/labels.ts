@@ -79,6 +79,12 @@ router.post('/zpl', async (req: Request, res: Response) => {
     if (!ctx) return;
 
     const provider = getProvider(ctx.provider)!;
+    if (!provider.getLabelsZPL) {
+      return res.status(400).json({
+        error: 'labels_not_supported',
+        message: `${provider.displayName} não oferece etiquetas em ZPL — use a impressão em PDF pelo navegador.`
+      });
+    }
     const zpl = await provider.getLabelsZPL(ctx, shipmentIds);
 
     res.setHeader('Content-Type', 'application/x-zpl');

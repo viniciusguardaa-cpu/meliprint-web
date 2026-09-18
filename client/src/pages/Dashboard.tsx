@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
 import { Printer, RefreshCw, CheckSquare, Square, Package, Calendar, AlarmClock, ClipboardCheck } from 'lucide-react';
 import Header from '../components/Header';
+import MarketplaceLogo from '../components/MarketplaceLogo';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
@@ -44,7 +45,9 @@ interface PrintEvent {
 const MARKETPLACE_LABELS: Record<string, string> = {
   mercadolivre: 'Mercado Livre',
   shopee: 'Shopee',
-  amazon: 'Amazon'
+  amazon: 'Amazon',
+  magalu: 'Magalu',
+  bling: 'Bling'
 };
 
 function marketplaceLabel(id: string): string {
@@ -67,6 +70,7 @@ function formatDateParamEnd(dateStr: string): string {
 interface ProviderInfo {
   id: string;
   displayName: string;
+  configured?: boolean;
 }
 
 export default function Dashboard() {
@@ -398,7 +402,12 @@ export default function Dashboard() {
             </p>
             <div className="flex items-center justify-center gap-2 flex-wrap">
               {providers.map((p) => (
-                <Button key={p.id} onClick={() => handleConnectAccount(p.id)}>
+                <Button
+                  key={p.id}
+                  onClick={() => handleConnectAccount(p.id)}
+                  disabled={p.configured === false}
+                  title={p.configured === false ? 'Disponível em breve' : undefined}
+                >
                   Conectar {p.displayName}
                 </Button>
               ))}
@@ -410,8 +419,9 @@ export default function Dashboard() {
             {accounts.map((a) => (
               <span
                 key={a.id}
-                className="inline-flex items-center gap-1.5 bg-muted rounded-full pl-3 pr-1.5 py-1 text-sm text-foreground"
+                className="inline-flex items-center gap-1.5 bg-muted rounded-full pl-1.5 pr-1.5 py-1 text-sm text-foreground"
               >
+                <MarketplaceLogo provider={a.provider} size={20} />
                 {marketplaceLabel(a.provider)}{a.nickname ? ` · ${a.nickname}` : ''}
                 <button
                   onClick={async () => {
@@ -433,7 +443,9 @@ export default function Dashboard() {
                 <button
                   key={p.id}
                   onClick={() => handleConnectAccount(p.id)}
-                  className="text-sm text-primary hover:underline font-medium"
+                  disabled={p.configured === false}
+                  title={p.configured === false ? 'Disponível em breve' : undefined}
+                  className="text-sm text-primary hover:underline font-medium disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
                 >
                   + Conectar {p.displayName}
                 </button>

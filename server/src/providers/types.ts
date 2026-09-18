@@ -70,15 +70,45 @@ export interface ListShipmentsOptions {
   includePacking?: boolean;
 }
 
+export type LabelFormat = 'zpl' | 'pdf';
+
 export interface MarketplaceProvider {
   id: string;
   displayName: string;
 
-  /** Build the provider-side authorization URL (OAuth2 + PKCE). */
+  /**
+   * Label formats this provider can produce. Providers without 'zpl' are
+   * skipped by the auto-print poller (the agent only prints raw ZPL today)
+   * but still work for browser printing via getLabelsPDF.
+   */
+  labelFormats: LabelFormat[];
+
+  /**
+   * Whether the provider's OAuth callback echoes back our `state` param.
+   * Shopee's auth_partner redirect doesn't support state, so CSRF protection
+   * there relies solely on the session-bound pending attempt.
+   */
+  oauthState: 'required' | 'unsupported';
+
+  /** True when the env credentials the provider needs are present. */
+  isConfigured(): boolean;
+
+  /**
+   * Extract the authorization code from the callback query.
+   * Default is `query.code`; Amazon uses `spapi_oauth_code`.
+   */
+  getAuthorizationCode?(query: Record<string, unknown>): string | undefined;
+
+  /** Build the provider-side authorization URL (OAuth2 + PKCE when supported). */
   getAuthUrl(redirectUri: string, state: string, codeChallenge: string): string;
 
   /** Exchange the OAuth callback code for identity + tokens. */
-  exchangeCode(code: string, redirectUri: string, codeVerifier: string): Promise<ProviderAuthResult>;
+  exchangeCode(
+    code: string,
+    redirectUri: string,
+    codeVerifier: string,
+    callbackQuery?: Record<string, unknown>
+  ): Promise<ProviderAuthResult>;
 
   /** Refresh an account's tokens. */
   refreshTokens(account: AccountContext): Promise<TokenSet>;
@@ -89,8 +119,8 @@ export interface MarketplaceProvider {
   /** External ids of shipments in printable state (used by auto-print). */
   listPrintableShipmentIds(ctx: AccountContext): Promise<string[]>;
 
-  /** Raw ZPL for the given external shipment ids. */
-  getLabelsZPL(ctx: AccountContext, externalIds: string[]): Promise<string>;
+  /** Raw ZPL for the given external shipment ids (ZPL-capable providers only). */
+  getLabelsZPL?(ctx: AccountContext, externalIds: string[]): Promise<string>;
 
   /** Merged PDF for the given external shipment ids. */
   getLabelsPDF(ctx: AccountContext, externalIds: string[]): Promise<Buffer>;

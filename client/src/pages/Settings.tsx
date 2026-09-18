@@ -7,6 +7,7 @@ import {
   Link2, Loader2, MailCheck, ChevronRight, Unlink
 } from 'lucide-react';
 import Header from '../components/Header';
+import MarketplaceLogo from '../components/MarketplaceLogo';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import toast from 'react-hot-toast';
@@ -14,6 +15,7 @@ import toast from 'react-hot-toast';
 interface ProviderInfo {
   id: string;
   displayName: string;
+  configured?: boolean;
 }
 
 export default function Settings() {
@@ -203,22 +205,38 @@ export default function Settings() {
           <div className="divide-y divide-border">
             {providers.map((p) => {
               const connected = accounts.filter((a) => a.provider === p.id);
+              const available = p.configured !== false;
               return (
                 <div key={p.id} className="py-4 first:pt-0 last:pb-0">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="font-medium text-foreground">{p.displayName}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <MarketplaceLogo provider={p.id} size={36} />
+                      <div className="min-w-0">
+                        <span className="font-medium text-foreground block truncate">{p.displayName}</span>
+                        {!available ? (
+                          <span className="text-xs text-muted-foreground">Em breve</span>
+                        ) : connected.length ? (
+                          <Badge variant="success">Conectado</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Não conectado</span>
+                        )}
+                      </div>
+                    </div>
                     <Button
                       variant={connected.length ? 'outline' : 'primary'}
                       size="sm"
                       onClick={() => handleConnect(p.id)}
-                      disabled={connecting === p.id}
+                      disabled={connecting === p.id || !available}
+                      title={!available ? 'Disponível em breve' : undefined}
                     >
                       {connecting === p.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <Link2 className="w-4 h-4" />
                       )}
-                      {connected.length ? 'Conectar outra conta' : 'Conectar'}
+                      {!available
+                        ? 'Em breve'
+                        : connected.length ? 'Conectar outra conta' : 'Conectar'}
                     </Button>
                   </div>
                   {connected.length > 0 && (

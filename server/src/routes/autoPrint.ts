@@ -15,8 +15,9 @@ import {
   getJobsNeedingReview,
   resolveJobReview,
   createPairingCode,
-  getMarketplaceAccountForUser
+  getMarketplaceAccountsForUser
 } from '../db.js';
+import { getProvider } from '../providers/index.js';
 import { requireActiveSubscription, requirePlanFeature } from '../middleware/subscription.js';
 import { trackEvent } from '../services/analytics.js';
 
@@ -41,13 +42,18 @@ router.post('/enable', requirePlanFeature('auto_print'), async (req: Request, re
     return res.status(403).json({ error: 'subscription_required' });
   }
 
-  // Auto-print today polls Mercado Livre — the account must be connected so
-  // the poller can fetch a fresh token from marketplace_accounts.
-  const mlAccount = await getMarketplaceAccountForUser(user.id, 'mercadolivre');
-  if (!mlAccount) {
+  // Auto-print requires at least one connected account whose provider
+  // produces ZPL — the agent only prints raw ZPL today (PDF-only providers
+  // like Shopee/Bling print via the browser instead).
+  const accounts = await getMarketplaceAccountsForUser(user.id);
+  const hasZplAccount = accounts.some((a: any) => {
+    const provider = getProvider(a.provider);
+    return provider?.getLabelsZPL != null;
+  });
+  if (!hasZplAccount) {
     return res.status(400).json({
       error: 'account_not_connected',
-      message: 'Conecte sua conta do Mercado Livre antes de ativar a impressão automática.'
+      message: 'Conecte uma conta de marketplace com etiquetas ZPL (Mercado Livre ou Amazon) antes de ativar a impressão automática.'
     });
   }
 
