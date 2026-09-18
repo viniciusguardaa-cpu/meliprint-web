@@ -42,7 +42,8 @@ jobs:
 
       - name: Compile installer
         shell: pwsh
-        run: & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" agent/installer/LabelGoAgent.iss
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" agent/installer/LabelGoAgent.iss
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
