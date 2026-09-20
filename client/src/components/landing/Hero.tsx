@@ -25,25 +25,56 @@ interface HeroProps {
 export default function Hero({ priceLabel, onPrimaryCta }: HeroProps) {
   const rootRef = useRef<HTMLElement>(null);
 
-  // Subtle mouse parallax — desktop pointers only, skipped for reduced motion.
+  // Mouse parallax with per-frame lerp — each frame eases the current offset
+  // toward the pointer target, which reads as a smooth trailing follow rather
+  // than a transition restarting on every mousemove. Desktop pointers only,
+  // skipped for reduced motion.
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     if (!window.matchMedia('(pointer: fine)').matches) return;
 
+    const target = { x: 0, y: 0 };
+    const current = { x: 0, y: 0 };
+    let raf = 0;
+
+    const tick = () => {
+      // ~0.09 easing factor: fluid trail without feeling delayed
+      current.x += (target.x - current.x) * 0.09;
+      current.y += (target.y - current.y) * 0.09;
+      el.style.setProperty('--mx', current.x.toFixed(4));
+      el.style.setProperty('--my', current.y.toFixed(4));
+
+      const settled =
+        Math.abs(target.x - current.x) < 0.0004 && Math.abs(target.y - current.y) < 0.0004;
+      if (settled) {
+        el.style.setProperty('--mx', String(target.x));
+        el.style.setProperty('--my', String(target.y));
+        raf = 0;
+      } else {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    const wake = () => {
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+
     const onMove = (e: PointerEvent) => {
       const r = el.getBoundingClientRect();
-      el.style.setProperty('--mx', String((e.clientX - r.left) / r.width - 0.5));
-      el.style.setProperty('--my', String((e.clientY - r.top) / r.height - 0.5));
+      target.x = (e.clientX - r.left) / r.width - 0.5;
+      target.y = (e.clientY - r.top) / r.height - 0.5;
+      wake();
     };
     const onLeave = () => {
-      el.style.setProperty('--mx', '0');
-      el.style.setProperty('--my', '0');
+      target.x = 0;
+      target.y = 0;
+      wake();
     };
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerleave', onLeave);
     return () => {
+      cancelAnimationFrame(raf);
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerleave', onLeave);
     };
@@ -51,7 +82,7 @@ export default function Hero({ priceLabel, onPrimaryCta }: HeroProps) {
 
   const layer = (depth: number): CSSProperties => ({
     transform: `translate3d(calc(var(--mx, 0) * ${depth}px), calc(var(--my, 0) * ${depth}px), 0)`,
-    transition: 'transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)',
+    willChange: 'transform',
   });
 
   const scrollToHow = () => {
@@ -71,7 +102,7 @@ export default function Hero({ priceLabel, onPrimaryCta }: HeroProps) {
           style={{
             background: 'radial-gradient(circle, rgba(234,239,85,0.55) 0%, rgba(234,239,85,0) 65%)',
             transform: 'translate3d(calc(var(--mx, 0) * -24px), calc(var(--my, 0) * -24px), 0)',
-            transition: 'transform 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
+            willChange: 'transform',
           }}
         />
         <div className="absolute top-1/3 left-[-15%] w-[560px] h-[560px] rounded-full bg-[#FE5D31]/[0.07] blur-3xl" />
