@@ -20,12 +20,19 @@
   --danger: 239 68 68;
 }
 
+html {
+  scroll-behavior: smooth;
+  /* offset anchors below the floating navbar */
+  scroll-padding-top: 96px;
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: rgb(var(--background));
   color: rgb(var(--foreground));
+  overflow-x: clip;
 }
 
 ::selection {
@@ -36,6 +43,153 @@ body {
 :focus-visible {
   outline: 2px solid rgb(var(--primary));
   outline-offset: 2px;
+}
+
+/* ---------- Landing page motion system ---------- */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Children of a .reveal container can stagger with .reveal-child + --reveal-delay */
+.reveal-child {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.is-visible .reveal-child {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Animated connecting line (workflow steps) */
+.draw-line {
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s;
+}
+
+.draw-line.is-visible {
+  transform: scaleX(1);
+}
+
+.draw-line-y {
+  transform: scaleY(0);
+  transform-origin: top center;
+  transition: transform 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s;
+}
+
+.draw-line-y.is-visible {
+  transform: scaleY(1);
+}
+
+/* Accessible accordion (grid-rows trick — no JS height measurement) */
+.accordion-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.accordion-panel[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+
+.accordion-panel>div {
+  overflow: hidden;
+}
+
+/* Subtle shine sweep on primary CTAs */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg,
+      transparent 40%,
+      rgba(255, 255, 255, 0.28) 50%,
+      transparent 60%);
+  transform: translateX(-120%);
+  transition: transform 0.7s ease;
+  pointer-events: none;
+}
+
+.btn-shine:hover::after {
+  transform: translateX(120%);
+}
+
+/* Extremely subtle film grain for hero/dark sections */
+.noise::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Simulated barcode stripes */
+.barcode {
+  background-image: repeating-linear-gradient(90deg,
+      #101827 0 2px,
+      transparent 2px 4px,
+      #101827 4px 7px,
+      transparent 7px 9px,
+      #101827 9px 10px,
+      transparent 10px 14px,
+      #101827 14px 16px,
+      transparent 16px 17px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal,
+  .draw-line,
+  .draw-line-y,
+  .accordion-panel,
+  .btn-shine::after {
+    transition: none !important;
+  }
+
+  .reveal,
+  .reveal-child {
+    opacity: 1;
+    transform: none;
+  }
+
+  .draw-line,
+  .draw-line-y {
+    transform: none;
+  }
+
+  .animate-float,
+  .animate-float-slow,
+  .animate-label-feed,
+  .animate-pulse-dot,
+  .animate-spin-slow {
+    animation: none !important;
+  }
 }
 
 @page {
