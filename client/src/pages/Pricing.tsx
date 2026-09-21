@@ -130,7 +130,7 @@ export default function Pricing() {
     <div className="min-h-screen bg-background">
       <Header showDashboard />
 
-      <main className="max-w-5xl mx-auto px-4 py-16">
+      <main className="max-w-5xl mx-auto px-4 py-16" data-mp-subscriptions-page="without-plan-pending">
         {/* Hero */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-foreground mb-4">
@@ -230,6 +230,7 @@ export default function Pricing() {
                       <button
                         onClick={() => handleSubscribe(plan.id, false)}
                         disabled={loading}
+                        data-mp-subscription-cta="without-plan-pending"
                         className={`w-full font-semibold py-4 px-6 rounded-xl transition-all duration-150 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2 mb-3 ${canTrial
                           ? 'bg-foreground text-white hover:bg-foreground/90'
                           : 'bg-primary text-primary-foreground hover:bg-primary-hover'

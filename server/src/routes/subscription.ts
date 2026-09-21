@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { MercadoPagoConfig, PreApproval } from 'mercadopago';
 import {
   getUserById,
   getActiveSubscription,
@@ -31,12 +30,12 @@ const TRIAL_DAYS = 7;
 const TRIAL_PLAN_ID = 'pro';
 const MP_API_URL = 'https://api.mercadopago.com';
 
-function getMercadoPagoClient() {
+function getAccessToken() {
   const accessToken = process.env.MP_ACCESS_TOKEN;
   if (!accessToken) {
     throw new Error('MP_ACCESS_TOKEN not configured');
   }
-  return new MercadoPagoConfig({ accessToken });
+  return accessToken;
 }
 
 /** The MP SDK throws the raw API error body (a plain object), not an Error. */
@@ -133,16 +132,12 @@ router.post('/checkout', async (req: Request, res: Response) => {
     const visitorKey = (req.body?.visitorKey as string) || '';
 
     // Look up plan and price from DB (no hardcoded prices)
-    const plan = await getPlan(planId);
-    if (!plan || !plan.is_active) {
+    const trustedOffer = await resolveSubscriptionOffer(planId, visitorKey);
+    const plan = trustedOffer.plan;
+    if (!plan) {
       return res.status(400).json({ error: 'Plano inválido ou indisponível' });
     }
-
-    // Price consistency: charge the variant the visitor was assigned in the
-    // catalog (pricing experiments), falling back to the standard price.
-    const price = visitorKey
-      ? (await getAssignedVariantPrice(planId, visitorKey)) ?? await getPriceForPlan(planId, 'monthly')
-      : await getPriceForPlan(planId, 'monthly');
+    const price = trustedOffer.price;
     if (!price) {
       return res.status(400).json({ error: 'Preço não encontrado para este plano' });
     }
@@ -261,7 +256,6 @@ router.post('/checkout', async (req: Request, res: Response) => {
     // pointing to `${FRONTEND_URL}/api/subscription/webhook`.
     try {
       const response = await preapproval_create(
-        getMercadoPagoClient(),
         plan.name + ' - Mensal',
         price.amount,
         price.currency,
@@ -304,9 +298,23 @@ router.post('/checkout', async (req: Request, res: Response) => {
   }
 });
 
-// Helper: create preapproval via MP SDK (extracted for testability)
+// Trusted server-side offer: plan, price and recurrence terms always come
+// from the catalog/DB — never from request body fields.
+async function resolveSubscriptionOffer(planId: string, visitorKey: string) {
+  const plan = await getPlan(planId);
+  if (!plan || !plan.is_active) {
+    return { plan: null, price: null };
+  }
+  // Price consistency: charge the variant the visitor was assigned in the
+  // catalog (pricing experiments), falling back to the standard price.
+  const price = visitorKey
+    ? (await getAssignedVariantPrice(planId, visitorKey)) ?? await getPriceForPlan(planId, 'monthly')
+    : await getPriceForPlan(planId, 'monthly');
+  return { plan, price };
+}
+
+// Helper: create preapproval via MP REST API (extracted for testability)
 async function preapproval_create(
-  client: MercadoPagoConfig,
   reason: string,
   amount: number,
   currency: string,
@@ -314,9 +322,13 @@ async function preapproval_create(
   payerEmail: string | undefined,
   externalReference: string
 ) {
-  const preapproval = new PreApproval(client);
-  return preapproval.create({
-    body: {
+  const resp = await fetch('https://api.mercadopago.com/preapproval', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${getAccessToken()}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
       reason,
       auto_recurring: {
         frequency: 1,
@@ -326,17 +338,35 @@ async function preapproval_create(
       },
       back_url: backUrl,
       payer_email: payerEmail || undefined,
-      external_reference: externalReference
-    }
+      external_reference: externalReference,
+      status: 'pending'
+    })
   });
+  if (!resp.ok) {
+    throw new Error(`preapproval create failed: ${resp.status} ${await resp.text()}`);
+  }
+  return resp.json() as Promise<{ id?: string; init_point?: string; status?: string }>;
+}
+
+/** GET /preapproval/{id} — used by webhook sync and the lookup route. */
+async function getPreapproval(preapprovalId: string) {
+  const resp = await fetch(MP_API_URL + '/preapproval/' + encodeURIComponent(preapprovalId), {
+    headers: { 'Authorization': `Bearer ${getAccessToken()}` }
+  });
+  if (!resp.ok) {
+    throw new Error(`preapproval fetch failed: ${resp.status}`);
+  }
+  return resp.json() as Promise<{
+    id?: string;
+    status?: string;
+    next_payment_date?: string;
+  }>;
 }
 
 /** GET /authorized_payments/{id} — SDK has no class for it; call REST directly. */
 async function getAuthorizedPayment(authorizedPaymentId: string | number) {
-  const accessToken = process.env.MP_ACCESS_TOKEN;
-  if (!accessToken) throw new Error('MP_ACCESS_TOKEN not configured');
   const resp = await fetch(`${MP_API_URL}/authorized_payments/${authorizedPaymentId}`, {
-    headers: { 'Authorization': `Bearer ${accessToken}` }
+    headers: { 'Authorization': `Bearer ${getAccessToken()}` }
   });
   if (!resp.ok) {
     throw new Error(`authorized_payment ${authorizedPaymentId} fetch failed: ${resp.status}`);
@@ -352,12 +382,13 @@ async function getAuthorizedPayment(authorizedPaymentId: string | number) {
 
 /** Sync our subscription row from the MP preapproval resource. */
 async function syncSubscriptionFromPreapproval(preapprovalId: string) {
-  const client = getMercadoPagoClient();
-  const preapproval = new PreApproval(client);
-  const details = await preapproval.get({ id: preapprovalId });
+  const details = await getPreapproval(preapprovalId);
   if (!details.id) return null;
 
-  const status = details.status || 'pending';
+  // MP spells it 'cancelled' on preapproval but 'canceled' on some payment
+  // resources — normalize to our internal 'cancelled'.
+  const rawStatus = details.status || 'pending';
+  const status = rawStatus === 'canceled' ? 'cancelled' : rawStatus;
   let periodStart: Date | undefined;
   let periodEnd: Date | undefined;
 
@@ -519,14 +550,20 @@ router.post('/cancel', async (req: Request, res: Response) => {
       return res.json({ success: true, message: 'Trial cancelado com sucesso' });
     }
 
-    const client = getMercadoPagoClient();
-    const preapproval = new PreApproval(client);
-
-    // Cancel in Mercado Pago
-    await preapproval.update({
-      id: subscription.mp_preapproval_id,
-      body: { status: 'cancelled' }
+    // Cancel in Mercado Pago — PUT /preapproval/{id} with the allowlisted
+    // 'cancelled' status (pause→'paused' / reactivate→'authorized' would be
+    // the other allowlisted lifecycle actions if we expose them later).
+    const mpResp = await fetch(MP_API_URL + '/preapproval/' + encodeURIComponent(subscription.mp_preapproval_id), {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${getAccessToken()}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: 'cancelled' })
     });
+    if (!mpResp.ok) {
+      throw new Error(`preapproval cancel failed: ${mpResp.status}`);
+    }
 
     // Update in our database. current_period_end stays as-is: access is kept
     // until the end of the contracted period (enforced by entitlement checks).
@@ -546,5 +583,40 @@ router.post('/cancel', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to cancel subscription' });
   }
 });
+
+/**
+ * GET /api/subscriptions/:id — reconciliation lookup by MP preapproval id.
+ * Refreshes the row from MP (GET /preapproval/{id}) before answering and only
+ * returns it to the owning user. Mounted on the app (not this router) because
+ * the public path is plural while this router is mounted at /api/subscription.
+ */
+export async function subscriptionLookup(req: Request, res: Response) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  const id = String(req.params.id || '');
+  if (!id) {
+    return res.status(400).json({ error: 'Missing subscription id' });
+  }
+
+  try {
+    const sub = await syncSubscriptionFromPreapproval(id);
+    if (!sub || sub.user_id !== req.session.userId) {
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+    res.json({
+      id: sub.mp_preapproval_id,
+      status: sub.status,
+      currentPeriodEnd: sub.current_period_end
+    });
+  } catch (err) {
+    if (describeError(err).includes('fetch failed: 404')) {
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+    console.error('Error looking up subscription:', err);
+    res.status(500).json({ error: 'Failed to look up subscription' });
+  }
+}
 
 export default router;

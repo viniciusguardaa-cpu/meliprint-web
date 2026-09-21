@@ -53,7 +53,7 @@ router.get('/', async (req: Request, res: Response) => {
       }
       const ctx = await getFreshAccountContext(account);
       if (!ctx) {
-        console.error(`[shipments] Could not get token for account ${account.id} (${account.provider})`);
+        console.error(`[shipments] Could not get access credentials for account ${account.id} (${account.provider})`);
         return;
       }
       try {

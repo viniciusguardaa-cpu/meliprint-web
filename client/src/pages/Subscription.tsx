@@ -6,14 +6,12 @@ import { CreditCard, Calendar, AlertTriangle, ArrowLeft, Loader2, Zap } from 'lu
 import Header from '../components/Header';
 import { Button } from '../components/ui/button';
 import toast from 'react-hot-toast';
-import { getVisitorKey } from '../lib/analytics';
 
 export default function Subscription() {
   const navigate = useNavigate();
   useAuth();
   const { subscription, loading } = useSubscription();
   const [canceling, setCanceling] = useState(false);
-  const [subscribing, setSubscribing] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
 
   const isTrialing = subscription?.status === 'trialing';
@@ -46,27 +44,9 @@ export default function Subscription() {
     }
   };
 
-  /** Convert trial → paid (or re-subscribe) via Mercado Pago checkout. */
-  const handleSubscribe = async () => {
-    setSubscribing(true);
-    try {
-      const res = await fetch('/api/subscription/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          planId: subscription?.planId || 'pro',
-          trial: false,
-          visitorKey: getVisitorKey(),
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro ao criar checkout');
-      window.location.href = data.checkoutUrl;
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao assinar');
-      setSubscribing(false);
-    }
+  /** Trial → paid conversion goes through the dedicated signup page. */
+  const handleSubscribe = () => {
+    navigate('/pricing');
   };
 
   const formatDate = (dateString: string | null | undefined) => {
@@ -83,7 +63,8 @@ export default function Subscription() {
       case 'authorized':
       case 'active': return 'Ativa';
       case 'trialing': return 'Período de teste';
-      case 'cancelled': return 'Cancelada';
+      case 'cancelled':
+      case 'canceled': return 'Cancelada';
       case 'paused': return 'Pagamento pendente';
       case 'pending': return 'Pagamento pendente';
       case 'trial_expired': return 'Teste expirado';
@@ -182,22 +163,15 @@ export default function Subscription() {
                 </div>
               </div>
 
-              {/* Trial conversion CTA */}
+              {/* Trial conversion CTA — entry point; the final action lives on /pricing */}
               {isTrialing && (
                 <Button
                   size="lg"
                   onClick={handleSubscribe}
-                  disabled={subscribing}
                   className="w-full mb-3"
                 >
-                  {subscribing ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Zap className="w-5 h-5" />
-                      Assinar agora — R$ {subscription.price?.toFixed(2).replace('.', ',')}/mês
-                    </>
-                  )}
+                  <Zap className="w-5 h-5" />
+                  Assinar agora — R$ {subscription.price?.toFixed(2).replace('.', ',')}/mês
                 </Button>
               )}
 

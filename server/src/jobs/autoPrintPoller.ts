@@ -53,7 +53,7 @@ async function pollUser(config: any) {
 
     const ctx = await getFreshAccountContext(account);
     if (!ctx) {
-      console.error(`[autoPrintPoller] Could not get token for account ${account.id} (${account.provider})`);
+      console.error(`[autoPrintPoller] Could not get access credentials for account ${account.id} (${account.provider})`);
       continue;
     }
 

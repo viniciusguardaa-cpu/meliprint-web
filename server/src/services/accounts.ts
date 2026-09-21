@@ -66,7 +66,7 @@ export async function getFreshAccountContext(account: any): Promise<AccountConte
       token_expires_at: tokens.expiresAt ?? account.token_expires_at
     });
   } catch (error) {
-    console.error(`[accounts] Token refresh failed for account ${account.id} (${account.provider}):`, error);
+    console.error(`[accounts] Credential refresh failed for account ${account.id} (${account.provider}):`, error);
     if (isDefinitiveAuthFailure(error)) {
       await markAccountReauthRequired(account.id).catch((err) => {
         console.error(`[accounts] Failed to mark account ${account.id} reauth_required:`, err);

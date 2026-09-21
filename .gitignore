@@ -7,3 +7,4 @@ agent/installer/Output/
 *.tsbuildinfo
 client/vite.config.d.ts
 client/vite.config.js
+.mp-integrate-progress.md

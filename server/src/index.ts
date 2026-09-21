@@ -24,7 +24,7 @@ import { assertRequiredEnv } from './env.js';
 import authRoutes from './routes/auth.js';
 import shipmentsRoutes from './routes/shipments.js';
 import labelsRoutes from './routes/labels.js';
-import subscriptionRoutes from './routes/subscription.js';
+import subscriptionRoutes, { subscriptionLookup } from './routes/subscription.js';
 import adminRoutes from './routes/admin.js';
 import autoPrintRoutes from './routes/autoPrint.js';
 import healthRoutes from './routes/health.js';
@@ -107,6 +107,7 @@ app.use('/api/labels', labelsLimiter, labelsRoutes);
 app.use('/api/subscription/webhook', webhookLimiter);
 app.use('/api/subscription/checkout', checkoutLimiter);
 app.use('/api/subscription', generalLimiter, subscriptionRoutes);
+app.get('/api/subscriptions/:id', generalLimiter, subscriptionLookup);
 app.use('/api/admin', generalLimiter, adminRoutes);
 app.use('/api/auto-print', generalLimiter, autoPrintRoutes);
 app.use('/api/agent', agentRoutes); // has its own stricter limiter on /pair

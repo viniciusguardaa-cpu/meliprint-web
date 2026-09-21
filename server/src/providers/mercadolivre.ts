@@ -220,7 +220,7 @@ export const mercadolivreProvider: MarketplaceProvider = {
     // scope — without it the access token dies after ~6h and labels stop
     // syncing. Log the granted scope so this is diagnosable in prod logs.
     if (!tokens.refresh_token) {
-      console.warn(`[mercadolivre] No refresh_token in token response for user ${userInfo.id} (scope="${tokens.scope}") — enable offline_access in the ML app settings`);
+      console.warn(`[mercadolivre] Missing refresh credential in OAuth response for user ${userInfo.id} (scope="${tokens.scope}") — enable offline_access in the ML app settings`);
     }
     return {
       identity: {

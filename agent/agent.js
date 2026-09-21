@@ -115,7 +115,7 @@ async function runAgent() {
 
   if (!config.agentToken) {
     console.error('❌ Agente não pareado.');
-    console.error('   Rode: agent.js --setup  (ou configure LABELGO_AGENT_TOKEN)');
+    console.error('   Rode: agent.js --setup  (ou configure a env do agente)');
     process.exit(1);
   }
 
