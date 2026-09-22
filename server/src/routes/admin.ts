@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { requireAdmin } from '../middleware/adminAuth.js';
+import { requireAdmin, safeEqual, adminToken } from '../middleware/adminAuth.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 import pool, {
   getAllSubscribers,
   getAdminStats,
@@ -17,6 +18,29 @@ import { getGrowthMetrics } from '../services/analytics.js';
 import { getExperimentResults } from '../services/pricing.js';
 
 const router = Router();
+
+// POST /api/admin/login — usuário/senha (ADMIN_USERNAME/ADMIN_PASSWORD).
+// Devolve um token derivado para usar como x-admin-key nas demais rotas.
+router.post('/login', authLimiter, (req: Request, res: Response) => {
+  const expectedUser = process.env.ADMIN_USERNAME;
+  const expectedPass = process.env.ADMIN_PASSWORD;
+  const token = adminToken();
+
+  if (!expectedUser || !expectedPass || !token) {
+    return res.status(503).json({ error: 'Login de admin não configurado' });
+  }
+
+  const { username, password } = req.body || {};
+  const ok =
+    safeEqual(String(username ?? ''), expectedUser) &&
+    safeEqual(String(password ?? ''), expectedPass);
+
+  if (!ok) {
+    return res.status(401).json({ error: 'Usuário ou senha inválidos' });
+  }
+
+  res.json({ token });
+});
 
 router.use(requireAdmin);
 

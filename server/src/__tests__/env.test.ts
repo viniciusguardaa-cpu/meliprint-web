@@ -6,7 +6,7 @@ describe('assertRequiredEnv (fail-closed secrets)', () => {
   const REQUIRED = [
     'ML_CLIENT_ID', 'ML_CLIENT_SECRET', 'ML_REDIRECT_URI',
     'SESSION_SECRET', 'ENCRYPTION_KEY', 'MP_ACCESS_TOKEN',
-    'MP_WEBHOOK_SECRET', 'ADMIN_SECRET', 'DATABASE_URL',
+    'MP_WEBHOOK_SECRET', 'ADMIN_SECRET', 'ADMIN_USERNAME', 'ADMIN_PASSWORD', 'DATABASE_URL',
   ];
 
   beforeEach(() => {

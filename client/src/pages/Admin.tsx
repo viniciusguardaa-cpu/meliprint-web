@@ -250,7 +250,8 @@ function MiniBars({ data, color }: { data: Array<{ label: string; value: number 
 
 export default function Admin() {
   const [adminKey, setAdminKey] = useState<string>(() => sessionStorage.getItem('adminKey') || '');
-  const [keyInput, setKeyInput] = useState('');
+  const [userInput, setUserInput] = useState('');
+  const [passInput, setPassInput] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
 
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
@@ -289,7 +290,7 @@ export default function Admin() {
       ]);
 
       if ([statsRes, subsRes, freeRes].some((r) => r.status === 401)) {
-        setAuthError('Chave de admin inválida.');
+        setAuthError('Sessão expirada. Entre novamente.');
         sessionStorage.removeItem('adminKey');
         setAdminKey('');
         return;
@@ -435,11 +436,30 @@ export default function Admin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSubmitKey = (e: React.FormEvent) => {
+  const handleSubmitKey = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!keyInput.trim()) return;
-    setAdminKey(keyInput.trim());
-    fetchData(keyInput.trim());
+    if (!userInput.trim() || !passInput) return;
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: userInput.trim(), password: passInput })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAuthError(data.error || 'Erro ao entrar');
+        return;
+      }
+      sessionStorage.setItem('adminKey', data.token);
+      setAdminKey(data.token);
+      await fetchData(data.token);
+    } catch {
+      setAuthError('Erro ao entrar. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredSubscribers = subscribers.filter((s) => {
@@ -473,15 +493,24 @@ export default function Admin() {
           </div>
           <h1 className="text-xl font-bold text-foreground mb-2 text-center">Acesso restrito</h1>
           <p className="text-muted-foreground text-sm text-center mb-6">
-            Informe a chave de administrador para ver seus clientes.
+            Entre com seu usuário e senha de administrador.
           </p>
           <Input
-            type="password"
-            value={keyInput}
-            onChange={(e) => setKeyInput(e.target.value)}
-            placeholder="Chave de admin"
-            className="w-full mb-4 py-3"
+            type="text"
+            value={userInput}
+            onChange={(e) => setUserInput(e.target.value)}
+            placeholder="Usuário"
+            autoComplete="username"
+            className="w-full mb-3 py-3"
             autoFocus
+          />
+          <Input
+            type="password"
+            value={passInput}
+            onChange={(e) => setPassInput(e.target.value)}
+            placeholder="Senha"
+            autoComplete="current-password"
+            className="w-full mb-4 py-3"
           />
           {authError && (
             <p className="text-danger text-sm mb-4 text-center">{authError}</p>
@@ -499,14 +528,22 @@ export default function Admin() {
       <header className="bg-surface border-b border-border">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-foreground font-bold text-lg">LabelGo Admin</h1>
-          <button
-            onClick={() => fetchData(adminKey)}
-            disabled={loading}
-            className="bg-muted hover:bg-border text-foreground px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Atualizar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => fetchData(adminKey)}
+              disabled={loading}
+              className="bg-muted hover:bg-border text-foreground px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </button>
+            <button
+              onClick={() => { sessionStorage.removeItem('adminKey'); setAdminKey(''); }}
+              className="text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              Sair
+            </button>
+          </div>
         </div>
       </header>
 
