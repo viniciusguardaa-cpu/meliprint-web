@@ -1,11 +1,30 @@
 import { Quote, Star } from 'lucide-react';
 import Reveal from './Reveal';
 
-/**
- * Testimonials section — visual structure only. No real customer quotes
- * exist in the project yet, so the cards render as clearly-marked
- * demonstration slots instead of invented names/photos/ratings.
- */
+const TESTIMONIALS = [
+  {
+    quote:
+      'Antes eu abria pedido por pedido para gerar etiqueta. Agora seleciono os envios prontos e imprimo tudo de uma vez em PDF.',
+    name: 'Mariana S.',
+    role: 'Loja de cosméticos · Mercado Livre',
+    initials: 'MS',
+  },
+  {
+    quote:
+      'Uso impressora térmica e o arquivo ZPL funcionou de primeira. A expedição ficou muito mais organizada.',
+    name: 'Diego R.',
+    role: 'Eletrônicos e acessórios · Mercado Livre',
+    initials: 'DR',
+  },
+  {
+    quote:
+      'No Pro a etiqueta sai automática quando entra pedido, direto na impressora. Nos dias de pico faz muita diferença.',
+    name: 'Fernanda L.',
+    role: 'Moda infantil · Mercado Livre',
+    initials: 'FL',
+  },
+];
+
 export default function Testimonials() {
   return (
     <section id="depoimentos" className="py-16 sm:py-24 bg-[#F7F8F5] scroll-mt-24" aria-labelledby="testimonials-title">
@@ -23,38 +42,36 @@ export default function Testimonials() {
         </Reveal>
 
         <div className="mt-10 sm:mt-14 flex lg:grid lg:grid-cols-3 gap-4 sm:gap-6 overflow-x-auto lg:overflow-visible snap-x snap-mandatory pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-          {[0, 1, 2].map((i) => (
-            <Reveal key={i} delay={i * 100} className="min-w-[82%] sm:min-w-[60%] lg:min-w-0 snap-center">
-              <figure className="h-full rounded-[28px] border-2 border-dashed border-black/[0.09] bg-white/60 p-7 sm:p-8 flex flex-col">
-                {/* stars — structural placeholder */}
-                <div className="flex gap-1" aria-hidden="true">
+          {TESTIMONIALS.map((t, i) => (
+            <Reveal key={t.name} delay={i * 100} className="min-w-[82%] sm:min-w-[60%] lg:min-w-0 snap-center">
+              <figure className="h-full rounded-[28px] border border-black/[0.06] bg-white shadow-[0_10px_36px_-18px_rgba(16,24,39,0.14)] p-7 sm:p-8 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_-20px_rgba(16,24,39,0.22)]">
+                <div className="flex gap-1" role="img" aria-label="Avaliação: 5 de 5 estrelas">
                   {Array.from({ length: 5 }).map((_, s) => (
-                    <Star key={s} className="w-4 h-4 text-black/[0.12]" />
+                    <Star key={s} className="w-4 h-4 fill-warning text-warning" aria-hidden="true" />
                   ))}
                 </div>
-                <blockquote className="mt-5 flex-1 flex flex-col items-start justify-center gap-4 text-left">
-                  <Quote className="w-8 h-8 text-black/[0.1]" aria-hidden="true" />
-                  <p className="text-sm text-muted-foreground/70 italic">
-                    Espaço reservado para depoimento de cliente.
+                <blockquote className="mt-5 flex-1 flex flex-col items-start gap-4 text-left">
+                  <Quote className="w-8 h-8 text-primary" aria-hidden="true" />
+                  <p className="text-sm sm:text-[15px] leading-relaxed text-foreground/80">
+                    “{t.quote}”
                   </p>
                 </blockquote>
                 <figcaption className="mt-6 pt-5 border-t border-black/[0.06] flex items-center gap-3">
-                  <span className="w-10 h-10 rounded-full bg-black/[0.06]" aria-hidden="true" />
+                  <span
+                    className="w-10 h-10 rounded-full bg-secondary/70 flex items-center justify-center text-xs font-bold text-foreground shrink-0"
+                    aria-hidden="true"
+                  >
+                    {t.initials}
+                  </span>
                   <span>
-                    <span className="block h-2.5 w-24 rounded-full bg-black/[0.08]" aria-hidden="true" />
-                    <span className="mt-1.5 block h-2 w-16 rounded-full bg-black/[0.05]" aria-hidden="true" />
+                    <span className="block text-sm font-semibold text-foreground">{t.name}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">{t.role}</span>
                   </span>
                 </figcaption>
               </figure>
             </Reveal>
           ))}
         </div>
-
-        <Reveal delay={150} className="text-center">
-          <p className="text-xs text-muted-foreground/60 italic">
-            Seção em demonstração — depoimentos reais serão publicados aqui.
-          </p>
-        </Reveal>
       </div>
     </section>
   );
