@@ -11,6 +11,16 @@ const COLUMNS = [
     ],
   },
   {
+    title: 'Guias',
+    links: [
+      { label: 'Conversor ZPL → PDF', href: '/converter-zpl-pdf', anchor: false },
+      { label: 'Como imprimir ZPL', href: '/imprimir-zpl', anchor: false },
+      { label: 'Etiqueta Mercado Livre', href: '/etiqueta-mercado-livre', anchor: false },
+      { label: 'Imprimir em lote', href: '/imprimir-etiquetas-em-lote', anchor: false },
+      { label: 'Impressora térmica', href: '/impressora-termica-mercado-livre', anchor: false },
+    ],
+  },
+  {
     title: 'Empresa',
     links: [
       { label: 'Suporte', href: 'mailto:suporte@labelgo.com.br', anchor: false },
@@ -32,7 +42,7 @@ export default function Footer() {
         aria-hidden="true"
       />
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-14 sm:py-16">
-        <div className="grid md:grid-cols-[1.4fr_1fr_1fr] gap-10 md:gap-8">
+        <div className="grid md:grid-cols-[1.4fr_1fr_1fr_1fr] gap-10 md:gap-8">
           <div>
             <Logo variant="light" className="h-9" />
             <p className="mt-4 text-sm leading-relaxed max-w-xs">

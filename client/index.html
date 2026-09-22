@@ -3,10 +3,15 @@
 
 <head>
   <meta charset="UTF-8" />
+  <!-- Marca o documento como "JS ativo" antes do primeiro paint: o CSS só
+       esconde os blocos .reveal quando JS existe — sem JS o conteúdo
+       pré-renderizado permanece visível para crawlers e usuários. -->
+  <script>document.documentElement.classList.add('js');</script>
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <meta name="theme-color" content="#FFFDF8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-site-verification" content="3BvCZC3HZ-K3pk_3Bjq_eVW9D7azqjnopeCD9yEois4" />
   <meta name="description"
     content="Imprima etiquetas do Mercado Livre em lote, direto do navegador. Sem instalação. Teste grátis por 7 dias." />
   <link rel="canonical" href="https://labelgo.com.br/" />
@@ -17,7 +22,7 @@
   <meta property="og:url" content="https://labelgo.com.br/" />
   <meta property="og:locale" content="pt_BR" />
   <meta property="og:site_name" content="LabelGo" />
-  <meta property="og:image" content="/logo.png" />
+  <meta property="og:image" content="https://labelgo.com.br/logo.png" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="LabelGo — Impressão de etiquetas do Mercado Livre" />
   <meta name="twitter:description"
@@ -30,11 +35,8 @@
       "url": "https://labelgo.com.br/",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web",
-      "description": "Imprima etiquetas do Mercado Livre em lote, direto do navegador. Sem instalação.",
-      "offers": [
-        { "@type": "Offer", "name": "Start", "price": "29.90", "priceCurrency": "BRL" },
-        { "@type": "Offer", "name": "Pro", "price": "59.90", "priceCurrency": "BRL" }
-      ]
+      "inLanguage": "pt-BR",
+      "description": "Imprima etiquetas do Mercado Livre em lote, direto do navegador. Sem instalação."
     }
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />

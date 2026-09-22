@@ -1,30 +1,20 @@
-import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
-import App from './App';
+import Root from './Root';
 import './index.css';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            borderRadius: '12px',
-            padding: '12px 16px',
-            fontSize: '14px',
-            border: '1px solid rgb(var(--border))',
-            background: 'rgb(var(--surface))',
-            color: 'rgb(var(--foreground))',
-          },
-          success: { iconTheme: { primary: 'rgb(var(--success))', secondary: '#fff' } },
-          error: { iconTheme: { primary: 'rgb(var(--danger))', secondary: '#fff' } },
-        }}
-      />
-    </BrowserRouter>
-  </React.StrictMode>
+const container = document.getElementById('root')!;
+const tree = (
+  <BrowserRouter>
+    <Root />
+  </BrowserRouter>
 );
+
+// Prerendered public pages ship their markup inside #root — hydrate it so
+// React attaches listeners without wiping the server HTML. The bare SPA shell
+// (spa.html, private routes) has an empty #root and mounts normally.
+if (container.hasChildNodes()) {
+  ReactDOM.hydrateRoot(container, tree);
+} else {
+  ReactDOM.createRoot(container).render(tree);
+}

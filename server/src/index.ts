@@ -116,8 +116,18 @@ app.use('/api/agent', agentRoutes); // has its own stricter limiter on /pair
 if (process.env.NODE_ENV === 'production') {
   const clientPath = path.join(__dirname, '../../client/dist');
   app.use(express.static(clientPath));
+  // Public pages are prerendered files (dist/<route>/index.html) served by
+  // express.static above. The SPA fallback only covers app routes that need a
+  // client session; everything else gets the real 404 page + status.
+  const SPA_PREFIXES = ['/dashboard', '/print', '/auto-print', '/subscription', '/configuracoes', '/admin'];
   app.get('*', (req, res) => {
-    res.sendFile(path.join(clientPath, 'index.html'));
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    if (SPA_PREFIXES.some((p) => req.path === p || req.path.startsWith(`${p}/`))) {
+      return res.sendFile(path.join(clientPath, 'spa.html'));
+    }
+    res.status(404).sendFile(path.join(clientPath, '404.html'));
   });
 }
 

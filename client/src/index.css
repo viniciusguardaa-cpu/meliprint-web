@@ -46,14 +46,21 @@ body {
 }
 
 /* ---------- Landing page motion system ---------- */
+/* The hidden initial states only apply when JS is on (html.js, set by an
+   inline script in <head>): prerendered HTML must stay fully visible to
+   crawlers and users without JavaScript. Order matters — the .is-visible
+   overrides below come after the .js rules to win the specificity tie. */
 
 .reveal {
-  opacity: 0;
-  transform: translateY(26px);
   transition:
     opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
   transition-delay: var(--reveal-delay, 0ms);
+}
+
+.js .reveal {
+  opacity: 0;
+  transform: translateY(26px);
   will-change: opacity, transform;
 }
 
@@ -64,12 +71,15 @@ body {
 
 /* Children of a .reveal container can stagger with .reveal-child + --reveal-delay */
 .reveal-child {
-  opacity: 0;
-  transform: translateY(18px);
   transition:
     opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   transition-delay: var(--reveal-delay, 0ms);
+}
+
+.js .reveal-child {
+  opacity: 0;
+  transform: translateY(18px);
 }
 
 .is-visible .reveal-child {
@@ -79,9 +89,12 @@ body {
 
 /* Animated connecting line (workflow steps) */
 .draw-line {
-  transform: scaleX(0);
   transform-origin: left center;
   transition: transform 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s;
+}
+
+.js .draw-line {
+  transform: scaleX(0);
 }
 
 .draw-line.is-visible {
@@ -89,9 +102,12 @@ body {
 }
 
 .draw-line-y {
-  transform: scaleY(0);
   transform-origin: top center;
   transition: transform 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.3s;
+}
+
+.js .draw-line-y {
+  transform: scaleY(0);
 }
 
 .draw-line-y.is-visible {
@@ -173,9 +189,11 @@ body {
   }
 
   .reveal,
-  .reveal-child {
-    opacity: 1;
-    transform: none;
+  .js .reveal,
+  .reveal-child,
+  .js .reveal-child {
+    opacity: 1 !important;
+    transform: none !important;
   }
 
   .draw-line,

@@ -17,7 +17,102 @@
   status = 200
   force = true
 
+# SPA fallback — apenas para rotas do app que dependem de sessão/cliente.
+# As páginas públicas são arquivos reais pré-renderizados (dist/<rota>/index.html)
+# e qualquer outro caminho recebe o 404.html da Netlify com status 404 de verdade.
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
+  from = "/dashboard"
+  to = "/spa.html"
   status = 200
+
+[[redirects]]
+  from = "/dashboard/*"
+  to = "/spa.html"
+  status = 200
+
+[[redirects]]
+  from = "/print/*"
+  to = "/spa.html"
+  status = 200
+
+[[redirects]]
+  from = "/auto-print"
+  to = "/spa.html"
+  status = 200
+
+[[redirects]]
+  from = "/subscription"
+  to = "/spa.html"
+  status = 200
+
+[[redirects]]
+  from = "/subscription/*"
+  to = "/spa.html"
+  status = 200
+
+[[redirects]]
+  from = "/configuracoes"
+  to = "/spa.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin"
+  to = "/spa.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/*"
+  to = "/spa.html"
+  status = 200
+
+# Reforço de noindex fora do robots.txt: o shell SPA e as rotas privadas
+# carregam meta noindex; estes headers cobrem crawlers que não executam JS.
+[[headers]]
+  for = "/spa.html"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/dashboard"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/dashboard/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/print/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/auto-print"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/subscription"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/subscription/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/configuracoes"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/admin"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/admin/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"

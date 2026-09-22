@@ -1,9 +1,8 @@
 User-agent: *
 Allow: /
-Disallow: /dashboard
-Disallow: /auto-print
-Disallow: /admin
-Disallow: /subscription
-Disallow: /print/
+
+# Páginas privadas/utilitárias não são bloqueadas aqui de propósito: elas
+# respondem com meta noindex (spa.html) ou X-Robots-Tag, e um Disallow
+# impediria o crawler de enxergar o noindex — podendo indexar a URL mesmo assim.
 
 Sitemap: https://labelgo.com.br/sitemap.xml

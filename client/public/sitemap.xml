@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://labelgo.com.br/</loc><priority>1.0</priority></url>
-  <url><loc>https://labelgo.com.br/pricing</loc><priority>0.9</priority></url>
-  <url><loc>https://labelgo.com.br/converter-zpl-pdf</loc><priority>0.8</priority></url>
-  <url><loc>https://labelgo.com.br/imprimir-zpl</loc><priority>0.7</priority></url>
-  <url><loc>https://labelgo.com.br/etiqueta-mercado-livre</loc><priority>0.7</priority></url>
-  <url><loc>https://labelgo.com.br/imprimir-etiqueta-mercado-livre</loc><priority>0.7</priority></url>
-  <url><loc>https://labelgo.com.br/etiqueta-10x15</loc><priority>0.7</priority></url>
-  <url><loc>https://labelgo.com.br/impressora-termica-mercado-livre</loc><priority>0.7</priority></url>
-  <url><loc>https://labelgo.com.br/termos</loc><priority>0.2</priority></url>
-  <url><loc>https://labelgo.com.br/privacidade</loc><priority>0.2</priority></url>
+  <url><loc>https://labelgo.com.br/</loc><lastmod>2026-09-22</lastmod><priority>1.0</priority></url>
+  <url><loc>https://labelgo.com.br/pricing</loc><lastmod>2026-09-22</lastmod><priority>0.9</priority></url>
+  <url><loc>https://labelgo.com.br/converter-zpl-pdf</loc><lastmod>2026-09-22</lastmod><priority>0.8</priority></url>
+  <url><loc>https://labelgo.com.br/imprimir-zpl</loc><lastmod>2026-09-22</lastmod><priority>0.7</priority></url>
+  <url><loc>https://labelgo.com.br/etiqueta-mercado-livre</loc><lastmod>2026-09-22</lastmod><priority>0.7</priority></url>
+  <url><loc>https://labelgo.com.br/imprimir-etiqueta-mercado-livre</loc><lastmod>2026-09-22</lastmod><priority>0.7</priority></url>
+  <url><loc>https://labelgo.com.br/etiqueta-10x15</loc><lastmod>2026-09-22</lastmod><priority>0.7</priority></url>
+  <url><loc>https://labelgo.com.br/impressora-termica-mercado-livre</loc><lastmod>2026-09-22</lastmod><priority>0.7</priority></url>
+  <url><loc>https://labelgo.com.br/reimprimir-etiqueta-mercado-livre</loc><lastmod>2026-09-22</lastmod><priority>0.7</priority></url>
+  <url><loc>https://labelgo.com.br/imprimir-etiquetas-em-lote</loc><lastmod>2026-09-22</lastmod><priority>0.7</priority></url>
+  <url><loc>https://labelgo.com.br/termos</loc><lastmod>2026-09-22</lastmod><priority>0.2</priority></url>
+  <url><loc>https://labelgo.com.br/privacidade</loc><lastmod>2026-09-22</lastmod><priority>0.2</priority></url>
 </urlset>

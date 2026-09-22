@@ -115,14 +115,6 @@ export default function Pricing() {
     }
   };
 
-  if (plansLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-      </div>
-    );
-  }
-
   const isTrialing = subStatus?.status === 'trialing';
   const canTrial = subStatus?.canTrial !== false && !isTrialing;
 
@@ -149,120 +141,126 @@ export default function Pricing() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-          {plans.map((plan) => {
-            const isPro = plan.id === 'pro';
-            return (
-              <div
-                key={plan.id}
-                className={`bg-surface rounded-2xl shadow-lg overflow-hidden border-2 ${isPro ? 'border-primary' : 'border-border'
-                  }`}
-              >
-                {isPro && (
-                  <div className="bg-secondary text-secondary-foreground text-center py-2 text-sm font-semibold">
-                    RECOMENDADO
-                  </div>
-                )}
-                {!isPro && (
-                  <div className="bg-muted text-muted-foreground text-center py-2 text-sm font-semibold">
-                    PLANO MENSAL
-                  </div>
-                )}
-
-                <div className="p-8">
-                  {/* Plan name */}
-                  <h2 className="text-xl font-bold text-foreground mb-1">{plan.name}</h2>
-                  <p className="text-muted-foreground text-sm mb-6">{plan.description}</p>
-
-                  {/* Price */}
-                  <div className="text-center mb-8">
-                    <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-2xl font-medium text-muted-foreground">R$</span>
-                      <span className="text-6xl font-bold text-foreground">
-                        {plan.price ? Math.floor(plan.price.amount) : '-'}
-                      </span>
-                      <span className="text-2xl font-medium text-muted-foreground">
-                        ,{plan.price ? (plan.price.amount % 1).toFixed(2).slice(2) : '00'}
-                      </span>
+        {plansLoading ? (
+          <div className="flex items-center justify-center py-16" role="status" aria-label="Carregando planos">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            {plans.map((plan) => {
+              const isPro = plan.id === 'pro';
+              return (
+                <div
+                  key={plan.id}
+                  className={`bg-surface rounded-2xl shadow-lg overflow-hidden border-2 ${isPro ? 'border-primary' : 'border-border'
+                    }`}
+                >
+                  {isPro && (
+                    <div className="bg-secondary text-secondary-foreground text-center py-2 text-sm font-semibold">
+                      RECOMENDADO
                     </div>
-                    <p className="text-muted-foreground mt-2">por mês</p>
-                  </div>
-
-                  {/* Features */}
-                  <ul className="space-y-3 mb-8">
-                    {plan.features.map((feature, index) => (
-                      <li key={index} className="flex items-center gap-3">
-                        <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                          <Check className="w-4 h-4 text-green-600" />
-                        </div>
-                        <span className="text-foreground/80 text-sm">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* Error */}
-                  {error && isPro && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
-                      {error}
+                  )}
+                  {!isPro && (
+                    <div className="bg-muted text-muted-foreground text-center py-2 text-sm font-semibold">
+                      PLANO MENSAL
                     </div>
                   )}
 
-                  {/* CTA */}
-                  {isPro ? (
-                    <>
-                      {canTrial && (
-                        <Button
-                          size="xl"
-                          onClick={() => handleSubscribe(plan.id, true)}
+                  <div className="p-8">
+                    {/* Plan name */}
+                    <h2 className="text-xl font-bold text-foreground mb-1">{plan.name}</h2>
+                    <p className="text-muted-foreground text-sm mb-6">{plan.description}</p>
+
+                    {/* Price */}
+                    <div className="text-center mb-8">
+                      <div className="flex items-baseline justify-center gap-1">
+                        <span className="text-2xl font-medium text-muted-foreground">R$</span>
+                        <span className="text-6xl font-bold text-foreground">
+                          {plan.price ? Math.floor(plan.price.amount) : '-'}
+                        </span>
+                        <span className="text-2xl font-medium text-muted-foreground">
+                          ,{plan.price ? (plan.price.amount % 1).toFixed(2).slice(2) : '00'}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground mt-2">por mês</p>
+                    </div>
+
+                    {/* Features */}
+                    <ul className="space-y-3 mb-8">
+                      {plan.features.map((feature, index) => (
+                        <li key={index} className="flex items-center gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                            <Check className="w-4 h-4 text-green-600" />
+                          </div>
+                          <span className="text-foreground/80 text-sm">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* Error */}
+                    {error && isPro && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+                        {error}
+                      </div>
+                    )}
+
+                    {/* CTA */}
+                    {isPro ? (
+                      <>
+                        {canTrial && (
+                          <Button
+                            size="xl"
+                            onClick={() => handleSubscribe(plan.id, true)}
+                            disabled={loading}
+                            className="w-full mb-3"
+                          >
+                            {loading ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <>
+                                <Zap className="w-5 h-5" />
+                                Testar grátis por 7 dias
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        <button
+                          onClick={() => handleSubscribe(plan.id, false)}
                           disabled={loading}
-                          className="w-full mb-3"
+                          data-mp-subscription-cta="without-plan-pending"
+                          className={`w-full font-semibold py-4 px-6 rounded-xl transition-all duration-150 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2 mb-3 ${canTrial
+                            ? 'bg-foreground text-white hover:bg-foreground/90'
+                            : 'bg-primary text-primary-foreground hover:bg-primary-hover'
+                            }`}
                         >
                           {loading ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
                           ) : (
-                            <>
-                              <Zap className="w-5 h-5" />
-                              Testar grátis por 7 dias
-                            </>
+                            isTrialing ? 'Assinar agora (converter trial)' : 'Assinar Pro agora'
                           )}
-                        </Button>
-                      )}
-                      <button
+                        </button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="xl"
                         onClick={() => handleSubscribe(plan.id, false)}
                         disabled={loading}
-                        data-mp-subscription-cta="without-plan-pending"
-                        className={`w-full font-semibold py-4 px-6 rounded-xl transition-all duration-150 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex items-center justify-center gap-2 mb-3 ${canTrial
-                          ? 'bg-foreground text-white hover:bg-foreground/90'
-                          : 'bg-primary text-primary-foreground hover:bg-primary-hover'
-                          }`}
+                        className="w-full"
                       >
-                        {loading ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          isTrialing ? 'Assinar agora (converter trial)' : 'Assinar Pro agora'
-                        )}
-                      </button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="xl"
-                      onClick={() => handleSubscribe(plan.id, false)}
-                      disabled={loading}
-                      className="w-full"
-                    >
-                      Assinar Agora
-                    </Button>
-                  )}
+                        Assinar Agora
+                      </Button>
+                    )}
 
-                  <p className="text-center text-sm text-muted-foreground mt-4">
-                    Cancele quando quiser. Sem fidelidade.
-                  </p>
+                    <p className="text-center text-sm text-muted-foreground mt-4">
+                      Cancele quando quiser. Sem fidelidade.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Trust badges */}
         <div className="mt-8 flex items-center justify-center gap-6 text-muted-foreground text-sm">
