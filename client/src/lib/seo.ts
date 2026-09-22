@@ -61,7 +61,7 @@ function breadcrumbLd(pathname: string, crumb: string): Record<string, unknown> 
         '@type': 'ListItem',
         position: 2,
         name: crumb,
-        item: `${SITE_ORIGIN}${pathname}`,
+        item: canonicalFor(pathname),
       },
     ],
   };
@@ -215,9 +215,10 @@ const PRIVATE_PREFIXES = [
 
 /** Resolve the SEO meta for any pathname (exact match → private → 404). */
 export function seoForPath(pathname: string): RouteSeo {
-  const exact = PAGE_SEO[pathname];
+  const normalizedPath = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
+  const exact = PAGE_SEO[normalizedPath];
   if (exact) return exact;
-  if (PRIVATE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+  if (PRIVATE_PREFIXES.some((p) => normalizedPath === p || normalizedPath.startsWith(`${p}/`))) {
     return PRIVATE_SEO;
   }
   return NOT_FOUND_SEO;
@@ -225,5 +226,6 @@ export function seoForPath(pathname: string): RouteSeo {
 
 /** Absolute canonical URL for an indexable path. */
 export function canonicalFor(pathname: string): string {
-  return `${SITE_ORIGIN}${pathname === '/' ? '/' : pathname}`;
+  const normalizedPath = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
+  return `${SITE_ORIGIN}${normalizedPath === '/' ? '/' : `${normalizedPath}/`}`;
 }
