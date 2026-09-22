@@ -123,12 +123,23 @@ writeFileSync(join(distDir, 'spa.html'), spaHtml);
 // (o manifest principal forçaria start_url=/). Metas Apple cobrem iOS <17.
 const adminHtml = spaHtml
   .replace('href="/manifest.webmanifest"', 'href="/manifest-admin.webmanifest"')
+  // Sem zoom no app admin: viewport trava pinch/double-tap e a fonte >=16px
+  // nos inputs evita o auto-zoom do iOS ao focar um campo (Safari ignora
+  // user-scalable=no no browser, mas respeita dentro do app standalone).
+  .replace(
+    /<meta name="viewport"[^>]*>/,
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />'
+  )
   .replace(
     /<title>[\s\S]*?<\/title>/,
     `<title>LabelGo Admin</title>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="LabelGo Admin" />`
+    <meta name="apple-mobile-web-app-title" content="LabelGo Admin" />
+    <style>
+      @media (max-width: 768px) { input, select, textarea { font-size: 16px !important; } }
+      body { touch-action: manipulation; }
+    </style>`
   );
 writeFileSync(join(distDir, 'admin.html'), adminHtml);
 
