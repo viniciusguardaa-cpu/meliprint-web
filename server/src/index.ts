@@ -124,6 +124,10 @@ if (process.env.NODE_ENV === 'production') {
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({ error: 'Not found' });
     }
+    // /admin tem shell próprio (manifest com start_url=/admin p/ "Add to Home Screen").
+    if (req.path === '/admin' || req.path.startsWith('/admin/')) {
+      return res.sendFile(path.join(clientPath, 'admin.html'));
+    }
     if (SPA_PREFIXES.some((p) => req.path === p || req.path.startsWith(`${p}/`))) {
       return res.sendFile(path.join(clientPath, 'spa.html'));
     }

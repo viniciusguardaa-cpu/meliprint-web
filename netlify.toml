@@ -61,12 +61,12 @@
 
 [[redirects]]
   from = "/admin"
-  to = "/spa.html"
+  to = "/admin.html"
   status = 200
 
 [[redirects]]
   from = "/admin/*"
-  to = "/spa.html"
+  to = "/admin.html"
   status = 200
 
 # Arquivos com hash no nome (Vite) nunca mudam de conteúdo: cache de 1 ano

@@ -115,7 +115,22 @@ writeFileSync(
 );
 
 // Bare noindex shell — rewrite target for authenticated/utility SPA routes.
-writeFileSync(join(distDir, 'spa.html'), buildPage(template, PRIVATE_SEO, '/app', ''));
+const spaHtml = buildPage(template, PRIVATE_SEO, '/app', '');
+writeFileSync(join(distDir, 'spa.html'), spaHtml);
+
+// Shell exclusiva do /admin: manifest próprio com start_url=/admin para o
+// "Adicionar à Tela de Início" abrir direto no painel como app standalone
+// (o manifest principal forçaria start_url=/). Metas Apple cobrem iOS <17.
+const adminHtml = spaHtml
+  .replace('href="/manifest.webmanifest"', 'href="/manifest-admin.webmanifest"')
+  .replace(
+    /<title>[\s\S]*?<\/title>/,
+    `<title>LabelGo Admin</title>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="LabelGo Admin" />`
+  );
+writeFileSync(join(distDir, 'admin.html'), adminHtml);
 
 // Sitemap gerado do PAGE_SEO: só rotas indexáveis, com a URL canônica exata.
 // lastmod = data do último commit que tocou conteúdo/páginas (estável entre

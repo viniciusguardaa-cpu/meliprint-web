@@ -249,7 +249,7 @@ function MiniBars({ data, color }: { data: Array<{ label: string; value: number 
 }
 
 export default function Admin() {
-  const [adminKey, setAdminKey] = useState<string>(() => sessionStorage.getItem('adminKey') || '');
+  const [adminKey, setAdminKey] = useState<string>(() => localStorage.getItem('adminKey') || '');
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
@@ -291,7 +291,7 @@ export default function Admin() {
 
       if ([statsRes, subsRes, freeRes].some((r) => r.status === 401)) {
         setAuthError('Sessão expirada. Entre novamente.');
-        sessionStorage.removeItem('adminKey');
+        localStorage.removeItem('adminKey');
         setAdminKey('');
         return;
       }
@@ -305,7 +305,7 @@ export default function Admin() {
       setFreeAccess((await freeRes.json()).freeAccess || []);
       if (growthRes.ok) setGrowth(await growthRes.json());
       if (tsRes.ok) setTimeseries(await tsRes.json());
-      sessionStorage.setItem('adminKey', key);
+      localStorage.setItem('adminKey', key);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Erro ao carregar dados');
     } finally {
@@ -452,7 +452,7 @@ export default function Admin() {
         setAuthError(data.error || 'Erro ao entrar');
         return;
       }
-      sessionStorage.setItem('adminKey', data.token);
+      localStorage.setItem('adminKey', data.token);
       setAdminKey(data.token);
       await fetchData(data.token);
     } catch {
@@ -538,7 +538,7 @@ export default function Admin() {
               Atualizar
             </button>
             <button
-              onClick={() => { sessionStorage.removeItem('adminKey'); setAdminKey(''); }}
+              onClick={() => { localStorage.removeItem('adminKey'); setAdminKey(''); }}
               className="text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg text-sm font-medium transition-colors"
             >
               Sair
