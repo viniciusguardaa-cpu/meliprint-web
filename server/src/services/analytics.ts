@@ -140,6 +140,29 @@ export async function markReferralSubscribed(referredUserId: number) {
 // Admin: growth metrics
 // ---------------------------------------------------------------------------
 
+/** Domínios conhecidos → nome amigável da origem. */
+const SOURCE_MAP: Array<[RegExp, string]> = [
+  [/instagram/, 'instagram'],
+  [/facebook|fb\.me|l\.facebook/, 'facebook'],
+  [/google\./, 'google'],
+  [/bing\./, 'bing'],
+  [/tiktok/, 'tiktok'],
+  [/youtube|youtu\.be/, 'youtube'],
+  [/t\.co|twitter|x\.com/, 'twitter/x'],
+  [/linkedin/, 'linkedin'],
+  [/whatsapp|wa\.me/, 'whatsapp'],
+  [/labelgo\.com\.br|railway\.app|netlify\.app/, 'direto'],
+];
+
+function normalizeSource(raw: string): string {
+  if (raw === 'direto') return raw;
+  const domain = raw.replace(/^www\./, '');
+  for (const [re, name] of SOURCE_MAP) {
+    if (re.test(domain)) return name;
+  }
+  return domain;
+}
+
 /**
  * Growth dashboard metrics. `days` limits the event window (0 = all time).
  * Funnel steps count DISTINCT actors: visitor_key for anonymous events,
@@ -149,7 +172,7 @@ export async function getGrowthMetrics(days = 30) {
   const window = days > 0 ? `AND "created_at" >= NOW() - ($1::int * INTERVAL '1 day')` : '';
   const params = days > 0 ? [days] : [];
 
-  const [funnel, abandonment, topPages, visitorsByDay, utm, agents, prints] = await Promise.all([
+  const [funnel, abandonment, topPages, visitorsByDay, sources, utm, agents, prints] = await Promise.all([
     pool.query(`
       SELECT
         COUNT(*) FILTER (WHERE "event_name" = 'page_view') AS page_views,
@@ -199,6 +222,21 @@ export async function getGrowthMetrics(days = 30) {
       WHERE "event_name" IN ('page_view', 'landing_view') ${window}
       GROUP BY 1 ORDER BY 1
     `, params),
+    // Origem do primeiro toque: utm_source > domínio do referrer > 'direto'.
+    // Domínios conhecidos são normalizados em JS (veja normalizeSource).
+    pool.query(`
+      SELECT
+        CASE
+          WHEN "utm_source" IS NOT NULL AND "utm_source" <> '' THEN LOWER("utm_source")
+          WHEN "referrer" IS NULL OR "referrer" = '' THEN 'direto'
+          ELSE LOWER(regexp_replace("referrer", '^https?://([^/]+).*$', '\\1'))
+        END AS source_raw,
+        COUNT(*) AS visitors,
+        COUNT(DISTINCT "user_id") AS signups
+      FROM "utm_attribution"
+      WHERE "touch_type" = 'first' ${window}
+      GROUP BY 1 ORDER BY visitors DESC LIMIT 40
+    `, params),
     pool.query(`
       SELECT "utm_source", "utm_medium", "utm_campaign",
              COUNT(*) AS visitors,
@@ -222,10 +260,25 @@ export async function getGrowthMetrics(days = 30) {
   const toNumbers = (row: Record<string, any>) =>
     Object.fromEntries(Object.entries(row ?? {}).map(([k, v]) => [k, Number(v)]));
 
+  // Junta domínios que colapsam na mesma origem (ex.: l.instagram.com +
+  // instagram.com + utm_source=instagram) somando visitantes/cadastros.
+  const sourceAgg = new Map<string, { visitors: number; signups: number }>();
+  for (const r of sources.rows) {
+    const name = normalizeSource(r.source_raw);
+    const agg = sourceAgg.get(name) ?? { visitors: 0, signups: 0 };
+    agg.visitors += Number(r.visitors);
+    agg.signups += Number(r.signups);
+    sourceAgg.set(name, agg);
+  }
+  const trafficSources = [...sourceAgg.entries()]
+    .map(([source, v]) => ({ source, ...v }))
+    .sort((a, b) => b.visitors - a.visitors);
+
   return {
     days,
     funnel: toNumbers(funnel.rows[0]),
     abandonment: toNumbers(abandonment.rows[0]),
+    traffic_sources: trafficSources,
     top_pages: topPages.rows.map((r: any) => ({
       path: r.path,
       views: Number(r.views),

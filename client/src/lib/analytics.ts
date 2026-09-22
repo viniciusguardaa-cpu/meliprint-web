@@ -47,9 +47,9 @@ export function captureUTM(): void {
     if (v) utm[k] = v.slice(0, 255);
   }
 
+  // Envia sempre — mesmo sem UTM/referrer — para o visitante "direto"
+  // também entrar na tabela de origem do admin.
   const referrer = document.referrer || undefined;
-  const hasData = Object.keys(utm).length > 0 || referrer;
-  if (!hasData) return;
 
   fetch('/api/analytics/utm', {
     method: 'POST',

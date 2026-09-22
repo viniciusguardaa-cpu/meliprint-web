@@ -151,6 +151,7 @@ interface GrowthMetrics {
   };
   top_pages: Array<{ path: string; views: number; visitors: number }>;
   visitors_by_day: Array<{ day: string; views: number; visitors: number }>;
+  traffic_sources: Array<{ source: string; visitors: number; signups: number }>;
   utm_performance: Array<{
     utm_source: string | null;
     utm_medium: string | null;
@@ -811,20 +812,43 @@ export default function Admin() {
               )}
             </div>
 
-            {growth.utm_performance.length > 0 && (
-              <div>
+            {/* Traffic sources */}
+            {growth.traffic_sources && growth.traffic_sources.length > 0 && (
+              <div className="mb-6">
                 <h3 className="text-sm font-semibold text-foreground mb-2">Origem dos visitantes</h3>
                 <div className="divide-y divide-border border border-border rounded-lg">
-                  {growth.utm_performance.map((u, i) => (
-                    <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
-                      <span className="text-foreground truncate">
-                        {[u.utm_source, u.utm_medium, u.utm_campaign].filter(Boolean).join(' / ') || '(direto)'}
-                      </span>
-                      <span className="text-muted-foreground whitespace-nowrap ml-3">
-                        {u.visitors} visitas · {u.signups} contas
-                      </span>
-                    </div>
-                  ))}
+                  {(() => {
+                    const total = growth.traffic_sources.reduce((acc, s) => acc + s.visitors, 0) || 1;
+                    return growth.traffic_sources.map((s) => (
+                      <div key={s.source} className="flex items-center justify-between px-3 py-2 text-sm">
+                        <span className="text-foreground font-medium capitalize">{s.source}</span>
+                        <span className="text-muted-foreground whitespace-nowrap ml-3">
+                          {s.visitors} visitantes · {s.signups} cadastros
+                          <span className="ml-2 text-xs">{Math.round((s.visitors / total) * 100)}%</span>
+                        </span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {growth.utm_performance.length > 0 && growth.utm_performance.some((u) => u.utm_campaign || u.utm_medium) && (
+              <div>
+                <h3 className="text-sm font-semibold text-foreground mb-2">Campanhas (UTM)</h3>
+                <div className="divide-y divide-border border border-border rounded-lg">
+                  {growth.utm_performance
+                    .filter((u) => u.utm_campaign || u.utm_medium)
+                    .map((u, i) => (
+                      <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
+                        <span className="text-foreground truncate">
+                          {[u.utm_source, u.utm_medium, u.utm_campaign].filter(Boolean).join(' / ')}
+                        </span>
+                        <span className="text-muted-foreground whitespace-nowrap ml-3">
+                          {u.visitors} visitas · {u.signups} contas
+                        </span>
+                      </div>
+                    ))}
                 </div>
               </div>
             )}
