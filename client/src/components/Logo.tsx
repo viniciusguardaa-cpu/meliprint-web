@@ -9,8 +9,10 @@ interface LogoProps {
 export default function Logo({ className = '', variant = 'default' }: LogoProps) {
   return (
     <img
-      src="/logo.png"
+      src="/logo-wordmark.png"
       alt="LabelGo"
+      width={256}
+      height={85}
       className={cn('h-8 w-auto', variant === 'light' && 'brightness-0 invert', className)}
     />
   );
