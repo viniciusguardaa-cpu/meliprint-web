@@ -68,6 +68,15 @@ npm run build
    - `NODE_ENV=production`
 4. Deploy automático
 
+## Homologação Shopee (sandbox v2)
+
+1. Conclua a verificação do perfil de desenvolvedor no [Shopee Open Platform](https://open.shopee.com/console/profile/third-party/enterprise). Enquanto o perfil estiver reprovado, o console bloqueia **Test Account-Sandbox v2** e **Test Order**. Forneça uma conta de teste funcional do LabelGo que demonstre uma integração já ativa e explique ao revisor o caminho até a listagem e a impressão de etiquetas.
+2. Após a aprovação do perfil, abra o app e obtenha o `partner_id` e `partner_key` **de teste**. Crie uma loja BR em **Test Account-Sandbox v2** e pedidos de teste em **Test Order** até ter pedidos `READY_TO_SHIP`.
+3. No serviço **web** do Railway, ambiente **production**, configure `SHOPEE_PARTNER_ID`, `SHOPEE_PARTNER_KEY` e `SHOPEE_API_HOST=https://partner.test-stable.shopeemobile.com`. Guarde a chave apenas nas variáveis do Railway; não a adicione ao Git.
+4. Configure na Shopee o domínio de retorno `labelgo.com.br` e, se o painel pedir URL completa, `https://labelgo.com.br/api/auth/oauth/shopee/callback`. O LabelGo deriva esse retorno da origem de `ML_REDIRECT_URI` quando ela está definida.
+5. Após o deploy, entre no LabelGo em `https://labelgo.com.br`, conecte a loja de teste em **Configurações → Shopee** e confirme que os pedidos `READY_TO_SHIP` aparecem no painel. Abra uma etiqueta PDF de teste para validar o fluxo completo.
+6. Envie ao revisor evidências da loja conectada, dos pedidos listados e do PDF gerado. Após a aprovação do app, substitua as credenciais e o host pelos de produção e conecte uma loja real.
+
 ## Agente de impressão (AutoPrint)
 
 O agente roda no computador ligado à impressora térmica e imprime etiquetas

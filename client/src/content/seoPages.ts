@@ -68,14 +68,14 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       {
         heading: 'Forma 2 — converter ZPL para PDF (sem térmica)',
         body: 'Não tem impressora térmica? Cole o código ZPL no conversor gratuito do LabelGo, baixe o PDF e imprima em qualquer impressora instalada no computador — jato de tinta, laser ou térmica com driver.',
-        links: [{ href: '/converter-zpl-pdf', label: 'Abrir o conversor gratuito de ZPL para PDF' }],
+        links: [{ href: '/converter-zpl-pdf/', label: 'Abrir o conversor gratuito de ZPL para PDF' }],
       },
       {
         heading: 'Forma 3 — imprimir pelo navegador, em lote',
         body: 'Conectando sua conta do Mercado Livre ao LabelGo, os envios prontos aparecem em uma única tela. Você seleciona vários de uma vez e o LabelGo gera um PDF único com todas as etiquetas para imprimir pelo navegador.',
         links: [
-          { href: '/imprimir-etiquetas-em-lote', label: 'Como funciona a impressão em lote' },
-          { href: '/pricing', label: 'Conhecer os planos' },
+          { href: '/imprimir-etiquetas-em-lote/', label: 'Como funciona a impressão em lote' },
+          { href: '/pricing/', label: 'Conhecer os planos' },
         ],
       },
       {
@@ -106,10 +106,10 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
     ],
     related: [
-      { href: '/converter-zpl-pdf', title: 'Conversor ZPL → PDF', desc: 'Ferramenta gratuita, sem cadastro' },
-      { href: '/etiqueta-10x15', title: 'Etiqueta 10x15', desc: 'O formato padrão do Mercado Livre' },
-      { href: '/impressora-termica-mercado-livre', title: 'Impressora térmica', desc: 'O que verificar antes de comprar' },
-      { href: '/imprimir-etiquetas-em-lote', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
+      { href: '/converter-zpl-pdf/', title: 'Conversor ZPL → PDF', desc: 'Ferramenta gratuita, sem cadastro' },
+      { href: '/etiqueta-10x15/', title: 'Etiqueta 10x15', desc: 'O formato padrão do Mercado Livre' },
+      { href: '/impressora-termica-mercado-livre/', title: 'Impressora térmica', desc: 'O que verificar antes de comprar' },
+      { href: '/imprimir-etiquetas-em-lote/', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
     ],
   },
 
@@ -128,17 +128,17 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       {
         heading: 'Os formatos da etiqueta',
         body: 'A etiqueta de envio usa o formato 10x15 cm (100x150 mm). Ela pode ser impressa em PDF em qualquer impressora instalada ou em ZPL2 em impressoras térmicas compatíveis.',
-        links: [{ href: '/etiqueta-10x15', label: 'Tudo sobre a etiqueta 10x15' }],
+        links: [{ href: '/etiqueta-10x15/', label: 'Tudo sobre a etiqueta 10x15' }],
       },
       {
         heading: 'Imprimir pelo LabelGo',
         body: 'Ao conectar sua conta via OAuth oficial do Mercado Livre, os envios prontos aparecem automaticamente em uma única tela — sem exportar arquivos nem abrir pedido por pedido. Selecione um ou vários e imprima em um único PDF pelo navegador.',
-        links: [{ href: '/imprimir-etiquetas-em-lote', label: 'Impressão em lote' }],
+        links: [{ href: '/imprimir-etiquetas-em-lote/', label: 'Impressão em lote' }],
       },
       {
         heading: 'Reimpressão de etiquetas',
         body: 'Etiqueta colou torto ou rasgou? Envios já impressos ficam separados na aba "Reimpressão", para você emitir a mesma etiqueta de novo sem procurar no histórico do Mercado Livre.',
-        links: [{ href: '/reimprimir-etiqueta-mercado-livre', label: 'Guia de reimpressão' }],
+        links: [{ href: '/reimprimir-etiqueta-mercado-livre/', label: 'Guia de reimpressão' }],
       },
     ],
     faqs: [
@@ -160,10 +160,10 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
     ],
     related: [
-      { href: '/imprimir-etiqueta-mercado-livre', title: 'Imprimir etiqueta ML', desc: 'Passo a passo completo' },
-      { href: '/reimprimir-etiqueta-mercado-livre', title: 'Reimprimir etiqueta', desc: 'Quando e como emitir de novo' },
-      { href: '/imprimir-etiquetas-em-lote', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
-      { href: '/converter-zpl-pdf', title: 'Conversor ZPL → PDF', desc: 'Ferramenta gratuita, sem cadastro' },
+      { href: '/imprimir-etiqueta-mercado-livre/', title: 'Imprimir etiqueta ML', desc: 'Passo a passo completo' },
+      { href: '/reimprimir-etiqueta-mercado-livre/', title: 'Reimprimir etiqueta', desc: 'Quando e como emitir de novo' },
+      { href: '/imprimir-etiquetas-em-lote/', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
+      { href: '/converter-zpl-pdf/', title: 'Conversor ZPL → PDF', desc: 'Ferramenta gratuita, sem cadastro' },
     ],
   },
 
@@ -184,8 +184,8 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
         heading: '3. Selecione e imprima',
         body: 'Marque um ou vários envios e imprima. Pelo navegador, o LabelGo gera um PDF único que vai para qualquer impressora instalada — comum ou térmica com driver. No plano Pro, o agente para Windows imprime em ZPL automaticamente na térmica assim que a venda entra.',
         links: [
-          { href: '/imprimir-etiquetas-em-lote', label: 'Imprimir várias de uma vez' },
-          { href: '/pricing', label: 'Comparar planos' },
+          { href: '/imprimir-etiquetas-em-lote/', label: 'Imprimir várias de uma vez' },
+          { href: '/pricing/', label: 'Comparar planos' },
         ],
       },
       {
@@ -196,7 +196,7 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
           'Cole a etiqueta em superfície lisa, sem dobrar o código de barras.',
           'Se saiu errado, reimprima — é a mesma etiqueta, sem custo extra.',
         ],
-        links: [{ href: '/reimprimir-etiqueta-mercado-livre', label: 'Como reimprimir' }],
+        links: [{ href: '/reimprimir-etiqueta-mercado-livre/', label: 'Como reimprimir' }],
       },
     ],
     faqs: [
@@ -214,10 +214,10 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
     ],
     related: [
-      { href: '/etiqueta-mercado-livre', title: 'Etiqueta Mercado Livre', desc: 'Onde gerar e formatos' },
-      { href: '/imprimir-etiquetas-em-lote', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
-      { href: '/etiqueta-10x15', title: 'Etiqueta 10x15', desc: 'Formato, materiais e configuração' },
-      { href: '/imprimir-zpl', title: 'Imprimir ZPL', desc: 'Guia para vendedores' },
+      { href: '/etiqueta-mercado-livre/', title: 'Etiqueta Mercado Livre', desc: 'Onde gerar e formatos' },
+      { href: '/imprimir-etiquetas-em-lote/', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
+      { href: '/etiqueta-10x15/', title: 'Etiqueta 10x15', desc: 'Formato, materiais e configuração' },
+      { href: '/imprimir-zpl/', title: 'Imprimir ZPL', desc: 'Guia para vendedores' },
     ],
   },
 
@@ -241,12 +241,12 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       {
         heading: 'Imprimir 10x15 em impressora térmica',
         body: 'Térmicas de etiquetas trabalham com mídia de 100 mm de largura. Para receber ZPL direto — como faz o agente do LabelGo Pro — a impressora precisa entender ZPL2. Com o driver instalado no computador, qualquer térmica também imprime o PDF gerado pelo navegador.',
-        links: [{ href: '/impressora-termica-mercado-livre', label: 'Como escolher a impressora térmica' }],
+        links: [{ href: '/impressora-termica-mercado-livre/', label: 'Como escolher a impressora térmica' }],
       },
       {
         heading: 'Imprimir 10x15 em impressora comum',
         body: 'Sem térmica, imprima o PDF em folha A4 comum ou adesiva — jato de tinta e laser funcionam. Mantenha a escala em 100% e, se usar sulfite, recorte nas bordas da etiqueta. Tem um arquivo ZPL em mãos? Converta para PDF antes.',
-        links: [{ href: '/converter-zpl-pdf', label: 'Converter ZPL para PDF grátis' }],
+        links: [{ href: '/converter-zpl-pdf/', label: 'Converter ZPL para PDF grátis' }],
       },
       {
         heading: 'Configurações que evitam desperdício',
@@ -272,10 +272,10 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
     ],
     related: [
-      { href: '/converter-zpl-pdf', title: 'Conversor ZPL → PDF', desc: 'Ferramenta gratuita, sem cadastro' },
-      { href: '/impressora-termica-mercado-livre', title: 'Impressora térmica', desc: 'O que verificar antes de comprar' },
-      { href: '/imprimir-etiqueta-mercado-livre', title: 'Imprimir etiqueta ML', desc: 'Passo a passo completo' },
-      { href: '/imprimir-etiquetas-em-lote', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
+      { href: '/converter-zpl-pdf/', title: 'Conversor ZPL → PDF', desc: 'Ferramenta gratuita, sem cadastro' },
+      { href: '/impressora-termica-mercado-livre/', title: 'Impressora térmica', desc: 'O que verificar antes de comprar' },
+      { href: '/imprimir-etiqueta-mercado-livre/', title: 'Imprimir etiqueta ML', desc: 'Passo a passo completo' },
+      { href: '/imprimir-etiquetas-em-lote/', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
     ],
   },
 
@@ -301,12 +301,12 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       {
         heading: 'Não tem térmica? O PDF resolve',
         body: 'Impressoras jato de tinta e laser imprimem a etiqueta em folha A4 ou papel adesivo — térmica não é obrigatória para despachar no Mercado Livre. E se você tem um arquivo ZPL, converta para PDF gratuitamente.',
-        links: [{ href: '/converter-zpl-pdf', label: 'Conversor ZPL para PDF' }],
+        links: [{ href: '/converter-zpl-pdf/', label: 'Conversor ZPL para PDF' }],
       },
       {
         heading: 'Impressão automática com o LabelGo Pro',
         body: 'Com o agente LabelGo instalado em um computador Windows, a impressora térmica USB recebe a etiqueta em ZPL automaticamente quando uma venda é confirmada — sem cliques e sem diálogo de impressão. Sem o agente, a impressão em PDF pelo navegador continua disponível em todos os planos.',
-        links: [{ href: '/pricing', label: 'Conhecer o LabelGo Pro' }],
+        links: [{ href: '/pricing/', label: 'Conhecer o LabelGo Pro' }],
       },
     ],
     faqs: [
@@ -328,10 +328,10 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
     ],
     related: [
-      { href: '/etiqueta-10x15', title: 'Etiqueta 10x15', desc: 'O formato padrão do Mercado Livre' },
-      { href: '/imprimir-zpl', title: 'Imprimir ZPL', desc: 'Guia para vendedores' },
-      { href: '/converter-zpl-pdf', title: 'Conversor ZPL → PDF', desc: 'Ferramenta gratuita, sem cadastro' },
-      { href: '/imprimir-etiquetas-em-lote', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
+      { href: '/etiqueta-10x15/', title: 'Etiqueta 10x15', desc: 'O formato padrão do Mercado Livre' },
+      { href: '/imprimir-zpl/', title: 'Imprimir ZPL', desc: 'Guia para vendedores' },
+      { href: '/converter-zpl-pdf/', title: 'Conversor ZPL → PDF', desc: 'Ferramenta gratuita, sem cadastro' },
+      { href: '/imprimir-etiquetas-em-lote/', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
     ],
   },
 
@@ -351,7 +351,7 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       {
         heading: 'Pelo LabelGo',
         body: 'Os envios já impressos ficam separados na aba "Reimpressão" do painel — sem misturar com os envios novos. Selecione e imprima de novo em PDF pelo navegador, sem precisar procurar o pedido no histórico do Mercado Livre.',
-        links: [{ href: '/imprimir-etiqueta-mercado-livre', label: 'Ver o passo a passo de impressão' }],
+        links: [{ href: '/imprimir-etiqueta-mercado-livre/', label: 'Ver o passo a passo de impressão' }],
       },
       {
         heading: 'Cuidados ao reimprimir',
@@ -377,9 +377,9 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
     ],
     related: [
-      { href: '/etiqueta-mercado-livre', title: 'Etiqueta Mercado Livre', desc: 'Onde gerar e formatos' },
-      { href: '/imprimir-etiqueta-mercado-livre', title: 'Imprimir etiqueta ML', desc: 'Passo a passo completo' },
-      { href: '/imprimir-etiquetas-em-lote', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
+      { href: '/etiqueta-mercado-livre/', title: 'Etiqueta Mercado Livre', desc: 'Onde gerar e formatos' },
+      { href: '/imprimir-etiqueta-mercado-livre/', title: 'Imprimir etiqueta ML', desc: 'Passo a passo completo' },
+      { href: '/imprimir-etiquetas-em-lote/', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
     ],
   },
 
@@ -409,7 +409,7 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       {
         heading: 'E se você quiser zero cliques',
         body: 'No plano Pro, o agente para Windows imprime cada etiqueta automaticamente na térmica assim que a venda é confirmada — sem nem abrir o painel. É o mesmo fluxo do lote, mas contínuo e sem seleção manual.',
-        links: [{ href: '/pricing', label: 'Conhecer o LabelGo Pro' }],
+        links: [{ href: '/pricing/', label: 'Conhecer o LabelGo Pro' }],
       },
     ],
     faqs: [
@@ -427,9 +427,9 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
     ],
     related: [
-      { href: '/imprimir-etiqueta-mercado-livre', title: 'Imprimir etiqueta ML', desc: 'Passo a passo completo' },
-      { href: '/etiqueta-mercado-livre', title: 'Etiqueta Mercado Livre', desc: 'Onde gerar e formatos' },
-      { href: '/impressora-termica-mercado-livre', title: 'Impressora térmica', desc: 'O que verificar antes de comprar' },
+      { href: '/imprimir-etiqueta-mercado-livre/', title: 'Imprimir etiqueta ML', desc: 'Passo a passo completo' },
+      { href: '/etiqueta-mercado-livre/', title: 'Etiqueta Mercado Livre', desc: 'Onde gerar e formatos' },
+      { href: '/impressora-termica-mercado-livre/', title: 'Impressora térmica', desc: 'O que verificar antes de comprar' },
     ],
   },
 
@@ -463,9 +463,9 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
     ],
     related: [
-      { href: '/imprimir-zpl', title: 'Imprimir ZPL', desc: 'Guia para vendedores' },
-      { href: '/etiqueta-10x15', title: 'Etiqueta 10x15', desc: 'O formato padrão do Mercado Livre' },
-      { href: '/etiqueta-mercado-livre', title: 'Etiqueta Mercado Livre', desc: 'Onde gerar e formatos' },
+      { href: '/imprimir-zpl/', title: 'Imprimir ZPL', desc: 'Guia para vendedores' },
+      { href: '/etiqueta-10x15/', title: 'Etiqueta 10x15', desc: 'O formato padrão do Mercado Livre' },
+      { href: '/etiqueta-mercado-livre/', title: 'Etiqueta Mercado Livre', desc: 'Onde gerar e formatos' },
     ],
   },
 };

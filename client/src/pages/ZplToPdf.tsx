@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { FileText, Download, Loader2, ArrowRight, CheckCircle } from 'lucide-react';
 import Header from '../components/Header';
 import { Button } from '../components/ui/button';
@@ -8,7 +8,6 @@ import { SEO_PAGES } from '../content/seoPages';
 const PAGE = SEO_PAGES['/converter-zpl-pdf'];
 
 export default function ZplToPdf() {
-  const navigate = useNavigate();
   const [zpl, setZpl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,13 +124,13 @@ export default function ZplToPdf() {
             Conecte seu Mercado Livre ao LabelGo e imprima etiquetas em segundos.
             Com o LabelGo Pro, suas etiquetas saem automaticamente na impressora.
           </p>
-          <button
-            onClick={() => navigate('/pricing')}
+          <Link
+            to="/pricing/"
             className="bg-white text-primary font-semibold px-6 py-3 rounded-xl hover:bg-secondary hover:text-foreground transition-all duration-150 hover:-translate-y-px inline-flex items-center gap-2"
           >
             Testar grátis por 7 dias
             <ArrowRight className="w-4 h-4" />
-          </button>
+          </Link>
         </div>
 
         {/* SEO content */}

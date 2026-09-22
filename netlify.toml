@@ -2,6 +2,10 @@
   command = "npm run build --workspace=client"
   publish = "client/dist"
 
+# Notifica Bing/Yandex/Seznam/Naver via IndexNow a cada deploy de produção.
+[[plugins]]
+  package = "/netlify/plugins/indexnow"
+
 # Windows agent installer — built by .github/workflows/agent-installer.yml and
 # published on the `agent-latest` GitHub release. Redirect instead of committing
 # the binary to the repo.
@@ -64,6 +68,35 @@
   from = "/admin/*"
   to = "/spa.html"
   status = 200
+
+# Arquivos com hash no nome (Vite) nunca mudam de conteúdo: cache de 1 ano
+# melhora LCP/Core Web Vitals em visitas recorrentes. A fonte não tem hash,
+# então fica com 30 dias (renomeie o arquivo se trocar a fonte).
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/sitemap.xml"
+  [headers.values]
+    Content-Type = "application/xml; charset=utf-8"
+
+[[headers]]
+  for = "/llms.txt"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
 
 # Reforço de noindex fora do robots.txt: o shell SPA e as rotas privadas
 # carregam meta noindex; estes headers cobrem crawlers que não executam JS.

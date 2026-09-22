@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ArrowRight, Printer, Zap, Clock, Shield, ChevronRight } from 'lucide-react';
 import Header from '../components/Header';
 import type { SeoPageContent } from '../content/seoPages';
@@ -6,8 +6,6 @@ import type { SeoPageContent } from '../content/seoPages';
 type SeoPageProps = SeoPageContent & { cta?: boolean };
 
 export default function SeoPage({ h1, lead, crumb, sections, faqs = [], related = [], cta = true }: SeoPageProps) {
-  const navigate = useNavigate();
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -87,13 +85,13 @@ export default function SeoPage({ h1, lead, crumb, sections, faqs = [], related 
             <p className="text-white/80 mb-4">
               Conecte seu Mercado Livre ao LabelGo e imprima etiquetas em segundos.
             </p>
-            <button
-              onClick={() => navigate('/pricing')}
+            <Link
+              to="/pricing/"
               className="bg-white text-primary font-semibold px-6 py-3 rounded-xl hover:bg-secondary hover:text-foreground transition-all duration-150 hover:-translate-y-px inline-flex items-center gap-2"
             >
               Testar grátis por 7 dias
               <ArrowRight className="w-4 h-4" />
-            </button>
+            </Link>
           </div>
         )}
 

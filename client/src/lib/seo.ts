@@ -15,15 +15,33 @@
  */
 
 import { SEO_PAGES } from '../content/seoPages';
+import { LANDING_FAQS } from '../content/landingFaq';
 
 export const SITE_ORIGIN = 'https://labelgo.com.br';
 export const SITE_NAME = 'LabelGo';
-export const DEFAULT_OG_IMAGE = `${SITE_ORIGIN}/logo.png`;
+export const SITE_LOCALE = 'pt_BR';
+export const SITE_LANG = 'pt-BR';
+export const SUPPORT_EMAIL = 'suporte@labelgo.com.br';
+
+/** 1200x630 — formato recomendado por Facebook, LinkedIn, X e WhatsApp. */
+export const DEFAULT_OG_IMAGE = {
+  url: `${SITE_ORIGIN}/og-image.png`,
+  width: 1200,
+  height: 630,
+  alt: 'LabelGo — imprima etiquetas do Mercado Livre em segundos, em lote, direto do navegador.',
+};
+
+/**
+ * Diretivas para páginas indexáveis. `max-image-preview:large` libera a
+ * miniatura grande no Google/Discover e `max-snippet:-1` remove o limite de
+ * trecho (também respeitado pelo Bing).
+ */
+export const INDEX_ROBOTS = 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1';
 
 export interface RouteSeo {
   title: string;
   description: string;
-  /** Defaults to "index,follow" when omitted. */
+  /** Defaults to INDEX_ROBOTS when omitted. */
   robots?: string;
   /** JSON-LD blocks rendered into <script type="application/ld+json">. */
   jsonLd?: Record<string, unknown>[];
@@ -31,18 +49,79 @@ export interface RouteSeo {
 
 const NOINDEX = 'noindex,follow';
 
+const ORGANIZATION_ID = `${SITE_ORIGIN}/#organization`;
+const WEBSITE_ID = `${SITE_ORIGIN}/#website`;
+
+const ORGANIZATION_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  '@id': ORGANIZATION_ID,
+  name: SITE_NAME,
+  url: `${SITE_ORIGIN}/`,
+  logo: {
+    '@type': 'ImageObject',
+    url: `${SITE_ORIGIN}/logo.png`,
+    width: 1024,
+    height: 341,
+  },
+  email: SUPPORT_EMAIL,
+  sameAs: ['https://www.instagram.com/labelgo_print/'],
+  contactPoint: {
+    '@type': 'ContactPoint',
+    contactType: 'customer support',
+    email: SUPPORT_EMAIL,
+    availableLanguage: ['Portuguese'],
+    areaServed: 'BR',
+  },
+};
+
+const WEBSITE_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  '@id': WEBSITE_ID,
+  name: SITE_NAME,
+  url: `${SITE_ORIGIN}/`,
+  inLanguage: SITE_LANG,
+  publisher: { '@id': ORGANIZATION_ID },
+};
+
 const SOFTWARE_APPLICATION_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
   name: 'LabelGo',
   url: `${SITE_ORIGIN}/`,
+  image: DEFAULT_OG_IMAGE.url,
   applicationCategory: 'BusinessApplication',
+  applicationSubCategory: 'Impressão de etiquetas de envio',
   operatingSystem: 'Web',
-  inLanguage: 'pt-BR',
+  inLanguage: SITE_LANG,
   description:
     'Imprima etiquetas do Mercado Livre em lote, direto do navegador. Sem instalação. Teste grátis por 7 dias.',
+  featureList: [
+    'Impressão de etiquetas do Mercado Livre em lote',
+    'Etiquetas 10x15 em PDF pelo navegador',
+    'Envio de ZPL para impressora térmica',
+    'Impressão automática com agente para Windows (plano Pro)',
+    'Conexão oficial via OAuth do Mercado Livre',
+  ],
+  publisher: { '@id': ORGANIZATION_ID },
   // Sem "offers": os preços vêm de /api/plans e podem variar por experimento
   // de pricing — um valor fixo aqui ficaria dessincronizado da oferta vigente.
+};
+
+/** O conversor é gratuito de verdade, então o preço 0 é estável e correto. */
+const ZPL_CONVERTER_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Conversor de ZPL para PDF — LabelGo',
+  url: `${SITE_ORIGIN}/converter-zpl-pdf/`,
+  applicationCategory: 'UtilitiesApplication',
+  operatingSystem: 'Web',
+  browserRequirements: 'Requer JavaScript',
+  inLanguage: SITE_LANG,
+  isAccessibleForFree: true,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'BRL' },
+  publisher: { '@id': ORGANIZATION_ID },
 };
 
 /** BreadcrumbList matching the visible breadcrumb rendered by SeoPage. */
@@ -67,7 +146,7 @@ function breadcrumbLd(pathname: string, crumb: string): Record<string, unknown> 
   };
 }
 
-/** FAQPage for the visible FAQ section on a guide page. */
+/** FAQPage for a visible FAQ section (guide pages and the landing). */
 function faqLd(faqs: { q: string; a: string }[]): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
@@ -94,7 +173,7 @@ export const PAGE_SEO: Record<string, RouteSeo> = {
     title: 'LabelGo — Imprima etiquetas do Mercado Livre em segundos',
     description:
       'Conecte sua conta do Mercado Livre, selecione os envios e imprima etiquetas 10x15 em PDF pelo navegador ou em impressora térmica. Teste grátis por 7 dias.',
-    jsonLd: [SOFTWARE_APPLICATION_LD],
+    jsonLd: [ORGANIZATION_LD, WEBSITE_LD, SOFTWARE_APPLICATION_LD, faqLd(LANDING_FAQS)],
   },
   '/pricing': {
     title: 'Planos e preços — LabelGo',
@@ -106,7 +185,7 @@ export const PAGE_SEO: Record<string, RouteSeo> = {
     title: 'Conversor de ZPL para PDF grátis — LabelGo',
     description:
       'Cole o código ZPL da sua etiqueta e baixe o PDF em segundos. Ferramenta online gratuita, sem login e sem cadastro — ideal para etiquetas do Mercado Livre.',
-    jsonLd: guideLd('/converter-zpl-pdf'),
+    jsonLd: [ZPL_CONVERTER_LD, ...guideLd('/converter-zpl-pdf')],
   },
   '/imprimir-zpl': {
     title: 'Como imprimir ZPL: guia completo para vendedores — LabelGo',
@@ -228,4 +307,64 @@ export function seoForPath(pathname: string): RouteSeo {
 export function canonicalFor(pathname: string): string {
   const normalizedPath = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
   return `${SITE_ORIGIN}${normalizedPath === '/' ? '/' : `${normalizedPath}/`}`;
+}
+
+export function isIndexable(meta: RouteSeo): boolean {
+  return !(meta.robots ?? '').includes('noindex');
+}
+
+export interface HeadTag {
+  tag: 'title' | 'meta' | 'link' | 'script';
+  attrs?: Record<string, string>;
+  content?: string;
+}
+
+/**
+ * Tags de <head> de uma rota — fonte única para o prerender (HTML estático)
+ * e para o SeoManager (navegação SPA), garantindo que os dois nunca divirjam.
+ */
+export function headTagsFor(pathname: string, meta: RouteSeo = seoForPath(pathname)): HeadTag[] {
+  const indexable = isIndexable(meta);
+  const canonical = indexable ? canonicalFor(pathname) : null;
+  const ogUrl = canonical ?? `${SITE_ORIGIN}/`;
+  const m = (key: 'name' | 'property', id: string, content: string): HeadTag => ({
+    tag: 'meta',
+    attrs: { [key]: id, content },
+  });
+
+  const tags: HeadTag[] = [
+    { tag: 'title', content: meta.title },
+    m('name', 'description', meta.description),
+    m('name', 'robots', meta.robots ?? INDEX_ROBOTS),
+  ];
+  if (canonical) {
+    tags.push(
+      { tag: 'link', attrs: { rel: 'canonical', href: canonical } },
+      { tag: 'link', attrs: { rel: 'alternate', hreflang: SITE_LANG, href: canonical } },
+      { tag: 'link', attrs: { rel: 'alternate', hreflang: 'x-default', href: canonical } },
+    );
+  }
+  tags.push(
+    m('property', 'og:title', meta.title),
+    m('property', 'og:description', meta.description),
+    m('property', 'og:type', 'website'),
+    m('property', 'og:url', ogUrl),
+    m('property', 'og:locale', SITE_LOCALE),
+    m('property', 'og:site_name', SITE_NAME),
+    m('property', 'og:image', DEFAULT_OG_IMAGE.url),
+    m('property', 'og:image:secure_url', DEFAULT_OG_IMAGE.url),
+    m('property', 'og:image:type', 'image/png'),
+    m('property', 'og:image:width', String(DEFAULT_OG_IMAGE.width)),
+    m('property', 'og:image:height', String(DEFAULT_OG_IMAGE.height)),
+    m('property', 'og:image:alt', DEFAULT_OG_IMAGE.alt),
+    m('name', 'twitter:card', 'summary_large_image'),
+    m('name', 'twitter:title', meta.title),
+    m('name', 'twitter:description', meta.description),
+    m('name', 'twitter:image', DEFAULT_OG_IMAGE.url),
+    m('name', 'twitter:image:alt', DEFAULT_OG_IMAGE.alt),
+  );
+  for (const block of meta.jsonLd ?? []) {
+    tags.push({ tag: 'script', attrs: { type: 'application/ld+json' }, content: JSON.stringify(block) });
+  }
+  return tags;
 }

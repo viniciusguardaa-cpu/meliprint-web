@@ -6,26 +6,26 @@ const COLUMNS = [
     title: 'Produto',
     links: [
       { label: 'Recursos', href: '#recursos', anchor: true },
-      { label: 'Planos', href: '/pricing', anchor: false },
+      { label: 'Planos', href: '/pricing/', anchor: false },
       { label: 'Como funciona', href: '#como-funciona', anchor: true },
     ],
   },
   {
     title: 'Guias',
     links: [
-      { label: 'Conversor ZPL → PDF', href: '/converter-zpl-pdf', anchor: false },
-      { label: 'Como imprimir ZPL', href: '/imprimir-zpl', anchor: false },
-      { label: 'Etiqueta Mercado Livre', href: '/etiqueta-mercado-livre', anchor: false },
-      { label: 'Imprimir em lote', href: '/imprimir-etiquetas-em-lote', anchor: false },
-      { label: 'Impressora térmica', href: '/impressora-termica-mercado-livre', anchor: false },
+      { label: 'Conversor ZPL → PDF', href: '/converter-zpl-pdf/', anchor: false },
+      { label: 'Como imprimir ZPL', href: '/imprimir-zpl/', anchor: false },
+      { label: 'Etiqueta Mercado Livre', href: '/etiqueta-mercado-livre/', anchor: false },
+      { label: 'Imprimir em lote', href: '/imprimir-etiquetas-em-lote/', anchor: false },
+      { label: 'Impressora térmica', href: '/impressora-termica-mercado-livre/', anchor: false },
     ],
   },
   {
     title: 'Empresa',
     links: [
       { label: 'Suporte', href: 'mailto:suporte@labelgo.com.br', anchor: false },
-      { label: 'Termos', href: '/termos', anchor: false },
-      { label: 'Privacidade', href: '/privacidade', anchor: false },
+      { label: 'Termos', href: '/termos/', anchor: false },
+      { label: 'Privacidade', href: '/privacidade/', anchor: false },
     ],
   },
 ];

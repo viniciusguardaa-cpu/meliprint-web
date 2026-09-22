@@ -17,4 +17,14 @@ export function render(url: string): string {
 
 // Re-exported so the prerender script can share the single source of truth
 // for route metadata.
-export { PAGE_SEO, seoForPath, canonicalFor, SITE_ORIGIN, NOT_FOUND_SEO, PRIVATE_SEO } from './lib/seo';
+export {
+  PAGE_SEO,
+  seoForPath,
+  canonicalFor,
+  headTagsFor,
+  isIndexable,
+  SITE_ORIGIN,
+  SITE_NAME,
+  NOT_FOUND_SEO,
+  PRIVATE_SEO,
+} from './lib/seo';
