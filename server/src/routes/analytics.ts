@@ -24,7 +24,7 @@ router.post('/track', async (req: Request, res: Response) => {
 
     await trackEvent({
       event_name: event,
-      user_id: (req as any).user?.id,
+      user_id: req.session?.userId,
       visitor_key: visitorKey || undefined,
       session_id: sessionId || undefined,
       properties: properties || {},

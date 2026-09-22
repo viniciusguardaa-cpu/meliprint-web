@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { track, captureUTM } from './lib/analytics';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -103,9 +104,26 @@ function PageSpinner() {
   );
 }
 
+// Dedupes the StrictMode double-mount so each navigation counts once.
+let lastPageView = { path: '', ts: 0 };
+
+function RouteTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    if (location.pathname.startsWith('/admin')) return;
+    captureUTM();
+    const now = Date.now();
+    if (lastPageView.path === location.pathname && now - lastPageView.ts < 1500) return;
+    lastPageView = { path: location.pathname, ts: now };
+    track('page_view', { path: location.pathname });
+  }, [location.pathname]);
+  return null;
+}
+
 function App() {
   return (
     <Suspense fallback={<PageSpinner />}>
+      <RouteTracker />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />

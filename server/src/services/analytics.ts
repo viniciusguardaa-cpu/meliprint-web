@@ -140,27 +140,73 @@ export async function markReferralSubscribed(referredUserId: number) {
 // Admin: growth metrics
 // ---------------------------------------------------------------------------
 
-export async function getGrowthMetrics() {
-  const [funnel, utm, agents, prints] = await Promise.all([
+/**
+ * Growth dashboard metrics. `days` limits the event window (0 = all time).
+ * Funnel steps count DISTINCT actors: visitor_key for anonymous events,
+ * user_id for server-side events — raw counts would double-count reloads.
+ */
+export async function getGrowthMetrics(days = 30) {
+  const window = days > 0 ? `AND "created_at" >= NOW() - ($1::int * INTERVAL '1 day')` : '';
+  const params = days > 0 ? [days] : [];
+
+  const [funnel, abandonment, topPages, visitorsByDay, utm, agents, prints] = await Promise.all([
     pool.query(`
       SELECT
-        (SELECT COUNT(*) FROM "analytics_events" WHERE "event_name" = 'landing_view') AS landing_views,
-        (SELECT COUNT(*) FROM "analytics_events" WHERE "event_name" = 'ml_oauth_started') AS oauth_started,
-        (SELECT COUNT(*) FROM "analytics_events" WHERE "event_name" = 'ml_connected') AS ml_connected,
-        (SELECT COUNT(*) FROM "analytics_events" WHERE "event_name" = 'pricing_view') AS pricing_views,
-        (SELECT COUNT(*) FROM "analytics_events" WHERE "event_name" = 'checkout_started') AS checkouts_started,
-        (SELECT COUNT(*) FROM "analytics_events" WHERE "event_name" = 'trial_started') AS trials_started,
-        (SELECT COUNT(*) FROM "analytics_events" WHERE "event_name" = 'subscription_activated') AS subscriptions_activated,
-        (SELECT COUNT(*) FROM "analytics_events" WHERE "event_name" = 'subscription_cancelled') AS subscriptions_cancelled
-    `),
+        COUNT(*) FILTER (WHERE "event_name" = 'page_view') AS page_views,
+        COUNT(DISTINCT "visitor_key") FILTER (WHERE "event_name" IN ('page_view', 'landing_view')) AS unique_visitors,
+        COUNT(DISTINCT "visitor_key") FILTER (WHERE "event_name" = 'landing_view') AS landing_visitors,
+        COUNT(DISTINCT "user_id") FILTER (WHERE "event_name" = 'user_registered') AS registered,
+        COUNT(DISTINCT "visitor_key") FILTER (WHERE "event_name" = 'ml_oauth_started') AS oauth_started,
+        COUNT(DISTINCT "user_id") FILTER (WHERE "event_name" = 'ml_connected') AS ml_connected,
+        COUNT(DISTINCT "visitor_key") FILTER (WHERE "event_name" = 'pricing_view') AS pricing_visitors,
+        COUNT(DISTINCT "user_id") FILTER (WHERE "event_name" = 'checkout_started') AS checkouts_started,
+        COUNT(DISTINCT "user_id") FILTER (WHERE "event_name" = 'trial_started') AS trials_started,
+        COUNT(DISTINCT "user_id") FILTER (WHERE "event_name" = 'subscription_activated') AS subscriptions_activated,
+        COUNT(DISTINCT "user_id") FILTER (WHERE "event_name" = 'subscription_cancelled') AS subscriptions_cancelled
+      FROM "analytics_events"
+      WHERE 1=1 ${window}
+    `, params),
+    // Abandonment: started in the window but never converted (all-time check
+    // for the conversion event, so late conversions don't count as abandoned).
+    pool.query(`
+      SELECT
+        (SELECT COUNT(DISTINCT s."user_id") FROM "analytics_events" s
+          WHERE s."event_name" = 'checkout_started' AND s."user_id" IS NOT NULL ${window.replaceAll('"created_at"', 's."created_at"')}
+            AND NOT EXISTS (SELECT 1 FROM "analytics_events" a
+              WHERE a."event_name" = 'subscription_activated' AND a."user_id" = s."user_id")) AS checkout_abandoned,
+        (SELECT COUNT(DISTINCT s."user_id") FROM "analytics_events" s
+          WHERE s."event_name" = 'trial_started' AND s."user_id" IS NOT NULL ${window.replaceAll('"created_at"', 's."created_at"')}
+            AND NOT EXISTS (SELECT 1 FROM "analytics_events" a
+              WHERE a."event_name" = 'subscription_activated' AND a."user_id" = s."user_id")) AS trials_not_converted,
+        (SELECT COUNT(DISTINCT p."visitor_key") FROM "analytics_events" p
+          WHERE p."event_name" = 'pricing_view' AND p."visitor_key" IS NOT NULL ${window.replaceAll('"created_at"', 'p."created_at"')}
+            AND NOT EXISTS (SELECT 1 FROM "analytics_events" c
+              WHERE c."visitor_key" = p."visitor_key" AND c."event_name" IN ('checkout_started', 'trial_started'))) AS pricing_no_checkout
+    `, params),
+    pool.query(`
+      SELECT COALESCE("properties"->>'path', '(sem path)') AS path,
+             COUNT(*) AS views,
+             COUNT(DISTINCT "visitor_key") AS visitors
+      FROM "analytics_events"
+      WHERE "event_name" IN ('page_view', 'landing_view') ${window}
+      GROUP BY 1 ORDER BY views DESC LIMIT 15
+    `, params),
+    pool.query(`
+      SELECT "created_at"::date AS day,
+             COUNT(*) FILTER (WHERE "event_name" = 'page_view') AS views,
+             COUNT(DISTINCT "visitor_key") AS visitors
+      FROM "analytics_events"
+      WHERE "event_name" IN ('page_view', 'landing_view') ${window}
+      GROUP BY 1 ORDER BY 1
+    `, params),
     pool.query(`
       SELECT "utm_source", "utm_medium", "utm_campaign",
              COUNT(*) AS visitors,
              COUNT(DISTINCT "user_id") AS signups
-      FROM "utm_attribution" WHERE "touch_type" = 'first'
+      FROM "utm_attribution" WHERE "touch_type" = 'first' ${window}
       GROUP BY "utm_source", "utm_medium", "utm_campaign"
       ORDER BY visitors DESC LIMIT 20
-    `),
+    `, params),
     pool.query(`
       SELECT
         (SELECT COUNT(*) FROM "auto_print_config" WHERE "agent_status" = 'online') AS agents_online,
@@ -173,8 +219,23 @@ export async function getGrowthMetrics() {
     `),
   ]);
 
+  const toNumbers = (row: Record<string, any>) =>
+    Object.fromEntries(Object.entries(row ?? {}).map(([k, v]) => [k, Number(v)]));
+
   return {
-    funnel: funnel.rows[0],
+    days,
+    funnel: toNumbers(funnel.rows[0]),
+    abandonment: toNumbers(abandonment.rows[0]),
+    top_pages: topPages.rows.map((r: any) => ({
+      path: r.path,
+      views: Number(r.views),
+      visitors: Number(r.visitors),
+    })),
+    visitors_by_day: visitorsByDay.rows.map((r: any) => ({
+      day: r.day,
+      views: Number(r.views),
+      visitors: Number(r.visitors),
+    })),
     utm_performance: utm.rows,
     agents: agents.rows[0],
     prints: prints.rows[0],

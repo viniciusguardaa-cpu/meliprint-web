@@ -172,10 +172,12 @@ router.post('/users/:id/extend-trial', async (req: Request, res: Response) => {
   }
 });
 
-// Growth metrics: funnel, UTM performance, agents, prints
-router.get('/growth', async (_req: Request, res: Response) => {
+// Growth metrics: funnel, abandonment, top pages, UTM performance.
+// ?days=N limits the event window (0 = all time, default 30).
+router.get('/growth', async (req: Request, res: Response) => {
   try {
-    const metrics = await getGrowthMetrics();
+    const days = req.query.days === undefined ? 30 : Math.max(0, Number(req.query.days) || 0);
+    const metrics = await getGrowthMetrics(days);
     res.json(metrics);
   } catch (error) {
     console.error('Error fetching growth metrics:', error);
