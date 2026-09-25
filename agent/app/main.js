@@ -40,7 +40,7 @@ const state = {
   printedToday: 0,
   printers: [],
   printerName: null,
-  serverUrl: 'https://app.labelgo.com.br',
+  serverUrl: 'https://labelgo.com.br',
   lastError: null, // { kind: 'offline'|'auth'|'subscription'|'other', message }
   nextRetryAt: null,
   log: [], // [{ at, icon: 'info'|'ok'|'error', text }]
@@ -320,7 +320,7 @@ ipcMain.handle('list-printers', async () => {
 });
 
 ipcMain.handle('pair', async (_e, { code, printerName, autostart, serverUrl }) => {
-  const url = (serverUrl || 'https://app.labelgo.com.br').replace(/\/$/, '');
+  const url = (serverUrl || 'https://labelgo.com.br').replace(/\/$/, '');
   const paired = await pairWithCode(url, String(code || '').trim());
   const finalPrinter = printerName || paired.printerName;
   saveConfig({
@@ -386,7 +386,7 @@ ipcMain.handle('open-panel', () => {
 
 ipcMain.handle('open-subscription', () => {
   const config = loadConfig();
-  shell.openExternal(`${config.serverUrl}/app/impressao-automatica`);
+  shell.openExternal(`${config.serverUrl}/auto-print`);
   return { ok: true };
 });
 

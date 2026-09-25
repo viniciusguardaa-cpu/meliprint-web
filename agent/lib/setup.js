@@ -60,8 +60,8 @@ export async function runSetup(adapter) {
   try {
     const serverUrl = (await prompt(
       rl,
-      'URL do servidor LabelGo [https://app.labelgo.com.br]: ',
-      'https://app.labelgo.com.br'
+      'URL do servidor LabelGo [https://labelgo.com.br]: ',
+      'https://labelgo.com.br'
     )).replace(/\/$/, '');
 
     console.log('');

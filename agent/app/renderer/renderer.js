@@ -62,7 +62,7 @@ $('#adv-toggle').addEventListener('click', async () => {
   panel.hidden = !willShow;
   if (willShow) {
     const config = await labelgo.getConfig();
-    $('#server-url').value = config.serverUrl || 'https://app.labelgo.com.br';
+    $('#server-url').value = config.serverUrl || 'https://labelgo.com.br';
   }
 });
 
@@ -305,7 +305,7 @@ async function boot() {
   autostart = await labelgo.getAutostart();
   $('#toggle-autostart').classList.toggle('on', autostart);
   if (!state.paired) {
-    $('#server-url').value = cfg.serverUrl || 'https://app.labelgo.com.br';
+    $('#server-url').value = cfg.serverUrl || 'https://labelgo.com.br';
     refreshPrinters();
   }
   applyState(state);
