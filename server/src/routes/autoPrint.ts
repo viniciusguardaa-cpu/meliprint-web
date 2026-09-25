@@ -17,6 +17,7 @@ import {
   createPairingCode,
   getMarketplaceAccountsForUser
 } from '../db.js';
+import pool from '../db.js';
 import { getProvider } from '../providers/index.js';
 import { requireActiveSubscription, requirePlanFeature } from '../middleware/subscription.js';
 import { trackEvent } from '../services/analytics.js';
@@ -224,6 +225,12 @@ function requireAgentToken(req: Request, res: Response, next: () => void) {
     // Cancelled subs keep access until current_period_end (checked inside
     // hasProAccess).
     if (!(await hasProAccess(config.user_id))) {
+      const subs = await pool.query(
+        `SELECT "status", "plan_id", "trial_ends_at", "current_period_end" FROM "subscriptions"
+         WHERE "user_id" = $1 ORDER BY "created_at" DESC LIMIT 3`,
+        [config.user_id]
+      );
+      console.warn(`[agent-auth] 403 subscription_required user=${config.user_id} subs=${JSON.stringify(subs.rows)}`);
       return res.status(403).json({ error: 'subscription_required' });
     }
     (req as any).agentConfig = config;
