@@ -48,12 +48,14 @@ router.post('/pair', pairLimiter, async (req: Request, res: Response) => {
     }
 
     // Ensure an agent token exists for this account (reuse if already enabled
-    // so a re-pair doesn't break a running agent).
+    // so a re-pair doesn't break a running agent). Pairing implies the user
+    // wants auto-print on — the agent token only validates when enabled=true.
     const config = await getAutoPrintConfig(pairing.user_id);
     const agentToken = config?.agent_token || crypto.randomBytes(32).toString('hex');
 
     await upsertAutoPrintConfig(pairing.user_id, {
       agentToken,
+      enabled: true,
     });
 
     res.json({

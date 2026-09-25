@@ -421,7 +421,7 @@ export default function AutoPrint() {
                   Token do Agente
                 </h2>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Só necessário para instalação manual (sem o instalador). O pareamento por código já configura tudo automaticamente.
+                  <strong>Não é o código de pareamento.</strong> Só use este token para instalação manual (sem o instalador). O pareamento por código já configura tudo automaticamente.
                 </p>
                 <div className="flex gap-2">
                   <Input
