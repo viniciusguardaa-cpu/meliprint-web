@@ -1012,7 +1012,6 @@ export async function getAutoPrintEnabledConfigs() {
        )
        OR EXISTS (
          SELECT 1 FROM "free_access" f WHERE LOWER(f."email") = LOWER(u."email") AND u."email" IS NOT NULL
-           AND u."email_verified" = true
        )
      )`
   );
