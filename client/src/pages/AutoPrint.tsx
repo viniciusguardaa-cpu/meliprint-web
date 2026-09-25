@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
 import { Printer, Zap, Copy, Check, Loader2, AlertCircle, Link2, AlertTriangle, Download } from 'lucide-react';
 import Header from '../components/Header';
@@ -348,7 +348,7 @@ export default function AutoPrint() {
                 </li>
                 <li className="flex gap-3">
                   <span className="flex-shrink-0 w-6 h-6 bg-secondary text-secondary-foreground rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                  <span>Gere o código de pareamento abaixo e digite-o no instalador.</span>
+                  <span>Gere o código de pareamento abaixo e digite-o no aplicativo que abre após a instalação.</span>
                 </li>
                 <li className="flex gap-3">
                   <span className="flex-shrink-0 w-6 h-6 bg-secondary text-secondary-foreground rounded-full flex items-center justify-center text-xs font-bold">3</span>
@@ -375,7 +375,7 @@ export default function AutoPrint() {
 
               {pairingCode && (
                 <div className="bg-secondary/20 border border-secondary rounded-lg p-4 text-center mt-4">
-                  <p className="text-xs text-foreground/70 mb-1">Código de pareamento (válido por 10 min)</p>
+                  <p className="text-xs text-foreground/70 mb-1">Código de pareamento (válido por 30 min)</p>
                   <div className="flex items-center justify-center gap-3">
                     <span className="text-3xl font-mono font-bold tracking-widest text-foreground">
                       {pairingCode.code}

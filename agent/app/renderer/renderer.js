@@ -107,7 +107,7 @@ function cleanIpcError(err, fallback) {
 }
 
 $('#btn-pair').addEventListener('click', async () => {
-  const code = $('#pair-code').value.trim();
+  const code = $('#pair-code').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
   const printerName = $('#printer-select').value;
   if (!code) return showObError('Digite o código de pareamento do painel LabelGo.');
   if (!printerName) return showObError('Selecione uma impressora.');

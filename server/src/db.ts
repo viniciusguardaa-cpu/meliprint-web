@@ -25,6 +25,8 @@ export async function initDatabase() {
   // schema_migrations. See server/migrations/*.sql.
   const { runMigrations } = await import('./migrate.js');
   await runMigrations();
+  const encrypted = await encryptLegacyAgentTokens();
+  if (encrypted > 0) console.log(`🔐 Encrypted ${encrypted} legacy agent token(s)`);
   console.log('✅ Database initialized (migrations applied)');
 }
 
@@ -94,6 +96,36 @@ export async function markEmailVerified(userId: number) {
     `UPDATE "users" SET "email_verified" = true, "updated_at" = CURRENT_TIMESTAMP WHERE "id" = $1`,
     [userId]
   );
+}
+
+/** Discard every session authenticated before `at` (see sessionGuard). */
+export async function revokeUserSessions(userId: number, at: Date) {
+  await pool.query(
+    `UPDATE "users" SET "sessions_revoked_at" = $2, "updated_at" = CURRENT_TIMESTAMP WHERE "id" = $1`,
+    [userId, at]
+  );
+}
+
+/**
+ * A provider with a verified email proved ownership of an account that was
+ * registered with that email but never verified: drop the (possibly
+ * attacker-set) password and kill existing sessions before linking.
+ */
+export async function claimUnverifiedAccount(userId: number, at: Date) {
+  await pool.query(
+    `UPDATE "users" SET "password_hash" = NULL, "email_verified" = true,
+       "sessions_revoked_at" = $2, "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1`,
+    [userId, at]
+  );
+}
+
+export async function getUserSessionState(userId: number) {
+  const result = await pool.query(
+    `SELECT "id", "sessions_revoked_at" FROM "users" WHERE "id" = $1`,
+    [userId]
+  );
+  return result.rows[0] || null;
 }
 
 /** Keeps the legacy users.ml_user_id convenience column in sync on ML connect. */
@@ -262,13 +294,18 @@ export async function markAccountReauthRequired(accountId: number) {
 
 export async function createAuthToken(userId: number, type: 'verify_email' | 'reset_password', ttlMinutes: number) {
   const token = crypto.randomBytes(32).toString('hex');
+  // Only the hash is stored: a DB leak doesn't hand out live reset links.
   const result = await pool.query(
     `INSERT INTO "auth_tokens" ("user_id", "token", "type", "expires_at")
      VALUES ($1, $2, $3, CURRENT_TIMESTAMP + ($4 || ' minutes')::INTERVAL)
      RETURNING *`,
-    [userId, token, type, String(ttlMinutes)]
+    [userId, hashAuthToken(token), type, String(ttlMinutes)]
   );
-  return result.rows[0];
+  return { ...result.rows[0], token };
+}
+
+function hashAuthToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 /** Consume a token: returns the user_id when valid+unused+unexpired, else null. */
@@ -277,7 +314,7 @@ export async function consumeAuthToken(token: string, type: 'verify_email' | 're
     `UPDATE "auth_tokens" SET "used_at" = CURRENT_TIMESTAMP
      WHERE "token" = $1 AND "type" = $2 AND "used_at" IS NULL AND "expires_at" > CURRENT_TIMESTAMP
      RETURNING "user_id"`,
-    [token, type]
+    [hashAuthToken(token), type]
   );
   return result.rows[0]?.user_id ?? null;
 }
@@ -328,7 +365,7 @@ export async function hasProAccess(userId: number): Promise<boolean> {
      ) OR EXISTS(
        SELECT 1 FROM "free_access" f
        JOIN "users" u ON LOWER(u."email") = LOWER(f."email")
-       WHERE u."id" = $1
+       WHERE u."id" = $1 AND u."email_verified" = true
      ) AS "has_access"`,
     [userId]
   );
@@ -410,16 +447,19 @@ export async function failCheckoutSession(id: number, error: string) {
   );
 }
 
-/** Re-open a failed session for a retry with the same key. */
-export async function retryCheckoutSession(id: number) {
-  await pool.query(
+/** Re-open a failed session for a retry with the same key. Returns the new attempt number. */
+export async function retryCheckoutSession(id: number): Promise<number | null> {
+  const result = await pool.query(
     `UPDATE "checkout_sessions" SET
        "status" = 'processing',
        "error" = NULL,
+       "attempts" = "attempts" + 1,
        "updated_at" = CURRENT_TIMESTAMP
-     WHERE "id" = $1 AND "status" = 'failed'`,
+     WHERE "id" = $1 AND "status" = 'failed'
+     RETURNING "attempts"`,
     [id]
   );
+  return result.rows?.[0]?.attempts ?? null;
 }
 
 export async function createSubscription(
@@ -838,6 +878,38 @@ export async function getAdminTimeseries(days = 30) {
 // Auto-print config operations
 // ---------------------------------------------------------------------------
 
+/** sha256 of the agent token — the only form used for lookups. */
+export function hashAgentToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/**
+ * Decrypt secrets on read. ML tokens and the agent token are stored with
+ * AES-GCM (legacy plaintext rows pass through decrypt unchanged and are
+ * re-encrypted on the next write / by encryptLegacyAgentTokens).
+ */
+function hydrateAutoPrintRow(row: any) {
+  row.ml_access_token = row.ml_access_token ? decrypt(row.ml_access_token) : null;
+  row.ml_refresh_token = row.ml_refresh_token ? decrypt(row.ml_refresh_token) : null;
+  row.agent_token = row.agent_token ? decrypt(row.agent_token) : null;
+  delete row.agent_token_hash;
+}
+
+/** One-off backfill: encrypt agent tokens still stored in plaintext. */
+export async function encryptLegacyAgentTokens(): Promise<number> {
+  const result = await pool.query(
+    `SELECT "user_id", "agent_token" FROM "auto_print_config"
+     WHERE "agent_token" IS NOT NULL AND "agent_token" NOT LIKE 'enc:v1:%'`
+  );
+  for (const row of result.rows) {
+    await pool.query(
+      `UPDATE "auto_print_config" SET "agent_token" = $2, "agent_token_hash" = $3 WHERE "user_id" = $1`,
+      [row.user_id, encrypt(row.agent_token), hashAgentToken(row.agent_token)]
+    );
+  }
+  return result.rows.length;
+}
+
 export async function getAutoPrintConfig(userId: number) {
   const result = await pool.query(
     `SELECT * FROM "auto_print_config" WHERE "user_id" = $1`,
@@ -845,10 +917,7 @@ export async function getAutoPrintConfig(userId: number) {
   );
   const row = result.rows[0] || null;
   if (row) {
-    // Decrypt ML tokens on read. Legacy plaintext rows are decrypted (returned as-is)
-    // and re-encrypted on the next write (lazy migration).
-    row.ml_access_token = row.ml_access_token ? decrypt(row.ml_access_token) : null;
-    row.ml_refresh_token = row.ml_refresh_token ? decrypt(row.ml_refresh_token) : null;
+    hydrateAutoPrintRow(row);
   }
   return row;
 }
@@ -868,8 +937,8 @@ export async function upsertAutoPrintConfig(
   const encAccess = fields.mlAccessToken !== undefined ? encrypt(fields.mlAccessToken) : undefined;
   const encRefresh = fields.mlRefreshToken !== undefined ? encrypt(fields.mlRefreshToken) : undefined;
   const result = await pool.query(
-    `INSERT INTO "auto_print_config" ("user_id", "enabled", "ml_access_token", "ml_refresh_token", "ml_token_expires_at", "ml_seller_id", "agent_token", "printer_name", "updated_at")
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+    `INSERT INTO "auto_print_config" ("user_id", "enabled", "ml_access_token", "ml_refresh_token", "ml_token_expires_at", "ml_seller_id", "agent_token", "agent_token_hash", "printer_name", "updated_at")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $9, $8, CURRENT_TIMESTAMP)
      ON CONFLICT ("user_id") DO UPDATE SET
        "enabled" = COALESCE($2, "auto_print_config"."enabled"),
        "ml_access_token" = COALESCE($3, "auto_print_config"."ml_access_token"),
@@ -877,6 +946,7 @@ export async function upsertAutoPrintConfig(
        "ml_token_expires_at" = COALESCE($5, "auto_print_config"."ml_token_expires_at"),
        "ml_seller_id" = COALESCE($6, "auto_print_config"."ml_seller_id"),
        "agent_token" = COALESCE($7, "auto_print_config"."agent_token"),
+       "agent_token_hash" = COALESCE($9, "auto_print_config"."agent_token_hash"),
        "printer_name" = COALESCE($8, "auto_print_config"."printer_name"),
        "updated_at" = CURRENT_TIMESTAMP
      RETURNING *`,
@@ -887,14 +957,14 @@ export async function upsertAutoPrintConfig(
       encRefresh ?? null,
       fields.mlTokenExpiresAt ?? null,
       fields.mlSellerId ?? null,
-      fields.agentToken ?? null,
-      fields.printerName ?? null
+      fields.agentToken !== undefined ? encrypt(fields.agentToken) : null,
+      fields.printerName ?? null,
+      fields.agentToken !== undefined ? hashAgentToken(fields.agentToken) : null
     ]
   );
   const row = result.rows[0];
   if (row) {
-    row.ml_access_token = row.ml_access_token ? decrypt(row.ml_access_token) : null;
-    row.ml_refresh_token = row.ml_refresh_token ? decrypt(row.ml_refresh_token) : null;
+    hydrateAutoPrintRow(row);
   }
   return row;
 }
@@ -942,13 +1012,11 @@ export async function getAutoPrintEnabledConfigs() {
        )
        OR EXISTS (
          SELECT 1 FROM "free_access" f WHERE LOWER(f."email") = LOWER(u."email") AND u."email" IS NOT NULL
+           AND u."email_verified" = true
        )
      )`
   );
-  for (const row of result.rows) {
-    row.ml_access_token = row.ml_access_token ? decrypt(row.ml_access_token) : null;
-    row.ml_refresh_token = row.ml_refresh_token ? decrypt(row.ml_refresh_token) : null;
-  }
+  result.rows.forEach(hydrateAutoPrintRow);
   return result.rows;
 }
 
@@ -956,13 +1024,12 @@ export async function getAutoPrintConfigByAgentToken(token: string) {
   const result = await pool.query(
     `SELECT c.*, u."ml_user_id" FROM "auto_print_config" c
      JOIN "users" u ON c."user_id" = u."id"
-     WHERE c."agent_token" = $1 AND c."enabled" = true AND u."blocked_at" IS NULL`,
-    [token]
+     WHERE c."agent_token_hash" = $1 AND c."enabled" = true AND u."blocked_at" IS NULL`,
+    [hashAgentToken(token)]
   );
   const row = result.rows[0] || null;
   if (row) {
-    row.ml_access_token = row.ml_access_token ? decrypt(row.ml_access_token) : null;
-    row.ml_refresh_token = row.ml_refresh_token ? decrypt(row.ml_refresh_token) : null;
+    hydrateAutoPrintRow(row);
   }
   return row;
 }
@@ -1192,10 +1259,10 @@ export async function updateAgentHeartbeat(agentId: string, userId: number) {
     `UPDATE "auto_print_config" SET
        "last_heartbeat_at" = CURRENT_TIMESTAMP,
        "agent_status" = 'online',
-       "agent_id" = $3,
+       "agent_id" = $2,
        "updated_at" = CURRENT_TIMESTAMP
      WHERE "user_id" = $1`,
-    [userId, agentId, agentId]
+    [userId, agentId]
   );
 }
 
@@ -1359,6 +1426,15 @@ export async function createPairingCode(userId: number, code: string, ttlMinutes
     [code, userId, String(ttlMinutes)]
   );
   return result.rows[0];
+}
+
+/** Look up a pairing code row regardless of state (diagnostics). */
+export async function findPairingCode(code: string) {
+  const result = await pool.query(
+    `SELECT "code", "used_at", "expires_at" FROM "agent_pairing_codes" WHERE "code" = $1`,
+    [code]
+  );
+  return result.rows[0] || null;
 }
 
 /** Consume a pairing code atomically: returns the row if valid+unused. */

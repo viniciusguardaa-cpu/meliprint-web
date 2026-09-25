@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import {
   consumePairingCode,
+  findPairingCode,
   getAutoPrintConfig,
   upsertAutoPrintConfig
 } from '../db.js';
@@ -29,13 +30,20 @@ const pairLimiter = rateLimit({
  */
 router.post('/pair', pairLimiter, async (req: Request, res: Response) => {
   try {
-    const code = String(req.body?.code || '').trim().toUpperCase();
+    // Strip anything that is not a code character — users may type/copy the
+    // code with spaces, dashes or lowercase letters.
+    const code = String(req.body?.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (!code || code.length > 20) {
       return res.status(400).json({ error: 'Código inválido' });
     }
 
     const pairing = await consumePairingCode(code);
     if (!pairing) {
+      const row = await findPairingCode(code);
+      console.warn(
+        `[agent-pair] rejected len=${code.length} exists=${Boolean(row)} ` +
+        `used=${Boolean(row?.used_at)} expired=${row ? new Date(row.expires_at) < new Date() : 'n/a'}`
+      );
       return res.status(400).json({ error: 'Código inválido, expirado ou já utilizado' });
     }
 

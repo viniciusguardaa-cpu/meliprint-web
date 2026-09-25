@@ -200,7 +200,7 @@ router.post('/pairing-code', requirePlanFeature('auto_print'), async (req: Reque
   // 8-char code, unambiguous alphabet (no 0/O, 1/I/L).
   const code = crypto.randomBytes(6).toString('hex').slice(0, 8).toUpperCase()
     .replace(/0/g, '2').replace(/1/g, '7');
-  const row = await createPairingCode(user.id, code, 10);
+  const row = await createPairingCode(user.id, code, 30);
   res.json({ code: row.code, expiresAt: row.expires_at });
 });
 
