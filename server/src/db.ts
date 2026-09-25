@@ -365,7 +365,7 @@ export async function hasProAccess(userId: number): Promise<boolean> {
      ) OR EXISTS(
        SELECT 1 FROM "free_access" f
        JOIN "users" u ON LOWER(u."email") = LOWER(f."email")
-       WHERE u."id" = $1 AND u."email_verified" = true
+       WHERE u."id" = $1
      ) AS "has_access"`,
     [userId]
   );
