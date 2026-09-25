@@ -1,26 +1,54 @@
 {
   "name": "labelgo-agent",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
-  "description": "LabelGo Agent - impressao automatica de etiquetas do Mercado Livre (cross-platform)",
-  "main": "agent.js",
-  "bin": "agent.js",
+  "description": "LabelGo Agent - impressao automatica de etiquetas do Mercado Livre (desktop app)",
+  "main": "app/main.js",
   "scripts": {
-    "start": "node agent.js",
+    "start": "electron .",
+    "dist": "electron-builder",
+    "cli": "node agent.js",
     "list-printers": "node list-printers.js",
     "test-print": "node agent.js --test-print",
     "setup": "node agent.js --setup",
     "check": "node agent.js --check",
-    "test": "node --test",
-    "build:exe": "pkg package.json --targets node22-win-x64 --output dist/labelgo-agent.exe"
-  },
-  "pkg": {
-    "scripts": [
-      "**/*.js"
-    ]
+    "test": "node --test"
   },
   "devDependencies": {
-    "@yao-pkg/pkg": "^6.6.0"
+    "electron": "42.11.4",
+    "electron-builder": "26.15.7"
+  },
+  "build": {
+    "appId": "com.labelgo.agent",
+    "productName": "LabelGo Agent",
+    "asar": true,
+    "files": [
+      "app/**",
+      "lib/**",
+      "printers/**",
+      "agent.js",
+      "list-printers.js",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "app/assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "LabelGoAgent-Setup.exe",
+      "runAfterFinish": true,
+      "shortcutName": "LabelGo Agent"
+    },
+    "mac": {
+      "icon": "app/assets/icon.png",
+      "category": "public.app-category.utilities"
+    }
   },
   "engines": {
     "node": ">=18"

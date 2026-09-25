@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'">
+  <link rel="stylesheet" href="app.css">
+  <title>LabelGo Agent</title>
+</head>
+
+<body>
+
+  <div class="titlebar" id="titlebar">
+    <img src="../assets/logo-wordmark.png" class="logo" alt="LabelGo">
+    <div class="win-controls">
+      <button class="wc" id="wc-min" aria-label="Minimizar">
+        <svg width="12" height="12" viewBox="0 0 12 12">
+          <line x1="1" y1="6" x2="11" y2="6" stroke="currentColor" stroke-width="1.3" />
+        </svg>
+      </button>
+      <button class="wc" id="wc-max" aria-label="Maximizar">
+        <svg width="11" height="11" viewBox="0 0 11 11">
+          <rect x="1" y="1" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.3" rx="1.5" />
+        </svg>
+      </button>
+      <button class="wc" id="wc-close" aria-label="Fechar">
+        <svg width="12" height="12" viewBox="0 0 12 12">
+          <path d="M1 1 L11 11 M11 1 L1 11" stroke="currentColor" stroke-width="1.3" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== ONBOARDING ==================== -->
+  <section id="view-onboarding" class="view" hidden>
+    <h1 class="display headline">Configure seu agente</h1>
+    <p class="subhead">Conecte este computador à sua conta LabelGo.</p>
+
+    <div class="form">
+      <label class="field-label" for="pair-code">Código de pareamento</label>
+      <input class="text-input" id="pair-code" type="text" maxlength="8" autocomplete="off"
+        placeholder="Digite o código de 6 dígitos">
+
+      <label class="field-label" for="printer-select" style="margin-top:22px">Impressora</label>
+      <div class="printer-row">
+        <select class="select-input" id="printer-select"></select>
+        <button class="icon-btn" id="btn-refresh-printers" title="Recarregar impressoras">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+            <path d="M8 16H3v5" />
+          </svg>
+        </button>
+      </div>
+      <span class="found-note" id="printers-count">Procurando impressoras…</span>
+
+      <button class="btn btn-secondary btn-test" id="btn-test-ob">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+          stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9" />
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+          <rect x="6" y="14" width="12" height="8" />
+        </svg>
+        Imprimir teste
+      </button>
+
+      <div class="toggle-row" id="row-autostart">
+        <span class="toggle on" id="toggle-autostart"><span class="thumb"></span></span>
+        Iniciar com o Windows
+      </div>
+
+      <button class="btn btn-primary" id="btn-pair">
+        Parear e continuar
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14" />
+          <path d="m13 6 6 6-6 6" />
+        </svg>
+      </button>
+      <p class="ob-error" id="ob-error" hidden></p>
+
+      <span class="secure-note">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+        O token fica salvo somente neste computador.
+      </span>
+
+      <a class="adv-link" id="adv-toggle">Configurações avançadas</a>
+      <div class="adv-panel" id="adv-panel" hidden>
+        <label class="field-label" for="server-url">Servidor</label>
+        <input class="text-input" id="server-url" type="text" autocomplete="off">
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== DASHBOARD ==================== -->
+  <section id="view-dashboard" class="view" hidden>
+    <div class="head-row">
+      <h1 class="display">Agente de impressão</h1>
+      <span class="pill-online" id="status-pill"><span class="dot dot-green"></span><span
+          id="status-pill-text">Online</span></span>
+      <span class="heartbeat-note" id="heartbeat-note"></span>
+      <button class="icon-btn" id="btn-settings" title="Configurações" hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path
+            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
+    </div>
+
+    <div id="banners"></div>
+
+    <div class="metrics">
+      <div class="metric">
+        <span class="m-label">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <rect x="6" y="14" width="12" height="8" />
+          </svg>
+          Impressora
+        </span>
+        <div class="m-value">
+          <span class="printer-name" id="metric-printer"><span class="dot dot-green"></span><span
+              id="metric-printer-name">—</span></span>
+          <a class="link-coral link-trocar" id="link-trocar">Trocar</a>
+        </div>
+      </div>
+      <div class="metric">
+        <span class="m-label">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+            <path d="M8 8h8" />
+            <path d="M8 12h8" />
+            <path d="M8 16h5" />
+          </svg>
+          Confirmações pendentes
+        </span>
+        <div class="m-value">
+          <span class="big-num" id="metric-pending">0</span>
+          <div class="tech-helper">listPendingReceipts</div>
+        </div>
+      </div>
+      <div class="metric">
+        <span class="m-label">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="20" x2="4" y2="13" />
+            <line x1="10" y1="20" x2="10" y2="7" />
+            <line x1="16" y1="20" x2="16" y2="11" />
+            <line x1="22" y1="20" x2="22" y2="4" />
+          </svg>
+          Impressas hoje
+        </span>
+        <div class="m-value"><span class="big-num" id="metric-printed">0</span></div>
+      </div>
+    </div>
+
+    <div class="printer-picker" id="printer-picker" hidden>
+      <label class="field-label">Escolher impressora</label>
+      <div class="printer-row">
+        <select class="select-input" id="printer-select-dash"></select>
+        <button class="btn btn-primary" id="btn-apply-printer"
+          style="height:44px;padding:0 18px;font-size:13.5px">Aplicar</button>
+      </div>
+    </div>
+
+    <div class="activity">
+      <div class="activity-head">
+        <h2>Atividade em tempo real</h2>
+        <button class="icon-btn pause-btn" id="btn-pause" title="Pausar agente">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16" rx="1.5" />
+            <rect x="14" y="4" width="4" height="16" rx="1.5" />
+          </svg>
+        </button>
+      </div>
+      <div class="log-rows" id="log-rows"></div>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn-primary" id="btn-test">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+          stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9" />
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+          <rect x="6" y="14" width="12" height="8" />
+        </svg>
+        Imprimir teste
+      </button>
+      <button class="btn btn-secondary" id="btn-trocar">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+          <path d="M21 3v5h-5" />
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+          <path d="M8 16H3v5" />
+        </svg>
+        Trocar impressora
+      </button>
+      <div class="overflow-anchor">
+        <button class="icon-btn" id="btn-overflow" style="width:46px;height:46px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="1.8" />
+            <circle cx="12" cy="12" r="1.8" />
+            <circle cx="19" cy="12" r="1.8" />
+          </svg>
+        </button>
+        <div class="overflow-menu" id="overflow-menu" hidden>
+          <div class="item" id="mi-repair">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M8 16H3v5" />
+            </svg>
+            Re-parear agente
+          </div>
+          <div class="item" id="mi-statedir">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path
+                d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.49l-1.55 6a2 2 0 0 1-1.94 1.51H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.93l.81 1.14a2 2 0 0 0 1.7.93H20a2 2 0 0 1 2 2v2" />
+            </svg>
+            Abrir pasta de estado
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-strip">
+      <span class="dot dot-green"></span>
+      Executando em segundo plano
+    </div>
+  </section>
+
+  <script src="renderer.js"></script>
+</body>
+
+</html>

@@ -1,8 +1,9 @@
 name: Agent Installer
 
-# Builds the Windows installer (labelgo-agent.exe via pkg + LabelGoAgent-Setup.exe
-# via Inno Setup) and publishes it to the `agent-latest` GitHub release.
-# The site serves it at /downloads/LabelGoAgent-Setup.exe via a Netlify redirect.
+# Builds the Windows installer (LabelGoAgent-Setup.exe via electron-builder
+# NSIS, per-user install, no admin) and publishes it to the `agent-latest`
+# GitHub release. The site serves it at /downloads/LabelGoAgent-Setup.exe
+# via a Netlify redirect.
 
 on:
   workflow_dispatch:
@@ -33,23 +34,17 @@ jobs:
         working-directory: agent
         run: npm ci
 
-      - name: Build labelgo-agent.exe
+      - name: Build LabelGoAgent-Setup.exe
         working-directory: agent
-        run: npm run build:exe
-
-      - name: Install Inno Setup
-        run: choco install innosetup --no-progress --yes
-
-      - name: Compile installer
-        shell: pwsh
-        run: |
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" agent/installer/LabelGoAgent.iss
+        run: npx electron-builder --win nsis --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: LabelGoAgent-Setup
-          path: agent/installer/Output/LabelGoAgent-Setup.exe
+          path: agent/dist/LabelGoAgent-Setup.exe
           retention-days: 30
 
       - name: Publish agent-latest release
@@ -57,7 +52,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $asset = 'agent/installer/Output/LabelGoAgent-Setup.exe'
+          $asset = 'agent/dist/LabelGoAgent-Setup.exe'
           gh release view agent-latest --repo ${{ github.repository }} *> $null
           if ($LASTEXITCODE -eq 0) {
             gh release upload agent-latest $asset --clobber --repo ${{ github.repository }}
