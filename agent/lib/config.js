@@ -58,7 +58,7 @@ export function loadConfig(stateDir = getStateDir()) {
   };
 
   return {
-    serverUrl: String(pick(['LABELGO_SERVER_URL', 'PRINTLY_SERVER_URL', 'MELIPRINT_SERVER_URL'], 'serverUrl', 'http://localhost:3001')).replace(/\/$/, ''),
+    serverUrl: String(pick(['LABELGO_SERVER_URL', 'PRINTLY_SERVER_URL', 'MELIPRINT_SERVER_URL'], 'serverUrl', 'https://labelgo.com.br')).replace(/\/$/, ''),
     agentToken: pick(['LABELGO_AGENT_TOKEN', 'PRINTLY_AGENT_TOKEN', 'MELIPRINT_AGENT_TOKEN'], 'agentToken', undefined),
     printerName: pick(['LABELGO_PRINTER_NAME', 'PRINTLY_PRINTER_NAME', 'MELIPRINT_PRINTER_NAME'], 'printerName', undefined),
     pollInterval: Number(pick(['LABELGO_POLL_INTERVAL', 'PRINTLY_POLL_INTERVAL', 'MELIPRINT_POLL_INTERVAL'], 'pollInterval', 5000)),

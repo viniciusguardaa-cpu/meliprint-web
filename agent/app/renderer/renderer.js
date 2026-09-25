@@ -80,7 +80,7 @@ $('#btn-test-ob').addEventListener('click', async () => {
     await labelgo.testPrint();
     showObNotice('Etiqueta de teste enviada. Verifique a impressora.');
   } catch (err) {
-    showObError(`Falha no teste: ${err.message}`);
+    showObError(`Falha no teste: ${cleanIpcError(err, 'erro ao enviar para a impressora')}`);
   } finally {
     btn.disabled = false;
   }
@@ -99,6 +99,13 @@ function showObNotice(msg) {
   el.hidden = false;
 }
 
+// ipcRenderer.invoke() wraps handler errors as
+// "Error invoking remote method 'x': Error: <real message>" — strip that.
+function cleanIpcError(err, fallback) {
+  const msg = String(err?.message || '').replace(/^Error invoking remote method '[^']*':\s*(Error:\s*)?/, '');
+  return msg || fallback;
+}
+
 $('#btn-pair').addEventListener('click', async () => {
   const code = $('#pair-code').value.trim();
   const printerName = $('#printer-select').value;
@@ -114,7 +121,7 @@ $('#btn-pair').addEventListener('click', async () => {
     await labelgo.setAutostart(autostart);
     // state event will swap the view
   } catch (err) {
-    showObError(err.message || 'Pareamento falhou. Confira o código.');
+    showObError(cleanIpcError(err, 'Pareamento falhou. Confira o código.'));
     btn.disabled = false;
     btn.firstChild.textContent = 'Parear e continuar ';
   }

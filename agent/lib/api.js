@@ -60,11 +60,16 @@ export function sendHeartbeat(serverUrl, token, agentId) {
  * No auth header — the short-lived code is the credential.
  */
 export async function pairWithCode(serverUrl, code) {
-  const resp = await fetch(`${serverUrl}/api/agent/pair`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code }),
-  });
+  let resp;
+  try {
+    resp = await fetch(`${serverUrl}/api/agent/pair`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+  } catch {
+    throw new Error('Não foi possível conectar ao servidor. Verifique a internet e tente novamente.');
+  }
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) {
     throw new Error(data.error || `Pareamento falhou (${resp.status})`);
