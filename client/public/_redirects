@@ -1,0 +1,9 @@
+/dashboard /spa.html 200
+/dashboard/* /spa.html 200
+/print/* /spa.html 200
+/auto-print /spa.html 200
+/subscription /spa.html 200
+/subscription/* /spa.html 200
+/configuracoes /spa.html 200
+/admin /admin.html 200
+/admin/* /admin.html 200
