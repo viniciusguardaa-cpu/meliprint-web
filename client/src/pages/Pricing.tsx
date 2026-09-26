@@ -103,7 +103,10 @@ export default function Pricing() {
         return;
       }
 
-      // Redirect to Mercado Pago checkout (same URL on replayed requests)
+      // Keep the exact checkout preapproval for the return callback. The MP
+      // back_url does not reliably include it as a query parameter.
+      if (!data.preapprovalId) throw new Error('Checkout sem identificador de assinatura');
+      window.sessionStorage.setItem('labelgo:pending-preapproval', data.preapprovalId);
       window.location.href = data.checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao processar');

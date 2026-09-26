@@ -608,7 +608,9 @@ export async function subscriptionLookup(req: Request, res: Response) {
     res.json({
       id: sub.mp_preapproval_id,
       status: sub.status,
-      currentPeriodEnd: sub.current_period_end
+      currentPeriodEnd: sub.current_period_end,
+      price: Number(sub.contracted_amount || sub.price) || 0,
+      currency: sub.contracted_currency || 'BRL'
     });
   } catch (err) {
     if (describeError(err).includes('fetch failed: 404')) {
