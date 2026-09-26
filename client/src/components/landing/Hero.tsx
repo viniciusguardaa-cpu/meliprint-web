@@ -9,20 +9,22 @@ import {
 } from 'lucide-react';
 import Reveal from './Reveal';
 import { DashboardMockup, ThermalPrinter, PackageBoxes } from './visuals';
+import MotionHeroDemo from './MotionHeroDemo';
 
 const BENEFITS = [
-  'Impressão em formato ZPL',
-  'Integração com Mercado Livre',
-  'Sem instalação',
-  'Rápido e seguro',
+  'Selecione todos os envios prontos',
+  'Imprima as etiquetas em lote',
+  'Conexão com Mercado Livre',
+  'Sem instalar nada para imprimir pelo navegador',
 ];
 
 interface HeroProps {
+  motionAlternative?: boolean;
   priceLabel: string;
   onPrimaryCta: () => void;
 }
 
-export default function Hero({ priceLabel, onPrimaryCta }: HeroProps) {
+export default function Hero({ priceLabel, onPrimaryCta, motionAlternative = false }: HeroProps) {
   const rootRef = useRef<HTMLElement>(null);
 
   // Mouse parallax with per-frame lerp — each frame eases the current offset
@@ -127,16 +129,14 @@ export default function Hero({ priceLabel, onPrimaryCta }: HeroProps) {
                 id="hero-title"
                 className="mt-5 text-[42px] sm:text-6xl lg:text-[64px] xl:text-[76px] font-extrabold text-foreground leading-[0.98] tracking-tight"
               >
-                Imprima etiquetas do{' '}
-                <span className="text-primary">Mercado&nbsp;Livre</span>{' '}
-                em segundos.
+                {motionAlternative ? (<>O dia de etiquetas, <span className="text-primary">numa impressão só.</span></>) : (<>Etiquetas do <span className="text-primary">Mercado&nbsp;Livre</span> em lote, sem abrir cada pedido.</>)}
               </h1>
             </Reveal>
 
             <Reveal delay={180}>
               <p className="mt-6 text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto lg:mx-0">
-                Automatize seus envios, economize tempo e foque no que realmente
-                importa: fazer seu negócio crescer.
+                Selecione os envios prontos e clique em Imprimir.
+                O LabelGo reúne as etiquetas para impressão pelo navegador.
               </p>
             </Reveal>
 
@@ -190,7 +190,7 @@ export default function Hero({ priceLabel, onPrimaryCta }: HeroProps) {
           </div>
 
           {/* ------- Product showcase ------- */}
-          <Reveal delay={200} className="relative hidden md:block">
+          {motionAlternative ? <Reveal delay={200} className="relative hidden md:block"><MotionHeroDemo /></Reveal> : <Reveal delay={200} className="relative hidden md:block">
             <div className="relative">
               {/* Boxes behind */}
               <div className="absolute -bottom-6 -left-4 opacity-70" style={layer(8)}>
@@ -250,12 +250,12 @@ export default function Hero({ priceLabel, onPrimaryCta }: HeroProps) {
                 </div>
               </div>
             </div>
-          </Reveal>
+          </Reveal>}
         </div>
 
         {/* Simplified product preview — mobile only */}
         <Reveal delay={300} className="md:hidden mt-12">
-          <DashboardMockup compact />
+          {motionAlternative ? <MotionHeroDemo /> : <DashboardMockup compact />}
         </Reveal>
       </div>
     </section>
