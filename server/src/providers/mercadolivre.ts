@@ -226,7 +226,9 @@ export const mercadolivreProvider: MarketplaceProvider = {
       identity: {
         externalUserId: String(userInfo.id),
         nickname: userInfo.nickname,
-        email: userInfo.email
+        email: userInfo.email,
+        // Mercado Livre confirms account emails before they are usable.
+        emailVerified: !!userInfo.email
       },
       tokens: {
         accessToken: tokens.access_token,
@@ -255,8 +257,42 @@ export const mercadolivreProvider: MarketplaceProvider = {
   listReadyShipments,
 
   async listPrintableShipmentIds(ctx: AccountContext): Promise<string[]> {
-    const ids = await searchShipments(ctx.accessToken, Number(ctx.externalUserId), 'ready_to_ship', 'ready_to_print');
-    return ids.map(String);
+    const accessToken = ctx.accessToken;
+    const sellerId = Number(ctx.externalUserId);
+    try {
+      const ids = await searchShipments(accessToken, sellerId, 'ready_to_ship', 'ready_to_print');
+      if (ids.length > 0) return ids.map(String);
+    } catch (error) {
+      console.error('[mercadolivre] printable search failed, falling back to orders scan:', error);
+    }
+
+    // The ML shipments-search index misses shipments for some sellers
+    // entirely (observed: search=0 while the dashboard's orders scan finds
+    // ready_to_print shipments). Fall back to the same orders-scan strategy
+    // listReadyShipments uses, bounded to recent orders.
+    const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const orders = await getOrders(accessToken, sellerId, dateFrom);
+    const candidateIds = orders
+      .map((order) => order.shipping?.id)
+      .filter((id): id is number => typeof id === 'number' && id > 0);
+
+    const printable = await processBatchWithDelay(
+      candidateIds,
+      BATCH_SIZE,
+      BATCH_DELAY_MS,
+      async (shipmentId) => {
+        try {
+          const shipment = await getShipment(accessToken, shipmentId);
+          return shipment.status === 'ready_to_ship' && shipment.substatus === 'ready_to_print'
+            ? shipmentId
+            : null;
+        } catch {
+          return null;
+        }
+      }
+    );
+    console.log(`[mercadolivre] printable fallback: ${orders.length} orders, ${candidateIds.length} shipments, ${printable.length} ready_to_print`);
+    return printable.map(String);
   },
 
   async getLabelsZPL(ctx: AccountContext, externalIds: string[]): Promise<string> {
