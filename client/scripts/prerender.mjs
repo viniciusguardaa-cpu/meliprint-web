@@ -142,6 +142,9 @@ const adminHtml = spaHtml
     </style>`
   );
 writeFileSync(join(distDir, 'admin.html'), adminHtml);
+// Cloudflare Pages route handler serves this neutral shell path without
+// calling its own /admin route recursively.
+writeFileSync(join(distDir, 'admin-shell.html'), adminHtml);
 
 // Sitemap gerado do PAGE_SEO: só rotas indexáveis, com a URL canônica exata.
 // lastmod = data do último commit que tocou conteúdo/páginas (estável entre
