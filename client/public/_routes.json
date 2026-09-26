@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "include": [
+    "/api/*",
+    "/dashboard", "/dashboard/*",
+    "/print/*",
+    "/auto-print",
+    "/subscription", "/subscription/*",
+    "/configuracoes",
+    "/admin", "/admin/*"
+  ],
+  "exclude": []
+}
