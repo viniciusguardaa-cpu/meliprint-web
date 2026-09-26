@@ -18,6 +18,11 @@ export interface ProviderIdentity {
   externalUserId: string;
   nickname?: string;
   email?: string;
+  /**
+   * True only when the provider guarantees the user proved ownership of
+   * `email`. Only verified emails may be used to link/create accounts.
+   */
+  emailVerified?: boolean;
 }
 
 /** Result of an OAuth/code exchange: who the user is + their tokens. */
