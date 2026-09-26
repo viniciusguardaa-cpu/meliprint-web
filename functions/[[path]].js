@@ -17,7 +17,7 @@ export async function onRequest({ request, env }) {
   }
   // ASSETS.fetch receives the pretty path and returns a response, not a
   // browser redirect. Keep the original URL so React Router sees its route.
-  const shell = new URL(isAdmin ? '/admin' : '/spa', url);
+  const shell = new URL(isAdmin ? '/admin-shell' : '/spa', url);
   const response = await env.ASSETS.fetch(new Request(shell, { method: request.method }));
   const headers = new Headers(response.headers);
   headers.set('X-Robots-Tag', 'noindex, nofollow');
