@@ -60,6 +60,8 @@ export default function Landing() {
     }
   };
 
+  // Motion is the default in this unmerged PR; ?hero=copy preserves the copy-only comparison.
+  const motionAlternative = new URLSearchParams(window.location.search).get('hero') !== 'copy';
   const priceLabel = proPrice !== null ? `R$ ${formatBRL(proPrice)}` : 'R$ 59,90';
 
   return (
@@ -71,7 +73,7 @@ export default function Landing() {
         onDashboard={() => navigate('/dashboard')}
       />
       <main>
-        <Hero priceLabel={priceLabel} onPrimaryCta={handleCTA} />
+        <Hero priceLabel={priceLabel} onPrimaryCta={handleCTA} motionAlternative={motionAlternative} />
         <TrustBar />
         <BentoFeatures />
         <Workflow />
