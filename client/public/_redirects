@@ -1,9 +1,1 @@
-/dashboard /spa.html 200
-/dashboard/* /spa.html 200
-/print/* /spa.html 200
-/auto-print /spa.html 200
-/subscription /spa.html 200
-/subscription/* /spa.html 200
-/configuracoes /spa.html 200
-/admin /admin.html 200
-/admin/* /admin.html 200
+/downloads/LabelGoAgent-Setup.exe https://github.com/viniciusguardaa-cpu/meliprint-web/releases/download/agent-latest/LabelGoAgent-Setup.exe 302
