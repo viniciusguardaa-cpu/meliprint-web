@@ -1,0 +1,27 @@
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/fonts/*
+  Cache-Control: public, max-age=2592000
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+/spa.html
+  X-Robots-Tag: noindex, nofollow
+/dashboard
+  X-Robots-Tag: noindex, nofollow
+/dashboard/*
+  X-Robots-Tag: noindex, nofollow
+/print/*
+  X-Robots-Tag: noindex, nofollow
+/auto-print
+  X-Robots-Tag: noindex, nofollow
+/subscription
+  X-Robots-Tag: noindex, nofollow
+/subscription/*
+  X-Robots-Tag: noindex, nofollow
+/configuracoes
+  X-Robots-Tag: noindex, nofollow
+/admin
+  X-Robots-Tag: noindex, nofollow
+/admin/*
+  X-Robots-Tag: noindex, nofollow
