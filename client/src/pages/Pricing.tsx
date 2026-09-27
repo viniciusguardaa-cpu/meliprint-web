@@ -106,6 +106,9 @@ export default function Pricing() {
       // Keep the exact checkout preapproval for the return callback. The MP
       // back_url does not reliably include it as a query parameter.
       if (!data.preapprovalId) throw new Error('Checkout sem identificador de assinatura');
+      // MP may return in a new tab/window. sessionStorage is tab-scoped, so
+      // retain the checkout reference across tabs on this origin as well.
+      window.localStorage.setItem('labelgo:pending-preapproval', data.preapprovalId);
       window.sessionStorage.setItem('labelgo:pending-preapproval', data.preapprovalId);
       window.location.href = data.checkoutUrl;
     } catch (err) {

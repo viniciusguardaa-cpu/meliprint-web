@@ -41,6 +41,7 @@ function trackSubscriptionConversion(subscription: CheckoutSubscription) {
   try {
     window.localStorage.setItem(storageKey, '1');
     window.sessionStorage.removeItem('labelgo:pending-preapproval');
+    window.localStorage.removeItem('labelgo:pending-preapproval');
   } catch {
     // Storage can be unavailable; server reconciliation still controls firing.
   }
@@ -68,6 +69,11 @@ export default function SubscriptionCallback() {
     const params = new URLSearchParams(window.location.search);
     let storedId: string | null = null;
     try { storedId = window.sessionStorage.getItem('labelgo:pending-preapproval'); } catch { /* unavailable */ }
+    // A checkout may return in a new tab, where sessionStorage is empty. The
+    // server still verifies ownership, payment status and positive paid value.
+    if (!storedId) {
+      try { storedId = window.localStorage.getItem('labelgo:pending-preapproval'); } catch { /* unavailable */ }
+    }
     const returnId = params.get('preapproval_id') || params.get('preapprovalId');
     // A query parameter alone cannot prove this browser began the checkout.
     const checkoutId = storedId && (!returnId || returnId === storedId) ? storedId : null;
