@@ -26,6 +26,7 @@ export default function Pricing() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorPlanId, setErrorPlanId] = useState<string | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [subStatus, setSubStatus] = useState<SubscriptionStatus | null>(null);
@@ -69,6 +70,7 @@ export default function Pricing() {
 
     setLoading(true);
     setError(null);
+    setErrorPlanId(null);
 
     try {
       track(trial ? 'trial_started' : 'checkout_started', { plan_id: planId });
@@ -113,6 +115,7 @@ export default function Pricing() {
       window.location.href = data.checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao processar');
+      setErrorPlanId(planId);
       // New key for the next attempt so a genuinely new try isn't deduped
       // against a failed/abandoned checkout.
       idempotencyKey.current = crypto.randomUUID();
@@ -204,7 +207,7 @@ export default function Pricing() {
                     </ul>
 
                     {/* Error */}
-                    {error && isPro && (
+                    {error && errorPlanId === plan.id && (
                       <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
                         {error}
                       </div>
@@ -247,15 +250,34 @@ export default function Pricing() {
                         </button>
                       </>
                     ) : (
-                      <Button
-                        variant="outline"
-                        size="xl"
-                        onClick={() => handleSubscribe(plan.id, false)}
-                        disabled={loading}
-                        className="w-full"
-                      >
-                        Assinar Agora
-                      </Button>
+                      <>
+                        {canTrial && (
+                          <Button
+                            size="xl"
+                            onClick={() => handleSubscribe(plan.id, true)}
+                            disabled={loading}
+                            className="w-full mb-3"
+                          >
+                            {loading ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <>
+                                <Zap className="w-5 h-5" />
+                                Testar grátis por 7 dias
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="xl"
+                          onClick={() => handleSubscribe(plan.id, false)}
+                          disabled={loading}
+                          className="w-full"
+                        >
+                          Assinar Agora
+                        </Button>
+                      </>
                     )}
 
                     <p className="text-center text-sm text-muted-foreground mt-4">
