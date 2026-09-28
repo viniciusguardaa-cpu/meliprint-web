@@ -21,7 +21,7 @@ import {
 } from '../db.js';
 import pool from '../db.js';
 import { isValidWebhookSignature } from '../services/webhookSignature.js';
-import { getPlan, getPriceForPlan, getAssignedVariantPrice, linkAssignmentToUser } from '../services/pricing.js';
+import { getPlan, getPriceForPlan, getAssignedVariantPrice, linkAssignmentToUser, getFounderSlotState, FOUNDER_PLAN_ID } from '../services/pricing.js';
 import { trackEvent, markReferralSubscribed } from '../services/analytics.js';
 
 const router = Router();
@@ -142,6 +142,21 @@ router.post('/checkout', async (req: Request, res: Response) => {
     const price = trustedOffer.price;
     if (!price) {
       return res.status(400).json({ error: 'Preço não encontrado para este plano' });
+    }
+
+    // Founder cap: once FOUNDER_CAP Start subscriptions have been paid for,
+    // refuse new Start checkout/trial — the founder price no longer exists.
+    // (Best-effort under concurrency: two simultaneous checkouts at the last
+    // slot can both pass until the first payment authorizes; at launch
+    // volume that drift is acceptable and harmless to customers.)
+    if (planId === FOUNDER_PLAN_ID) {
+      const founder = await getFounderSlotState();
+      if (founder.soldOut) {
+        return res.status(400).json({
+          error: 'founder_sold_out',
+          message: 'As vagas de fundador esgotaram. O plano Pro segue disponível.'
+        });
+      }
     }
 
     const user = await getUserById(req.session.userId!);

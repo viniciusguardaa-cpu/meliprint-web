@@ -258,3 +258,38 @@ export async function getExperimentResults(experimentId: number) {
   }
   return results;
 }
+
+// ---------------------------------------------------------------------------
+// Founder launch slots
+// ---------------------------------------------------------------------------
+
+// The founder launch sells the Start plan at its locked launch price to the
+// first FOUNDER_CAP paying subscribers. A slot is consumed when a Start
+// subscription first becomes authorized (i.e. actually paid) — trials do not
+// consume slots, and a cancelled founder keeps their slot (first-20-ever
+// semantics, matching the landing's promise of "20 vagas de fundador").
+export const FOUNDER_PLAN_ID = 'start';
+export const FOUNDER_CAP = 20;
+
+export interface FounderSlotState {
+  cap: number;
+  taken: number;
+  remaining: number;
+  soldOut: boolean;
+}
+
+export async function getFounderSlotState(): Promise<FounderSlotState> {
+  // billing_events.subscription_activated is recorded once per paid
+  // activation (webhook sync + reconciler); DISTINCT guards against
+  // duplicate webhook deliveries.
+  const result = await pool.query(
+    `SELECT COUNT(DISTINCT "mp_preapproval_id") AS taken
+     FROM "billing_events"
+     WHERE "event_type" = 'subscription_activated'
+       AND "metadata"->>'plan_id' = $1`,
+    [FOUNDER_PLAN_ID]
+  );
+  const taken = Number(result.rows[0]?.taken ?? 0);
+  const remaining = Math.max(0, FOUNDER_CAP - taken);
+  return { cap: FOUNDER_CAP, taken, remaining, soldOut: remaining <= 0 };
+}

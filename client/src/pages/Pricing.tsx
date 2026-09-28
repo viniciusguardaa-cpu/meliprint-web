@@ -93,6 +93,9 @@ export default function Pricing() {
           setSubStatus(prev => ({ ...(prev || { hasSubscription: false, status: null }), canTrial: false }));
           throw new Error('O período de teste gratuito já foi utilizado. Assine o Pro para continuar.');
         }
+        if (data.error === 'founder_sold_out') {
+          throw new Error('As vagas de fundador esgotaram. O plano Pro segue disponível.');
+        }
         if (data.error === 'checkout_in_progress') {
           throw new Error('Já existe um checkout em andamento. Aguarde alguns segundos e tente novamente.');
         }
