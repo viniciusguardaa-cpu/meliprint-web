@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getActivePlans, getActiveExperimentForPlan, getVariantsForExperiment, assignVariant, linkAssignmentToUser } from '../services/pricing.js';
+import { getActivePlans, getActiveExperimentForPlan, getVariantsForExperiment, assignVariant, linkAssignmentToUser, getFounderSlotState, FOUNDER_PLAN_ID } from '../services/pricing.js';
 
 const router = Router();
 
@@ -11,7 +11,12 @@ const router = Router();
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const plans = await getActivePlans();
+    const founder = await getFounderSlotState();
+    // Sold-out founder launch: the Start plan stops being offered entirely
+    // (landing shows the sold-out state; /pricing falls back to Pro only).
+    const plans = (await getActivePlans()).filter(
+      (plan) => !(plan.id === FOUNDER_PLAN_ID && founder.soldOut)
+    );
     const visitorKey = (req.query.visitor_key as string) || req.header('x-visitor-key') || '';
 
     const result = [];
@@ -51,7 +56,7 @@ router.get('/', async (req: Request, res: Response) => {
       });
     }
 
-    res.json({ plans: result });
+    res.json({ plans: result, founder });
   } catch (error) {
     console.error('Error fetching plans:', error);
     res.status(500).json({ error: 'Failed to fetch plans' });

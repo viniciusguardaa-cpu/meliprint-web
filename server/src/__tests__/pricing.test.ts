@@ -113,3 +113,30 @@ describe('plan entitlement & trial expiration', () => {
     expect(await planHasFeature('nonexistent', 'auto_print')).toBe(false);
   });
 });
+
+describe('founder slot enforcement', () => {
+  beforeEach(() => {
+    mockQuery.mockReset();
+  });
+
+  it('getFounderSlotState counts distinct paid Start activations', async () => {
+    const { getFounderSlotState } = await import('../services/pricing.js');
+    mockQuery.mockResolvedValue({ rows: [{ taken: '7' }] });
+
+    const state = await getFounderSlotState();
+    const [sql, params] = mockQuery.mock.calls[0];
+    expect(sql).toContain('subscription_activated');
+    expect(sql).toContain('DISTINCT');
+    expect(params).toContain('start');
+    expect(state).toEqual({ cap: 20, taken: 7, remaining: 13, soldOut: false });
+  });
+
+  it('getFounderSlotState reports soldOut at the cap', async () => {
+    const { getFounderSlotState } = await import('../services/pricing.js');
+    mockQuery.mockResolvedValue({ rows: [{ taken: '20' }] });
+
+    const state = await getFounderSlotState();
+    expect(state.remaining).toBe(0);
+    expect(state.soldOut).toBe(true);
+  });
+});

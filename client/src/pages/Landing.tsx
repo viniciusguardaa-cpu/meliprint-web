@@ -34,6 +34,8 @@ export default function Landing() {
   const { user } = useAuth();
   const [proPrice, setProPrice] = useState<number | null>(null);
   const [startPrice, setStartPrice] = useState<number | null>(null);
+  const [founderRemaining, setFounderRemaining] = useState<number | null>(null);
+  const [founderCap, setFounderCap] = useState<number | null>(null);
 
   useEffect(() => {
     captureUTM();
@@ -48,6 +50,10 @@ export default function Landing() {
           if (pro?.price) setProPrice(pro.price.amount);
           const start = (data.plans || []).find((p: Plan) => p.id === 'start');
           if (start?.price) setStartPrice(start.price.amount);
+          if (data.founder && typeof data.founder.remaining === 'number') {
+            setFounderRemaining(data.founder.remaining);
+            setFounderCap(typeof data.founder.cap === 'number' ? data.founder.cap : null);
+          }
         }
       } catch {
         // ignore — fallback to no price display
@@ -79,7 +85,7 @@ export default function Landing() {
       />
       <main>
         <Hero priceLabel={priceLabel} onPrimaryCta={handleCTA} motionAlternative={motionAlternative} />
-        <FounderOffer founderPriceLabel={founderPriceLabel} proPriceLabel={priceLabel} onCta={handleCTA} />
+        <FounderOffer founderPriceLabel={founderPriceLabel} proPriceLabel={priceLabel} slotsRemaining={founderRemaining} slotsCap={founderCap} onCta={handleCTA} />
         <TrustBar />
         <BentoFeatures />
         <Workflow />
