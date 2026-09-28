@@ -27,7 +27,9 @@ import { trackEvent, markReferralSubscribed } from '../services/analytics.js';
 const router = Router();
 
 const TRIAL_DAYS = 7;
-const TRIAL_PLAN_ID = 'pro';
+// Trialable plans. The founder launch extends the 7-day trial to Start so
+// the landing's founder offer can honestly include the free trial.
+const TRIAL_PLAN_IDS: ReadonlySet<string> = new Set(['pro', 'start']);
 const MP_API_URL = 'https://api.mercadopago.com';
 
 function getAccessToken() {
@@ -153,7 +155,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
     }
 
     // Trial: one per account, ever — including after cancel or expiration.
-    if (startTrial && planId === TRIAL_PLAN_ID) {
+    if (startTrial && TRIAL_PLAN_IDS.has(planId)) {
       if (await hasUsedTrial(user.id)) {
         return res.status(400).json({ error: 'trial_already_used', message: 'O período de teste já foi utilizado nesta conta.' });
       }

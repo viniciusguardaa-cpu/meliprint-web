@@ -11,6 +11,7 @@ import ProductStory from '../components/landing/ProductStory';
 import LogisticsEditorial from '../components/landing/LogisticsEditorial';
 import Testimonials from '../components/landing/Testimonials';
 import PricingCta from '../components/landing/PricingCta';
+import FounderOffer from '../components/landing/FounderOffer';
 import Faq from '../components/landing/Faq';
 import Footer from '../components/landing/Footer';
 
@@ -32,6 +33,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [proPrice, setProPrice] = useState<number | null>(null);
+  const [startPrice, setStartPrice] = useState<number | null>(null);
 
   useEffect(() => {
     captureUTM();
@@ -44,6 +46,8 @@ export default function Landing() {
           const data = await res.json();
           const pro = (data.plans || []).find((p: Plan) => p.id === 'pro');
           if (pro?.price) setProPrice(pro.price.amount);
+          const start = (data.plans || []).find((p: Plan) => p.id === 'start');
+          if (start?.price) setStartPrice(start.price.amount);
         }
       } catch {
         // ignore — fallback to no price display
@@ -63,6 +67,7 @@ export default function Landing() {
   // Motion is the default in this unmerged PR; ?hero=copy preserves the copy-only comparison.
   const motionAlternative = new URLSearchParams(window.location.search).get('hero') !== 'copy';
   const priceLabel = proPrice !== null ? `R$ ${formatBRL(proPrice)}` : 'R$ 59,90';
+  const founderPriceLabel = startPrice !== null ? `R$ ${formatBRL(startPrice)}` : 'R$ 29,90';
 
   return (
     <div className="min-h-screen bg-background">
@@ -74,6 +79,7 @@ export default function Landing() {
       />
       <main>
         <Hero priceLabel={priceLabel} onPrimaryCta={handleCTA} motionAlternative={motionAlternative} />
+        <FounderOffer founderPriceLabel={founderPriceLabel} proPriceLabel={priceLabel} onCta={handleCTA} />
         <TrustBar />
         <BentoFeatures />
         <Workflow />
