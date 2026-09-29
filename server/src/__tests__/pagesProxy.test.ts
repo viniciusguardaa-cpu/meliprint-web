@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+// The Pages function is JavaScript, outside the server TypeScript build.
+// @ts-expect-error No declaration file for the Pages function module.
 import { onRequest } from '../../../functions/api/[[path]].js';
 
 afterEach(() => vi.unstubAllGlobals());
