@@ -10,11 +10,13 @@ import {
 import { getProvider } from '../providers/index.js';
 import { getFreshAccountContext } from '../services/accounts.js';
 import { reprocessNotificationRow } from '../routes/notifications.js';
+import { withJobLock } from './withJobLock.js';
 
 const POLL_INTERVAL_MS = 5 * 60_000; // 5 minutes — reconciliation fallback.
 // Real-time printing is driven by ML notifications (POST /api/notifications).
 // This poller catches anything missed by notifications.
 const BATCH_SIZE = 20;
+const AUTO_PRINT_LOCK = 491001;
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -100,6 +102,7 @@ export function startAutoPrintPoller() {
 
   const run = async () => {
     try {
+      await withJobLock(AUTO_PRINT_LOCK, async () => {
       // Jobs stuck in 'processing' become 'needs_review' (uncertain outcome —
       // never auto-reprinted), and agents with stale heartbeats go offline.
       await releaseStaleJobs();
@@ -127,6 +130,7 @@ export function startAutoPrintPoller() {
       for (const config of configs) {
         await pollUser(config);
       }
+      });
     } catch (error) {
       console.error('[autoPrintPoller] Fatal error:', error);
     }
