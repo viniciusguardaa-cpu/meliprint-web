@@ -11,6 +11,7 @@ import { Input } from '../components/ui/input';
 import type { Subscriber, Stats, Timeseries, UserDetail, FreeAccessEntry, GrowthMetrics } from './adminTypes';
 import { AdminGrowthPanel } from './AdminGrowthPanel';
 import { MiniBars } from './AdminMiniBars';
+import { AdminMrrGoals } from './AdminMrrGoals';
 
 const ACTIVE_STATUSES = ['authorized', 'active'];
 
@@ -490,6 +491,8 @@ export default function Admin() {
             <p className="text-xl font-bold text-foreground">{timeseries?.totals.blockedUsers ?? 0}</p>
           </div>
         </div>
+
+        <AdminMrrGoals mrr={stats?.mrr ?? null} />
 
         {/* Timeseries charts */}
         {timeseries && (
