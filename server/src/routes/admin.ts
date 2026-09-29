@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { requireAdmin, safeEqual, adminToken } from '../middleware/adminAuth.js';
+import { requireAdmin, safeEqual, adminCredentialVersion, validBrowserOrigin } from '../middleware/adminAuth.js';
 import { authLimiter } from '../middleware/rateLimiter.js';
 import pool, {
   getAllSubscribers,
@@ -19,30 +19,41 @@ import { getExperimentResults } from '../services/pricing.js';
 
 const router = Router();
 
-// POST /api/admin/login — usuário/senha (ADMIN_USERNAME/ADMIN_PASSWORD).
-// Devolve um token derivado para usar como x-admin-key nas demais rotas.
+// Browser admin login uses a separate server-side session (never a JS-readable token).
 router.post('/login', authLimiter, (req: Request, res: Response) => {
+  if (!validBrowserOrigin(req)) return res.status(403).json({ error: 'Invalid origin' });
   const expectedUser = process.env.ADMIN_USERNAME;
   const expectedPass = process.env.ADMIN_PASSWORD;
-  const token = adminToken();
-
-  if (!expectedUser || !expectedPass || !token) {
+  const version = adminCredentialVersion();
+  if (!expectedUser || !expectedPass || !version) {
     return res.status(503).json({ error: 'Login de admin não configurado' });
   }
-
   const { username, password } = req.body || {};
-  const ok =
-    safeEqual(String(username ?? ''), expectedUser) &&
-    safeEqual(String(password ?? ''), expectedPass);
-
-  if (!ok) {
+  if (!safeEqual(String(username ?? ''), expectedUser) || !safeEqual(String(password ?? ''), expectedPass)) {
     return res.status(401).json({ error: 'Usuário ou senha inválidos' });
   }
+  req.session.regenerate((err) => {
+    if (err) return res.status(500).json({ error: 'Erro ao iniciar sessão' });
+    req.session.adminCredentialVersion = version;
+    req.session.save((saveErr) => {
+      if (saveErr) return res.status(500).json({ error: 'Erro ao salvar sessão' });
+      res.json({ ok: true });
+    });
+  });
+});
 
-  res.json({ token });
+router.post('/logout', (req: Request, res: Response) => {
+  if (!validBrowserOrigin(req)) return res.status(403).json({ error: 'Invalid origin' });
+  req.session.destroy((err) => {
+    if (err) return res.status(500).json({ error: 'Erro ao sair' });
+    res.clearCookie('labelgo.admin.sid', { path: '/api/admin', secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
+    res.json({ ok: true });
+  });
 });
 
 router.use(requireAdmin);
+
+router.get('/session', (_req: Request, res: Response) => res.json({ ok: true }));
 
 router.get('/subscribers', async (_req: Request, res: Response) => {
   try {

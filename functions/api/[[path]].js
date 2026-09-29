@@ -1,10 +1,17 @@
 // Keep browser requests same-origin when the frontend moves from Netlify to
 // Cloudflare Pages. The backend and its session store remain on Railway.
-const BACKEND = 'https://web-production-c2ba5.up.railway.app';
 
-export async function onRequest({ request }) {
+export async function onRequest({ request, env }) {
   const incoming = new URL(request.url);
-  const target = new URL(incoming.pathname + incoming.search, BACKEND);
+  // Missing or invalid configuration must fail explicitly rather than proxy elsewhere.
+  let backend;
+  try {
+    backend = new URL(env.BACKEND_URL);
+    if (!['https:', 'http:'].includes(backend.protocol) || backend.username || backend.password || backend.pathname !== '/' || backend.search || backend.hash) throw new Error('Invalid backend');
+  } catch {
+    return new Response('API backend not configured', { status: 503 });
+  }
+  const target = new URL(incoming.pathname + incoming.search, backend);
   const headers = new Headers(request.headers);
   // Do not forward the public hostname as the backend Host header.
   headers.delete('host');

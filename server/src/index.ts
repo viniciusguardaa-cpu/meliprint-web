@@ -26,6 +26,7 @@ import shipmentsRoutes from './routes/shipments.js';
 import labelsRoutes from './routes/labels.js';
 import subscriptionRoutes, { subscriptionLookup } from './routes/subscription.js';
 import adminRoutes from './routes/admin.js';
+import { adminSession } from './middleware/adminAuth.js';
 import autoPrintRoutes from './routes/autoPrint.js';
 import healthRoutes from './routes/health.js';
 import notificationsRoutes from './routes/notifications.js';
@@ -57,6 +58,10 @@ app.use(correlationId);
 app.use(requestLogger);
 
 app.set('trust proxy', 1);
+
+// Mount the isolated admin session before the site-wide user session middleware.
+// express-session skips a second middleware once req.session already exists.
+app.use('/api/admin', generalLimiter, adminSession, adminRoutes);
 
 // Session store: Redis (faster) > PostgreSQL (persistent) > Memory (dev only)
 function getSessionStore() {
@@ -108,7 +113,7 @@ app.use('/api/subscription/webhook', webhookLimiter);
 app.use('/api/subscription/checkout', checkoutLimiter);
 app.use('/api/subscription', generalLimiter, subscriptionRoutes);
 app.get('/api/subscriptions/:id', generalLimiter, subscriptionLookup);
-app.use('/api/admin', generalLimiter, adminRoutes);
+
 app.use('/api/auto-print', generalLimiter, autoPrintRoutes);
 app.use('/api/agent', agentRoutes); // has its own stricter limiter on /pair
 
