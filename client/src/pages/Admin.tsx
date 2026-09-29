@@ -82,7 +82,7 @@ function timeAgo(dateString: string | null | undefined) {
 }
 
 export default function Admin() {
-  const [adminKey, setAdminKey] = useState<string>(() => localStorage.getItem('adminKey') || '');
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
@@ -108,24 +108,22 @@ export default function Admin() {
   const [granting, setGranting] = useState(false);
   const [grantError, setGrantError] = useState<string | null>(null);
 
-  const headers = (key: string) => ({ 'x-admin-key': key });
 
-  const fetchData = async (key: string) => {
+  const fetchData = async () => {
     setLoading(true);
     setAuthError(null);
     try {
       const [statsRes, subsRes, freeRes, growthRes, tsRes] = await Promise.all([
-        fetch('/api/admin/stats', { headers: headers(key) }),
-        fetch('/api/admin/subscribers', { headers: headers(key) }),
-        fetch('/api/admin/free-access', { headers: headers(key) }),
-        fetch(`/api/admin/growth?days=${growthDays}`, { headers: headers(key) }),
-        fetch('/api/admin/timeseries?days=30', { headers: headers(key) })
+        fetch('/api/admin/stats', {}),
+        fetch('/api/admin/subscribers', {}),
+        fetch('/api/admin/free-access', {}),
+        fetch(`/api/admin/growth?days=${growthDays}`, {}),
+        fetch('/api/admin/timeseries?days=30', {})
       ]);
 
       if ([statsRes, subsRes, freeRes].some((r) => r.status === 401)) {
         setAuthError('Sessão expirada. Entre novamente.');
-        localStorage.removeItem('adminKey');
-        setAdminKey('');
+        setAuthenticated(false);
         return;
       }
 
@@ -138,7 +136,7 @@ export default function Admin() {
       setFreeAccess((await freeRes.json()).freeAccess || []);
       if (growthRes.ok) setGrowth(await growthRes.json());
       if (tsRes.ok) setTimeseries(await tsRes.json());
-      localStorage.setItem('adminKey', key);
+
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Erro ao carregar dados');
     } finally {
@@ -149,7 +147,7 @@ export default function Admin() {
   const changeGrowthDays = async (days: number) => {
     setGrowthDays(days);
     try {
-      const res = await fetch(`/api/admin/growth?days=${days}`, { headers: headers(adminKey) });
+      const res = await fetch(`/api/admin/growth?days=${days}`, {});
       if (res.ok) setGrowth(await res.json());
     } catch {
       // keep previous data on failure
@@ -162,7 +160,7 @@ export default function Admin() {
     setActionMsg(null);
     setDetailLoading(true);
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, { headers: headers(adminKey) });
+      const res = await fetch(`/api/admin/users/${userId}`, {});
       if (res.ok) {
         setDetail(await res.json());
       }
@@ -183,7 +181,7 @@ export default function Admin() {
     try {
       const res = await fetch(`/api/admin/users/${userId}/${action}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers(adminKey) },
+        headers: { 'Content-Type': 'application/json' },
         body: body ? JSON.stringify(body) : undefined
       });
       const data = await res.json().catch(() => ({}));
@@ -194,7 +192,7 @@ export default function Admin() {
             : `Trial liberado até ${formatDate(data.trialEndsAt)}.`
       );
       await openDetail(userId);
-      await fetchData(adminKey);
+      await fetchData();
     } catch (err) {
       setActionMsg(err instanceof Error ? err.message : 'Ação falhou');
     } finally {
@@ -209,14 +207,14 @@ export default function Admin() {
     try {
       const res = await fetch('/api/admin/free-access', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers(adminKey) },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: detail.user.email })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Erro ao liberar acesso');
       setActionMsg(`Acesso cortesia liberado para ${detail.user.email}.`);
       await openDetail(detail.user.id);
-      await fetchData(adminKey);
+      await fetchData();
     } catch (err) {
       setActionMsg(err instanceof Error ? err.message : 'Erro ao liberar acesso');
     } finally {
@@ -234,7 +232,7 @@ export default function Admin() {
     try {
       const res = await fetch('/api/admin/free-access', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: grantEmail.trim(), note: grantNote.trim() || undefined })
       });
 
@@ -255,7 +253,6 @@ export default function Admin() {
     try {
       const res = await fetch(`/api/admin/free-access/${id}`, {
         method: 'DELETE',
-        headers: { 'x-admin-key': adminKey }
       });
       if (!res.ok) throw new Error('Erro ao revogar acesso');
       setFreeAccess((prev) => prev.filter((f) => f.id !== id));
@@ -265,7 +262,20 @@ export default function Admin() {
   };
 
   useEffect(() => {
-    if (adminKey) fetchData(adminKey);
+    const checkSession = async () => {
+      try {
+        const res = await fetch('/api/admin/session');
+        if (res.ok) {
+          setAuthenticated(true);
+          await fetchData();
+        } else {
+          setAuthenticated(false);
+        }
+      } catch {
+        setAuthenticated(false);
+      }
+    };
+    checkSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -285,9 +295,10 @@ export default function Admin() {
         setAuthError(data.error || 'Erro ao entrar');
         return;
       }
-      localStorage.setItem('adminKey', data.token);
-      setAdminKey(data.token);
-      await fetchData(data.token);
+      localStorage.removeItem('adminKey'); // discard old bearer token on first login
+      setAuthenticated(true);
+      setPassInput('');
+      await fetchData();
     } catch {
       setAuthError('Erro ao entrar. Tente novamente.');
     } finally {
@@ -314,7 +325,11 @@ export default function Admin() {
     ? Math.round((timeseries.totals.convertedFromTrial / timeseries.totals.trialsTotal) * 100)
     : null;
 
-  if (!adminKey) {
+  if (authenticated === null) {
+    return <div className="min-h-screen bg-background flex items-center justify-center">Carregando...</div>;
+  }
+
+  if (!authenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <form
@@ -363,7 +378,7 @@ export default function Admin() {
           <h1 className="text-foreground font-bold text-lg">LabelGo Admin</h1>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => fetchData(adminKey)}
+              onClick={() => fetchData()}
               disabled={loading}
               className="bg-muted hover:bg-border text-foreground px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50"
             >
@@ -371,7 +386,14 @@ export default function Admin() {
               Atualizar
             </button>
             <button
-              onClick={() => { localStorage.removeItem('adminKey'); setAdminKey(''); }}
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/admin/logout', { method: 'POST' });
+                  if (!res.ok) throw new Error('Falha ao sair');
+                  localStorage.removeItem('adminKey');
+                  setAuthenticated(false);
+                } catch { setAuthError('Não foi possível sair. Tente novamente.'); }
+              }}
               className="text-muted-foreground hover:text-foreground px-3 py-2 rounded-lg text-sm font-medium transition-colors"
             >
               Sair
@@ -942,4 +964,4 @@ export default function Admin() {
 
     </div>
   );
-                  }
+}
