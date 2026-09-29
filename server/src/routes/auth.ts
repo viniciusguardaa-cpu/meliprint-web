@@ -30,6 +30,7 @@ declare module 'express-session' {
   interface SessionData {
     /** Internal users.id — provider-agnostic identity. */
     userId?: number;
+    adminCredentialVersion?: string;
     /** In-flight OAuth attempt (state + PKCE verifier + intent). */
     oauth?: {
       provider: string;
