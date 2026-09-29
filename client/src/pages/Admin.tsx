@@ -833,12 +833,12 @@ export default function Admin() {
               </div>
             )}
 
-            {growth.utm_performance.length > 0 && growth.utm_performance.some((u) => u.utm_campaign || u.utm_medium) && (
+            {growth.utm_performance.length > 0 && growth.utm_performance.some((u) => u.utm_campaign || (u.utm_medium && u.utm_medium.toLowerCase() !== 'organic')) && (
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-2">Campanhas (UTM)</h3>
                 <div className="divide-y divide-border border border-border rounded-lg">
                   {growth.utm_performance
-                    .filter((u) => u.utm_campaign || u.utm_medium)
+                    .filter((u) => u.utm_campaign || (u.utm_medium && u.utm_medium.toLowerCase() !== 'organic'))
                     .map((u, i) => (
                       <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
                         <span className="text-foreground truncate">
@@ -1284,4 +1284,4 @@ export default function Admin() {
 
     </div>
   );
-}
+                                                                                }
