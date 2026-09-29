@@ -150,6 +150,6 @@ describe('print queue multi-tenant ownership (SQL verification)', () => {
 
     const [sql, params] = mockQuery.mock.calls[0];
     expect(sql).toContain('"user_id" = $1');
-    expect(params).toEqual([42, 'agent-1', 'agent-1']);
+    expect(params).toEqual([42, 'agent-1']);
   });
 });
