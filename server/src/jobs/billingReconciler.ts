@@ -1,9 +1,12 @@
 import { MercadoPagoConfig, PreApproval } from 'mercadopago';
 import pool, { updateSubscriptionByPreapprovalId, recordBillingEvent } from '../db.js';
+import { withJobLock } from './withJobLock.js';
 
 const RECONCILE_INTERVAL_MS = 15 * 60_000; // 15 minutes
 const TRIAL_CHECK_INTERVAL_MS = 60_000; // 1 minute
 const PAGE_SIZE = 50;
+const BILLING_LOCK = 491002;
+const TRIAL_EXPIRY_LOCK = 491003;
 
 function getMercadoPagoClient() {
   const accessToken = process.env.MP_ACCESS_TOKEN;
@@ -25,6 +28,7 @@ export function startBillingReconciler() {
 
   const reconcile = async () => {
     try {
+      await withJobLock(BILLING_LOCK, async () => {
       // 1. Expire trials that have passed their end date
       await expireTrials();
 
@@ -94,6 +98,7 @@ export function startBillingReconciler() {
           console.error(`[billingReconciler] Failed to reconcile ${row.mp_preapproval_id}:`, err);
         }
       }
+      });
     } catch (error) {
       console.error('[billingReconciler] Fatal error:', error);
     }
@@ -101,7 +106,11 @@ export function startBillingReconciler() {
 
   reconcile();
   setInterval(reconcile, RECONCILE_INTERVAL_MS);
-  setInterval(expireTrials, TRIAL_CHECK_INTERVAL_MS);
+  setInterval(() => {
+    withJobLock(TRIAL_EXPIRY_LOCK, expireTrials).catch((error) => {
+      console.error('[billingReconciler] Trial expiry lock failed:', error);
+    });
+  }, TRIAL_CHECK_INTERVAL_MS);
 }
 
 async function expireTrials() {
