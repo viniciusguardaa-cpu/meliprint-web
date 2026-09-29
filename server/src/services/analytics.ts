@@ -144,7 +144,7 @@ export async function markReferralSubscribed(referredUserId: number) {
 const SOURCE_MAP: Array<[RegExp, string]> = [
   [/instagram/, 'instagram'],
   [/facebook|fb\.me|l\.facebook/, 'facebook'],
-  [/google\./, 'google'],
+  [/(?:^|\.)google\.[a-z.]+$/, 'google'],
   [/bing\./, 'bing'],
   [/tiktok/, 'tiktok'],
   [/youtube|youtu\.be/, 'youtube'],
@@ -154,13 +154,23 @@ const SOURCE_MAP: Array<[RegExp, string]> = [
   [/labelgo\.com\.br|railway\.app|netlify\.app/, 'direto'],
 ];
 
-function normalizeSource(raw: string): string {
+export function normalizeSource(raw: string): string {
   if (raw === 'direto') return raw;
   const domain = raw.replace(/^www\./, '');
   for (const [re, name] of SOURCE_MAP) {
     if (re.test(domain)) return name;
   }
   return domain;
+}
+
+/** Keep Google of unknown provenance separate from known search/ad visits. */
+export function classifyTrafficSource(raw: string, medium: string | null): string {
+  const source = normalizeSource(raw);
+  if (source !== 'google') return source;
+  const m = (medium || '').trim().toLowerCase();
+  if (['cpc', 'ppc', 'paidsearch', 'paid_search'].includes(m)) return 'Google Ads';
+  if (m === 'organic') return 'Google orgânico';
+  return 'Google (não identificado)';
 }
 
 /**
@@ -222,7 +232,8 @@ export async function getGrowthMetrics(days = 30) {
       WHERE "event_name" IN ('page_view', 'landing_view') ${window}
       GROUP BY 1 ORDER BY 1
     `, params),
-    // Origem do primeiro toque: utm_source > domínio do referrer > 'direto'.
+    // Primeiro toque: utm_source > referrer > direto. Preservar medium para
+    // separar Ads de orgânico sem reclassificar visitas antigas sem sinal.
     // Domínios conhecidos são normalizados em JS (veja normalizeSource).
     pool.query(`
       SELECT
@@ -231,11 +242,12 @@ export async function getGrowthMetrics(days = 30) {
           WHEN "referrer" IS NULL OR "referrer" = '' THEN 'direto'
           ELSE LOWER(regexp_replace("referrer", '^https?://([^/]+).*$', '\\1'))
         END AS source_raw,
+        LOWER("utm_medium") AS medium,
         COUNT(*) AS visitors,
         COUNT(DISTINCT "user_id") AS signups
       FROM "utm_attribution"
       WHERE "touch_type" = 'first' ${window}
-      GROUP BY 1 ORDER BY visitors DESC LIMIT 40
+      GROUP BY 1, 2 ORDER BY visitors DESC LIMIT 100
     `, params),
     pool.query(`
       SELECT "utm_source", "utm_medium", "utm_campaign",
@@ -264,7 +276,7 @@ export async function getGrowthMetrics(days = 30) {
   // instagram.com + utm_source=instagram) somando visitantes/cadastros.
   const sourceAgg = new Map<string, { visitors: number; signups: number }>();
   for (const r of sources.rows) {
-    const name = normalizeSource(r.source_raw);
+    const name = classifyTrafficSource(r.source_raw, r.medium);
     const agg = sourceAgg.get(name) ?? { visitors: 0, signups: 0 };
     agg.visitors += Number(r.visitors);
     agg.signups += Number(r.signups);
