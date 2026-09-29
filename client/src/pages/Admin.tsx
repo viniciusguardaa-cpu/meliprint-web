@@ -11,6 +11,7 @@ import { Input } from '../components/ui/input';
 import type { Subscriber, Stats, Timeseries, UserDetail, FreeAccessEntry, GrowthMetrics } from './adminTypes';
 import { AdminGrowthPanel } from './AdminGrowthPanel';
 import { MiniBars } from './AdminMiniBars';
+import { AdminMrrGoals } from './AdminMrrGoals';
 
 const ACTIVE_STATUSES = ['authorized', 'active'];
 
@@ -491,6 +492,8 @@ export default function Admin() {
           </div>
         </div>
 
+        <AdminMrrGoals mrr={stats?.mrr ?? null} />
+
         {/* Timeseries charts */}
         {timeseries && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
@@ -964,4 +967,4 @@ export default function Admin() {
 
     </div>
   );
-}
+    }
