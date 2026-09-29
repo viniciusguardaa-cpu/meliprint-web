@@ -124,6 +124,45 @@ router.get('/stats', async (_req: Request, res: Response) => {
   }
 });
 
+// Revenue goals are persisted separately from billing data; editing a goal never
+// changes subscriptions or the MRR calculation. Only authenticated admins reach
+// these routes (router.use(requireAdmin) above).
+router.get('/mrr-goals', async (_req: Request, res: Response) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT "achievable_cents", "ideal_cents" FROM "admin_mrr_goals" WHERE "id" = 1`
+    );
+    if (!rows[0]) return res.status(503).json({ error: 'Metas ainda não configuradas' });
+    res.json({ achievable: Number(rows[0].achievable_cents) / 100, ideal: Number(rows[0].ideal_cents) / 100 });
+  } catch (error) {
+    console.error('Error fetching MRR goals:', error);
+    res.status(500).json({ error: 'Falha ao carregar metas' });
+  }
+});
+
+router.put('/mrr-goals', async (req: Request, res: Response) => {
+  // Accept whole BRL values in the UI; enforce the ordering on both API and DB.
+  const achievable = req.body?.achievable;
+  const ideal = req.body?.ideal;
+  if (!Number.isSafeInteger(achievable) || !Number.isSafeInteger(ideal) ||
+      achievable < 1 || ideal <= achievable || ideal > 1000000000) {
+    return res.status(400).json({ error: 'Informe metas inteiras positivas, com a ideal maior que a alcançável.' });
+  }
+  try {
+    const { rows } = await pool.query(
+      `UPDATE "admin_mrr_goals" SET "achievable_cents" = $1, "ideal_cents" = $2,
+        "updated_at" = CURRENT_TIMESTAMP WHERE "id" = 1
+       RETURNING "achievable_cents", "ideal_cents"`,
+      [achievable * 100, ideal * 100]
+    );
+    if (!rows[0]) return res.status(503).json({ error: 'Metas ainda não configuradas' });
+    res.json({ achievable: Number(rows[0].achievable_cents) / 100, ideal: Number(rows[0].ideal_cents) / 100 });
+  } catch (error) {
+    console.error('Error saving MRR goals:', error);
+    res.status(500).json({ error: 'Falha ao salvar metas' });
+  }
+});
+
 // Daily signups/prints/cancellations + period totals for the charts.
 router.get('/timeseries', async (req: Request, res: Response) => {
   try {
