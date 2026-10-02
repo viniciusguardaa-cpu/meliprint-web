@@ -2,6 +2,8 @@ import {
   getAutoPrintEnabledConfigs,
   updateAutoPrintLastPolled,
   addPrintQueueJob,
+  addPdfPrintQueueJob,
+  getQueuedShipmentIds,
   releaseStaleJobs,
   markStaleAgentsOffline,
   getUnprocessedMLNotifications,
@@ -47,9 +49,10 @@ async function pollUser(config: any) {
       continue;
     }
 
-    // The agent only prints raw ZPL — PDF-only providers are browser-print
-    // for now. Skip them instead of failing the whole poll.
-    if (!provider.getLabelsZPL) {
+    // PDF auto-print is opt-in per provider; Shopee only discovers orders
+    // already arranged by the seller. Other PDF providers remain unchanged.
+    const pdfAutoPrint = !provider.getLabelsZPL && !!provider.listAutoPrintableShipmentIds;
+    if (!provider.getLabelsZPL && !pdfAutoPrint) {
       continue;
     }
 
@@ -60,7 +63,11 @@ async function pollUser(config: any) {
     }
 
     try {
-      const shipmentIds = await provider.listPrintableShipmentIds(ctx);
+      const known = await getQueuedShipmentIds(config.user_id, account.provider);
+      const discovered = pdfAutoPrint
+        ? await provider.listAutoPrintableShipmentIds!(ctx)
+        : await provider.listPrintableShipmentIds(ctx);
+      const shipmentIds = discovered.filter(id => !known.has(id));
       console.log(`[autoPrintPoller] User ${config.user_id} ${account.provider}#${account.id}: ${shipmentIds.length} ready_to_print shipments`);
 
       if (shipmentIds.length === 0) continue;
@@ -72,10 +79,17 @@ async function pollUser(config: any) {
         const batch = shipmentIds.slice(i, i + BATCH_SIZE);
         for (const shipmentId of batch) {
           try {
-            const zpl = await provider.getLabelsZPL(ctx, [shipmentId]);
-            if (!zpl || !zpl.trim()) continue;
-            await addPrintQueueJob(config.user_id, shipmentId, zpl, account.provider);
-            queued++;
+            let job;
+            if (pdfAutoPrint) {
+              const pdf = await provider.getLabelsPDF(ctx, [shipmentId]);
+              if (!pdf.length || pdf.subarray(0, 5).toString() !== '%PDF-') throw new Error('Invalid PDF label');
+              job = await addPdfPrintQueueJob(config.user_id, shipmentId, pdf, account.provider);
+            } else {
+              const zpl = await provider.getLabelsZPL!(ctx, [shipmentId]);
+              if (!zpl || !zpl.trim()) continue;
+              job = await addPrintQueueJob(config.user_id, shipmentId, zpl, account.provider);
+            }
+            if (job) queued++;
             // Small delay to respect provider rate limits between calls.
             await sleep(150);
           } catch (error) {

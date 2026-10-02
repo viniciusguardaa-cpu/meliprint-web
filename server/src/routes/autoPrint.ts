@@ -43,18 +43,15 @@ router.post('/enable', requirePlanFeature('auto_print'), async (req: Request, re
     return res.status(403).json({ error: 'subscription_required' });
   }
 
-  // Auto-print requires at least one connected account whose provider
-  // produces ZPL — the agent only prints raw ZPL today (PDF-only providers
-  // like Shopee/Bling print via the browser instead).
   const accounts = await getMarketplaceAccountsForUser(user.id);
-  const hasZplAccount = accounts.some((a: any) => {
+  const supported = accounts.some((a: any) => {
     const provider = getProvider(a.provider);
-    return provider?.getLabelsZPL != null;
+    return a.status !== 'reauth_required' && (provider?.getLabelsZPL != null || provider?.listAutoPrintableShipmentIds != null);
   });
-  if (!hasZplAccount) {
+  if (!supported) {
     return res.status(400).json({
       error: 'account_not_connected',
-      message: 'Conecte uma conta de marketplace com etiquetas ZPL (Mercado Livre ou Amazon) antes de ativar a impressão automática.'
+      message: 'Conecte Mercado Livre, Amazon ou Shopee antes de ativar a impressão automática.'
     });
   }
 
@@ -251,7 +248,8 @@ router.post('/queue/claim', requireAgentToken, async (req: Request, res: Respons
   const config = (req as any).agentConfig;
   const limit = Math.min(Number(req.body?.limit) || 5, 20);
   const agentId = (req.body?.agentId as string | undefined)?.slice(0, 255) || `agent-${config.user_id}`;
-  const jobs = await claimPrintJobs(config.user_id, agentId, limit);
+  const jobs = await claimPrintJobs(config.user_id, agentId, limit,
+    Array.isArray(req.body?.contentTypes) && req.body.contentTypes.includes('pdf') ? ['zpl', 'pdf'] : ['zpl']);
   res.json({ jobs });
 });
 

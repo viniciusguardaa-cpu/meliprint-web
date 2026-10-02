@@ -740,6 +740,26 @@ export async function addPrintQueueJob(userId: number, shipmentId: number | stri
   return result.rows[0] || null;
 }
 
+// PDF bytes are stored as base64 in the existing payload column. Old agents
+// only claim ZPL, so they can never send PDF bytes as raw printer commands.
+export async function addPdfPrintQueueJob(userId: number, shipmentId: string, pdf: Buffer, provider: string) {
+  const result = await pool.query(
+    `INSERT INTO "print_queue" ("user_id", "provider", "shipment_id", "zpl", "content_type", "status")
+     VALUES ($1, $2, $3, $4, 'pdf', 'pending')
+     ON CONFLICT ("user_id", "provider", "shipment_id") DO NOTHING RETURNING *`,
+    [userId, provider, shipmentId, pdf.toString('base64')]
+  );
+  return result.rows[0] || null;
+}
+
+export async function getQueuedShipmentIds(userId: number, provider: string): Promise<Set<string>> {
+  const result = await pool.query(
+    `SELECT "shipment_id" FROM "print_queue" WHERE "user_id" = $1 AND "provider" = $2`,
+    [userId, provider]
+  );
+  return new Set(result.rows.map((r: any) => String(r.shipment_id)));
+}
+
 export async function getPendingPrintJobs(userId: number, limit = 20) {
   const result = await pool.query(
     `SELECT * FROM "print_queue"
@@ -755,7 +775,7 @@ export async function getPendingPrintJobs(userId: number, limit = 20) {
  * Atomically claim pending jobs for an agent so two agents can't double-print.
  * Moves jobs to 'processing' with claimed_at/claimed_by. Returns the claimed jobs.
  */
-export async function claimPrintJobs(userId: number, agentId: string, limit = 5) {
+export async function claimPrintJobs(userId: number, agentId: string, limit = 5, contentTypes: string[] = ['zpl']) {
   const result = await pool.query(
     `UPDATE "print_queue" SET
        "status" = 'processing',
@@ -764,13 +784,13 @@ export async function claimPrintJobs(userId: number, agentId: string, limit = 5)
        "updated_at" = CURRENT_TIMESTAMP
      WHERE "id" IN (
        SELECT "id" FROM "print_queue"
-       WHERE "user_id" = $1 AND "status" = 'pending' AND "content_type" = 'zpl'
+       WHERE "user_id" = $1 AND "status" = 'pending' AND "content_type" = ANY($4::text[])
        ORDER BY "created_at" ASC
        LIMIT $2
        FOR UPDATE SKIP LOCKED
      )
      RETURNING *`,
-    [userId, limit, agentId]
+    [userId, limit, agentId, contentTypes]
   );
   return result.rows;
 }

@@ -31,7 +31,18 @@ export async function processJob(job, deps) {
   }
 
   try {
-    const result = await adapter.printZpl(printerName, job.zpl);
+    const type = job.content_type || 'zpl';
+    let result;
+    if (type === 'pdf') {
+      if (!adapter.printPdf) throw new Error('Atualize o agente para imprimir PDF da Shopee.');
+      const bytes = Buffer.from(job.zpl || '', 'base64');
+      if (bytes.subarray(0, 5).toString() !== '%PDF-') throw new Error('Etiqueta PDF inválida');
+      result = await adapter.printPdf(printerName, bytes);
+    } else if (type === 'zpl') {
+      result = await adapter.printZpl(printerName, job.zpl);
+    } else {
+      throw new Error(`Formato de impressão não suportado: ${type}`);
+    }
     const receipt = {
       jobId: job.id,
       shipmentId: job.shipment_id,

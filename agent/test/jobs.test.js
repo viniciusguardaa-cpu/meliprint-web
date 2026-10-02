@@ -183,3 +183,25 @@ describe('print job processing', () => {
     assert.equal(getReceipt(1, stateDir), null);
   });
 });
+
+describe('Shopee PDF printing', () => {
+  it('prints PDF once and only retries confirmation after a network drop', async () => {
+    const stateDir = tmpState();
+    const calls = [];
+    const adapter = { printZpl: () => { throw new Error('must not print PDF as raw ZPL'); },
+      printPdf: async (printer, bytes) => { calls.push(bytes.toString()); return 'accepted'; } };
+    const job = { id: 99, shipment_id: 'SN1', content_type: 'pdf', zpl: Buffer.from('%PDF-1.4').toString('base64') };
+    mockFetch({ 'POST /api/auto-print/queue/99/printed': networkDown });
+    assert.equal((await processJob(job, deps(stateDir, adapter))).status, 'confirmation_pending');
+    mockFetch({ 'POST /api/auto-print/queue/99/printed': ok() });
+    assert.equal((await processJob(job, deps(stateDir, adapter))).status, 'confirmed');
+    assert.deepEqual(calls, ['%PDF-1.4']);
+  });
+  it('rejects malformed PDFs without printing', async () => {
+    const adapter = { printPdf: () => { throw new Error('should not print'); } };
+    mockFetch({ 'POST /api/auto-print/queue/99/failed': ok() });
+    const result = await processJob({ id: 99, content_type: 'pdf', zpl: 'bad' }, deps(tmpState(), adapter));
+    assert.equal(result.status, 'failed');
+    assert.match(result.error, /PDF inválida/);
+  });
+});

@@ -91,7 +91,7 @@ describe('print queue multi-tenant ownership (SQL verification)', () => {
     expect(sql).toContain('FOR UPDATE SKIP LOCKED');
     expect(sql).toContain('"user_id" = $1');
     expect(sql).toContain("'processing'");
-    expect(params).toEqual([42, 5, 'agent-1']);
+    expect(params).toEqual([42, 5, 'agent-1', ['zpl']]);
   });
 
   it('retryFailedJob only retries failed jobs for the tenant', async () => {
@@ -151,5 +151,26 @@ describe('print queue multi-tenant ownership (SQL verification)', () => {
     const [sql, params] = mockQuery.mock.calls[0];
     expect(sql).toContain('"user_id" = $1');
     expect(params).toEqual([42, 'agent-1']);
+  });
+});
+
+// Compatibility is load-bearing: an old agent must never claim PDF bytes.
+describe('PDF queue compatibility', () => {
+  beforeEach(() => mockQuery.mockReset());
+  it('claims PDF only when an upgraded agent advertises support', async () => {
+    const { claimPrintJobs } = await import('../db.js');
+    mockQuery.mockResolvedValue({ rows: [] });
+    await claimPrintJobs(42, 'new', 5, ['zpl', 'pdf']);
+    expect(mockQuery.mock.calls[0][0]).toContain('ANY($4::text[])');
+    expect(mockQuery.mock.calls[0][1]).toEqual([42, 5, 'new', ['zpl', 'pdf']]);
+  });
+  it('stores base64 PDF with provider-scoped duplicate protection', async () => {
+    const { addPdfPrintQueueJob } = await import('../db.js');
+    mockQuery.mockResolvedValue({ rows: [{ id: 1 }] });
+    const pdf = Buffer.from('%PDF-1.4');
+    await addPdfPrintQueueJob(42, 'SN1', pdf, 'shopee');
+    expect(mockQuery.mock.calls[0][0]).toContain("'pdf', 'pending'");
+    expect(mockQuery.mock.calls[0][0]).toContain('ON CONFLICT');
+    expect(mockQuery.mock.calls[0][1]).toEqual([42, 'shopee', 'SN1', pdf.toString('base64')]);
   });
 });
