@@ -4,6 +4,7 @@ import {
   refreshAccessToken,
   getShopInfo,
   getShipmentList,
+  getPrintableOrderSns,
   getOrderDetail,
   getLabelPdf,
   ShopeeOrderDetail
@@ -21,12 +22,15 @@ import type {
  * Shopee Open Platform v2.
  *
  * Caveats:
- * - The seller OAuth redirect has no `state` param (oauthState:
- *   'unsupported') — CSRF protection comes from the session-bound pending
- *   attempt in routes/auth.ts.
+ * - The seller authorization link carries `state`, which Shopee echoes back
+ *   to the callback (oauthState: 'required'), same CSRF check as other
+ *   providers.
  * - shipmentId is the order_sn (the id sellers recognize).
- * - Labels are PDF-only (THERMAL_AIR_WAYBILL) — no ZPL, so this provider is
- *   skipped by the auto-print poller.
+ * - Labels are PDF-only; the document type is whatever Shopee allows for the
+ *   order — no ZPL, so this provider is skipped by the auto-print poller.
+ * - LabelGo never arranges shipment (pickup/dropoff/time slot) for the
+ *   seller: it lists READY_TO_SHIP and already arranged (PROCESSED) orders,
+ *   and prints labels only for what the seller arranged in Shopee.
  */
 
 function shopOf(ctx: AccountContext) {
@@ -35,10 +39,9 @@ function shopOf(ctx: AccountContext) {
 
 async function listReadyShipments(ctx: AccountContext, opts: ListShipmentsOptions): Promise<NormalizedShipment[]> {
   const shop = shopOf(ctx);
-  const entries = await getShipmentList(shop);
-  if (entries.length === 0) return [];
-
-  const orderSns = entries.map((e) => e.order_sn);
+  const orderSns = await getPrintableOrderSns(shop);
+  if (orderSns.length === 0) return [];
+  const entries = orderSns.map((order_sn) => ({ order_sn }));
   const details = await getOrderDetail(shop, orderSns).catch((err) => {
     console.error('[shopee] get_order_detail failed:', err);
     return [] as ShopeeOrderDetail[];
@@ -89,16 +92,15 @@ export const shopeeProvider: MarketplaceProvider = {
   id: 'shopee',
   displayName: 'Shopee',
   labelFormats: ['pdf'],
-  oauthState: 'unsupported',
+  oauthState: 'required',
 
   isConfigured(): boolean {
     return !!(process.env.SHOPEE_PARTNER_ID && process.env.SHOPEE_PARTNER_KEY);
   },
 
-  getAuthUrl(redirectUri: string): string {
-    // Shopee auth_partner signs (partner_id + path + timestamp) and has no
-    // state/PKCE params — both are unused here by design.
-    return buildAuthUrl(redirectUri);
+  getAuthUrl(redirectUri: string, state: string): string {
+    // Shopee supports `state` but not PKCE; the code challenge is unused.
+    return buildAuthUrl(redirectUri, state);
   },
 
   async exchangeCode(
@@ -142,27 +144,30 @@ export const shopeeProvider: MarketplaceProvider = {
   listReadyShipments,
 
   async listPrintableShipmentIds(ctx: AccountContext): Promise<string[]> {
-    const entries = await getShipmentList(shopOf(ctx));
-    return entries.map((e) => e.order_sn);
+    return getPrintableOrderSns(shopOf(ctx));
   },
 
   async getLabelsPDF(ctx: AccountContext, externalIds: string[]): Promise<Buffer> {
     const shop = shopOf(ctx);
 
-    // package_number is needed when the order already has packages.
+    // An order can be split into several packages; each has its own label.
     const details = await getOrderDetail(shop, externalIds).catch(() => [] as ShopeeOrderDetail[]);
-    const packageBySn = new Map(
-      details.map((d) => [d.order_sn, d.package_list?.[0]?.package_number] as const)
+    const packagesBySn = new Map(
+      details.map((d) => [d.order_sn, (d.package_list || []).map((p) => p.package_number)] as const)
     );
 
     const pdfs: Buffer[] = [];
     for (const orderSn of externalIds) {
-      const pdf = await getLabelPdf(shop, orderSn, packageBySn.get(orderSn));
-      if (pdf) pdfs.push(pdf);
+      const packages = packagesBySn.get(orderSn) || [];
+      const targets: Array<string | undefined> = packages.length > 0 ? packages : [undefined];
+      for (const packageNumber of targets) {
+        const pdf = await getLabelPdf(shop, orderSn, packageNumber);
+        if (pdf) pdfs.push(pdf);
+      }
     }
 
     if (pdfs.length === 0) {
-      throw new Error('Nenhuma etiqueta Shopee disponível (envio não organizado ou status não imprimível)');
+      throw new Error('Nenhuma etiqueta Shopee disponível (organize o envio na Shopee primeiro, ou o status não permite imprimir)');
     }
     if (pdfs.length === 1) return pdfs[0];
 
