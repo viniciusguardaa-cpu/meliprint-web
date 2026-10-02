@@ -4,6 +4,7 @@ import {
   refreshAccessToken,
   getShopInfo,
   getShipmentList,
+  getProcessedOrders,
   getPrintableOrderSns,
   getOrderDetail,
   getLabelPdf,
@@ -27,7 +28,7 @@ import type {
  *   providers.
  * - shipmentId is the order_sn (the id sellers recognize).
  * - Labels are PDF-only; the document type is whatever Shopee allows for the
- *   order — no ZPL, so this provider is skipped by the auto-print poller.
+ *   order. Automatic printing uses the updated PDF-capable local agent.
  * - LabelGo never arranges shipment (pickup/dropoff/time slot) for the
  *   seller: it lists READY_TO_SHIP and already arranged (PROCESSED) orders,
  *   and prints labels only for what the seller arranged in Shopee.
@@ -147,22 +148,30 @@ export const shopeeProvider: MarketplaceProvider = {
     return getPrintableOrderSns(shopOf(ctx));
   },
 
+  async listAutoPrintableShipmentIds(ctx: AccountContext): Promise<string[]> {
+    // Never auto-arrange shipping or request labels for unarranged orders.
+    return [...new Set((await getProcessedOrders(shopOf(ctx))).map(o => o.order_sn))];
+  },
+
   async getLabelsPDF(ctx: AccountContext, externalIds: string[]): Promise<Buffer> {
     const shop = shopOf(ctx);
 
     // An order can be split into several packages; each has its own label.
-    const details = await getOrderDetail(shop, externalIds).catch(() => [] as ShopeeOrderDetail[]);
+    const details = await getOrderDetail(shop, externalIds);
     const packagesBySn = new Map(
       details.map((d) => [d.order_sn, (d.package_list || []).map((p) => p.package_number)] as const)
     );
 
     const pdfs: Buffer[] = [];
     for (const orderSn of externalIds) {
-      const packages = packagesBySn.get(orderSn) || [];
+      if (!packagesBySn.has(orderSn)) throw new Error(`Shopee não retornou os pacotes de ${orderSn}`);
+      const packages = packagesBySn.get(orderSn)!;
       const targets: Array<string | undefined> = packages.length > 0 ? packages : [undefined];
       for (const packageNumber of targets) {
         const pdf = await getLabelPdf(shop, orderSn, packageNumber);
-        if (pdf) pdfs.push(pdf);
+        // A partial multi-package document must not be marked printed.
+        if (!pdf) throw new Error(`Etiqueta Shopee indisponível: ${orderSn}/${packageNumber || 'pedido'}. Tente novamente após organizar o envio.`);
+        pdfs.push(pdf);
       }
     }
 
