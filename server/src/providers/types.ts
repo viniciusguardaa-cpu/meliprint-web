@@ -90,8 +90,7 @@ export interface MarketplaceProvider {
 
   /**
    * Whether the provider's OAuth callback echoes back our `state` param.
-   * Shopee's auth_partner redirect doesn't support state, so CSRF protection
-   * there relies solely on the session-bound pending attempt.
+   * 'unsupported' falls back to the session-bound pending attempt only.
    */
   oauthState: 'required' | 'unsupported';
 
