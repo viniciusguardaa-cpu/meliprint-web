@@ -34,7 +34,7 @@ async function post(serverUrl, token, path, body) {
 }
 
 export function claimJobs(serverUrl, token, agentId, limit = 5) {
-  return post(serverUrl, token, '/api/auto-print/queue/claim', { agentId, limit })
+  return post(serverUrl, token, '/api/auto-print/queue/claim', { agentId, limit, contentTypes: ['zpl', 'pdf'] })
     .then((data) => data.jobs || []);
 }
 
