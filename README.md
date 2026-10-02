@@ -173,3 +173,15 @@ labelgo-web/
 ## Licença
 
 MIT
+
+
+### Impressão automática Shopee (agente 1.2.0)
+
+- Requer Pro, loja Shopee conectada e `SHOPEE_PARTNER_ID` / `SHOPEE_PARTNER_KEY` live configurados no servidor. Nunca coloque as chaves no repositório.
+- Organize o envio na Shopee primeiro. O LabelGo não escolhe endereço, coleta nem horário e não chama `ship_order`.
+- A varredura de 5 minutos inclui pedidos `PROCESSED` atualizados nos últimos 14 dias. A primeira ativação pode imprimir etiquetas desses pedidos antigos que ainda não estão na fila do LabelGo. Não há webhook Shopee nesta versão.
+- Atualize/recompile o aplicativo local para 1.2.0 (não basta atualizar o servidor). Agentes antigos continuam pegando apenas ZPL; PDFs ficam pendentes até a atualização.
+- No Windows, o instalador inclui o renderizador do `pdf-to-printer`. macOS/Linux exigem CUPS (`lp`) e o driver da impressora. Configure papel 4x6/100x150 mm no driver e teste escala/orientação antes de uso em volume.
+- Todos os pacotes de um pedido vão em um PDF; se algum documento não estiver pronto, nada desse pedido entra na fila ainda. Pedidos já na fila não são baixados de novo. Confirmação perdida retenta apenas a confirmação, não a impressão.
+- O estado "impresso" significa aceito pelo spooler, não prova de saída física. Preserve a revisão manual de resultado incerto.
+- Antes de publicar: validar autorização BR, permissões, IP whitelist, geração real de PDF, todos os pacotes, instalação Windows/macOS/Linux e uma etiqueta na impressora do vendedor. Testes automatizados usam simulações, sem loja real.
