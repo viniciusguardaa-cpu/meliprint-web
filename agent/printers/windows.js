@@ -8,6 +8,7 @@
  */
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { withPdfFile } from './pdf.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -72,6 +73,15 @@ public class RawPrinterHelper {
         if (err) reject(new Error(`Windows print failed: ${stderr || err.message}`));
         else resolve('OK');
       });
+    });
+  },
+
+  async printPdf(printerName, bytes) {
+    // Render PDF through the Windows driver, never send it to the RAW ZPL path.
+    const { default: pdfPrinter } = await import('pdf-to-printer');
+    return withPdfFile(bytes, async file => {
+      await pdfPrinter.print(file, { printer: printerName, scale: 'fit', paperSize: '4x6', silent: true });
+      return 'spooler_accepted';
     });
   },
 
