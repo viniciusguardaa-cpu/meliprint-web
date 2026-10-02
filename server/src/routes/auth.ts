@@ -322,7 +322,7 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
     }
 
     // CSRF: state must match the attempt stored at /start, for the same
-    // provider — when the provider echoes state at all (Shopee doesn't).
+    // provider — when the provider echoes state at all.
     const stateOk = provider.oauthState === 'unsupported'
       ? true
       : (typeof req.query.state === 'string' && req.query.state === pending?.state);
