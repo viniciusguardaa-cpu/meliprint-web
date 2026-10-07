@@ -174,12 +174,17 @@ export function classifyTrafficSource(raw: string, medium: string | null): strin
 }
 
 /**
- * Growth dashboard metrics. `days` limits the event window (0 = all time).
+ * Growth dashboard metrics. `days` limits the event window (-1 = today in São Paulo, 0 = all time).
  * Funnel steps count DISTINCT actors: visitor_key for anonymous events,
  * user_id for server-side events — raw counts would double-count reloads.
  */
 export async function getGrowthMetrics(days = 30) {
-  const window = days > 0 ? `AND "created_at" >= NOW() - ($1::int * INTERVAL '1 day')` : '';
+  // created_at is TIMESTAMP WITHOUT TIME ZONE, written with CURRENT_TIMESTAMP.
+  // Express the São Paulo midnight in the DB session timezone, matching storage.
+  const window = days === -1
+    ? `AND "created_at" >= (date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE current_setting('TimeZone')
+       AND "created_at" <= NOW() AT TIME ZONE current_setting('TimeZone')`
+    : days > 0 ? `AND "created_at" >= NOW() - ($1::int * INTERVAL '1 day')` : '';
   const params = days > 0 ? [days] : [];
 
   const [funnel, abandonment, topPages, visitorsByDay, sources, utm, agents, prints] = await Promise.all([
@@ -225,7 +230,7 @@ export async function getGrowthMetrics(days = 30) {
       GROUP BY 1 ORDER BY views DESC LIMIT 15
     `, params),
     pool.query(`
-      SELECT "created_at"::date AS day,
+      SELECT (("created_at" AT TIME ZONE current_setting('TimeZone')) AT TIME ZONE 'America/Sao_Paulo')::date::text AS day,
              COUNT(*) FILTER (WHERE "event_name" = 'page_view') AS views,
              COUNT(DISTINCT "visitor_key") AS visitors
       FROM "analytics_events"
