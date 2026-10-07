@@ -336,11 +336,9 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Actions Bar */}
-        <div className="bg-surface rounded-xl border border-border shadow-sm p-4 mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-4 flex-wrap">
-            <span className="text-sm font-medium text-muted-foreground" aria-live="polite">
-              {marketplaceFilter ? marketplaceLabel(marketplaceFilter) : 'Todos os marketplaces'}
-            </span>
+        <div className="bg-surface rounded-xl border border-border shadow-sm p-4 mb-6 flex flex-wrap xl:flex-nowrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+
             <div className="flex items-center gap-2 flex-wrap">
               <Calendar className="w-4 h-4 text-muted-foreground" />
               <Input
@@ -363,7 +361,7 @@ export default function Dashboard() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
-            <div className="flex items-center bg-muted rounded-lg p-1">
+            <div className="flex items-center bg-muted rounded-lg p-1 whitespace-nowrap">
               <button
                 onClick={() => setTab('ready')}
                 className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${tab === 'ready' ? 'bg-surface shadow text-foreground' : 'text-muted-foreground'
