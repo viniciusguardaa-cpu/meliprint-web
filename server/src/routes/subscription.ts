@@ -24,12 +24,14 @@ import { isValidWebhookSignature } from '../services/webhookSignature.js';
 import { getPlan, getPriceForPlan, getAssignedVariantPrice, linkAssignmentToUser, getFounderSlotState, FOUNDER_PLAN_ID } from '../services/pricing.js';
 import { trackEvent, markReferralSubscribed } from '../services/analytics.js';
 
+import { checkoutMatchesOffer } from '../services/checkoutOffer.js';
+
 const router = Router();
 
 const TRIAL_DAYS = 7;
-// Trialable plans. The founder launch extends the 7-day trial to Start so
+// Trialable plans. The founder launch extends the 7-day trial to the complete founder offer so
 // the landing's founder offer can honestly include the free trial.
-const TRIAL_PLAN_IDS: ReadonlySet<string> = new Set(['pro', 'start']);
+const TRIAL_PLAN_IDS: ReadonlySet<string> = new Set(['pro', 'founder']);
 const MP_API_URL = 'https://api.mercadopago.com';
 
 function getAccessToken() {
@@ -144,8 +146,15 @@ router.post('/checkout', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Preço não encontrado para este plano' });
     }
 
-    // Founder cap: once FOUNDER_CAP Start subscriptions have been paid for,
-    // refuse new Start checkout/trial — the founder price no longer exists.
+    // A pricing page opened before a catalog change must not silently charge
+    // a different amount. Old clients without this field remain compatible.
+    if (req.body?.offeredAmount !== undefined
+      && Number(req.body.offeredAmount) !== price.amount) {
+      return res.status(409).json({ error: 'checkout_price_changed' });
+    }
+
+    // Founder cap: once FOUNDER_CAP promotional subscriptions have been paid for,
+    // refuse new Founder checkout/trial — the founder price no longer exists.
     // (Best-effort under concurrency: two simultaneous checkouts at the last
     // slot can both pass until the first payment authorizes; at launch
     // volume that drift is acceptable and harmless to customers.)
@@ -154,7 +163,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
       if (founder.soldOut) {
         return res.status(400).json({
           error: 'founder_sold_out',
-          message: 'As vagas de fundador esgotaram. O plano Pro segue disponível.'
+          message: 'As vagas de fundador esgotaram. O plano completo segue disponível.'
         });
       }
     }
@@ -238,13 +247,23 @@ router.post('/checkout', async (req: Request, res: Response) => {
     let session = started.session!;
 
     if (!started.created) {
+      // Never silently reuse a link contracted at another price/plan.
+      // Leave the old session and MP preapproval untouched for review.
+      if (!checkoutMatchesOffer(session, planId, price.amount, price.currency)) {
+        return res.status(409).json({
+          error: 'checkout_price_changed',
+          message: 'Este checkout foi criado com outro preço. Volte aos planos e confira o valor antes de iniciar um novo checkout.',
+          previousPrice: Number(session.amount),
+          currentPrice: price.amount,
+        });
+      }
       if (session.status === 'completed' && session.checkout_url) {
         return res.json({
           checkoutUrl: session.checkout_url,
           preapprovalId: session.preapproval_id,
           planId,
           planName: plan.name,
-          price: price.amount,
+          price: Number(session.amount),
           replayed: true
         });
       }
