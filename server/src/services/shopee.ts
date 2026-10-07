@@ -79,9 +79,15 @@ interface ShopeeResponse {
   [key: string]: any;
 }
 
+class ShopeeApiError extends Error {
+  constructor(readonly data: ShopeeResponse, path: string) {
+    super(`Shopee ${path} failed: ${data.error} ${data.message || ''}`.trim());
+  }
+}
+
 function assertOk(data: ShopeeResponse, path: string): void {
   if (data?.error) {
-    throw new Error(`Shopee ${path} failed: ${data.error} ${data.message || ''}`.trim());
+    throw new ShopeeApiError(data, path);
   }
 }
 
@@ -235,7 +241,7 @@ export async function getProcessedOrders(
 }
 
 /**
- * Orders that can have a label printed: READY_TO_SHIP (get_shipment_list)
+ * Candidate orders (not a guarantee of print readiness): READY_TO_SHIP (get_shipment_list)
  * plus already-arranged PROCESSED orders, deduplicated by order_sn.
  */
 export async function getPrintableOrderSns(
@@ -334,6 +340,77 @@ interface DocResult {
   selectable_shipping_document_type?: string[];
 }
 
+/** Keep per-package diagnostics even when Shopee rejects the whole batch. */
+async function documentPost(
+  path: string,
+  shop: { accessToken: string; shopId: string },
+  body: Record<string, unknown>
+): Promise<any> {
+  try {
+    return await apiPost(path, shop, body);
+  } catch (error) {
+    if (error instanceof ShopeeApiError &&
+        error.data.error === 'common.batch_api_all_failed' &&
+        error.data.response?.result_list?.some((r: DocResult) => r.fail_error)) {
+      return error.data.response;
+    }
+    throw error;
+  }
+}
+
+function labelFailure(orderSn: string, packageNumber: string | undefined, entry?: DocResult): Error {
+  const code = entry?.fail_error || entry?.status || 'document_unavailable';
+  const detail = entry?.fail_message || 'A Shopee não informou o motivo.';
+  const retryHint = code === 'logistics.package_can_not_print' && /not yet ready/i.test(detail)
+    ? ' A etiqueta ainda não está pronta na Shopee. Aguarde alguns minutos e tente novamente.'
+    : '';
+  return new Error(`Etiqueta Shopee indisponível: ${orderSn}/${packageNumber || 'pedido'}. ${code}: ${detail}${retryHint}`);
+}
+
+export interface PrintEligibility {
+  canRequest: boolean;
+  reason?: string;
+}
+
+/** Read-only eligibility, NOT proof that create/download will succeed.
+ * Check every package; missing results and transport errors fail closed.
+ */
+export async function checkPrintEligibility(
+  shop: { accessToken: string; shopId: string },
+  orders: ShopeeOrderDetail[]
+): Promise<Map<string, PrintEligibility>> {
+  const checks = new Map<string, PrintEligibility>();
+  const targets: Array<{ order_sn: string; package_number?: string }> = orders.flatMap(order => {
+    checks.set(order.order_sn, { canRequest: true });
+    return order.package_list?.length
+      ? order.package_list.map(p => ({ order_sn: order.order_sn, package_number: p.package_number }))
+      : [{ order_sn: order.order_sn }];
+  });
+  for (let i = 0; i < targets.length; i += 50) {
+    const batch = targets.slice(i, i + 50);
+    let results: DocResult[] = [];
+    try {
+      const response = await documentPost('/api/v2/logistics/get_shipping_document_parameter', shop, { order_list: batch });
+      results = response?.result_list || [];
+    } catch (error) {
+      console.warn('[shopee] document eligibility unavailable:', error);
+    }
+    for (const target of batch) {
+      const result = results.find(r => r.order_sn === target.order_sn &&
+        (target.package_number ? r.package_number === target.package_number : !r.package_number));
+      if (!result || result.fail_error || !(result.suggest_shipping_document_type || result.selectable_shipping_document_type?.length)) {
+        checks.set(target.order_sn, {
+          canRequest: false,
+          reason: result?.fail_error
+            ? `${result.fail_error}: ${result.fail_message || 'Documento indisponível na Shopee.'}`
+            : 'Não foi possível confirmar a disponibilidade na Shopee. Atualize para verificar novamente.'
+        });
+      }
+    }
+  }
+  return checks;
+}
+
 /**
  * Document type for this order, as reported by Shopee
  * (get_shipping_document_parameter). Uses the type Shopee suggests; null when
@@ -346,16 +423,12 @@ async function getDocumentType(
 ): Promise<string | null> {
   const entry: Record<string, string> = { order_sn: orderSn };
   if (packageNumber) entry.package_number = packageNumber;
-  const resp = await apiPost('/api/v2/logistics/get_shipping_document_parameter', shop, {
+  const resp = await documentPost('/api/v2/logistics/get_shipping_document_parameter', shop, {
     order_list: [entry]
-  }).catch((err) => {
-    console.warn(`[shopee] get_shipping_document_parameter ${orderSn}: ${err.message}`);
-    return null;
   });
   const r: DocResult | undefined = resp?.result_list?.[0];
   if (!r || r.fail_error) {
-    if (r?.fail_error) console.warn(`[shopee] document parameter ${orderSn}: ${r.fail_error} ${r.fail_message || ''}`);
-    return null;
+    throw labelFailure(orderSn, packageNumber, r);
   }
   return r.suggest_shipping_document_type || r.selectable_shipping_document_type?.[0] || null;
 }
@@ -377,9 +450,8 @@ async function getTrackingNumber(
  * create_shipping_document → poll get_shipping_document_result →
  * download_shipping_document.
  *
- * Read-only with respect to fulfilment: it never calls ship_order. If the
- * seller has not arranged the shipment in Shopee yet, the document cannot be
- * created and this returns null.
+ * Never calls ship_order. Failures preserve Shopee's per-package diagnostic;
+ * absence of a document does not prove that shipment has not been arranged.
  */
 export async function getLabelPdf(
   shop: { accessToken: string; shopId: string },
@@ -397,24 +469,24 @@ export async function getLabelPdf(
   if (packageNumber) docEntry.package_number = packageNumber;
   if (trackingNumber) docEntry.tracking_number = trackingNumber;
 
-  const createResp = await apiPost('/api/v2/logistics/create_shipping_document', shop, {
-    order_list: [docEntry]
-  }).catch((err) => {
-    console.warn(`[shopee] create_shipping_document ${orderSn}: ${err.message}`);
-    return null;
-  });
-  const created: DocResult | undefined = createResp?.result_list?.[0];
-  if (!createResp || created?.fail_error) {
-    if (created?.fail_error) {
-      console.warn(`[shopee] create_shipping_document ${orderSn}: ${created.fail_error} ${created.fail_message || ''}`);
-    }
-    return null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const createResp = await documentPost('/api/v2/logistics/create_shipping_document', shop, {
+      order_list: [docEntry]
+    });
+    const created: DocResult | undefined = createResp?.result_list?.[0];
+    if (created && !created.fail_error) break;
+    const transient = created?.fail_error === 'logistics.package_can_not_print' &&
+      /not yet ready/i.test(created.fail_message || '');
+    if (!transient || attempt === 2) throw labelFailure(orderSn, packageNumber, created);
+    await sleep(4000);
   }
 
   // Poll document result until READY (or give up after ~12s).
   let ready = false;
   for (let attempt = 0; attempt < 6; attempt++) {
-    const result = await apiPost('/api/v2/logistics/get_shipping_document_result', shop, {
+    // A transport blip while polling retries on the next attempt; Shopee's
+    // per-package failure still surfaces through documentPost.
+    const result = await documentPost('/api/v2/logistics/get_shipping_document_result', shop, {
       order_list: [docEntry]
     }).catch(() => null);
     const entry: DocResult | undefined = result?.result_list?.[0];
@@ -423,14 +495,12 @@ export async function getLabelPdf(
       break;
     }
     if (entry?.status === 'FAILED' || entry?.fail_error) {
-      console.warn(`[shopee] shipping doc ${orderSn} failed: ${entry.fail_error || entry.status}`);
-      return null;
+      throw labelFailure(orderSn, packageNumber, entry);
     }
     await sleep(2000);
   }
   if (!ready) {
-    console.warn(`[shopee] shipping doc ${orderSn} not ready in time`);
-    return null;
+    throw new Error(`Etiqueta Shopee ainda não está pronta: ${orderSn}/${packageNumber || 'pedido'}. Aguarde alguns minutos e tente novamente.`);
   }
 
   // shipping_document_type is a top-level field on download.
@@ -441,10 +511,7 @@ export async function getLabelPdf(
         ? { order_sn: orderSn, package_number: packageNumber }
         : { order_sn: orderSn }
     ]
-  }, true).catch((err) => {
-    console.warn(`[shopee] download_shipping_document ${orderSn}: ${err.message}`);
-    return null;
-  });
+  }, true);
 
   return pdf && pdf.length > 0 ? pdf : null;
 }
