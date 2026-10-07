@@ -2,14 +2,16 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('../services/shopee.js', () => ({
   buildAuthUrl: vi.fn(), exchangeCodeForToken: vi.fn(), refreshAccessToken: vi.fn(), getShopInfo: vi.fn(),
   getShipmentList: vi.fn(), getPrintableOrderSns: vi.fn(), getProcessedOrders: vi.fn(),
-  getOrderDetail: vi.fn(), getLabelPdf: vi.fn()
+  checkPrintEligibility: vi.fn(), getOrderDetail: vi.fn(), getLabelPdf: vi.fn()
 }));
 import { shopeeProvider } from '../providers/shopee.js';
-import { getProcessedOrders, getOrderDetail, getLabelPdf, getPrintableOrderSns } from '../services/shopee.js';
+import { getProcessedOrders, getOrderDetail, getLabelPdf, getPrintableOrderSns, checkPrintEligibility } from '../services/shopee.js';
 const ctx = { accountId: 1, provider: 'shopee', externalUserId: '123', accessToken: 'test' };
 describe('Shopee automatic labels', () => {
   it('only discovers seller-arranged PROCESSED orders', async () => {
     vi.mocked(getProcessedOrders).mockResolvedValue([{ order_sn: 'A' }, { order_sn: 'A' }]);
+    vi.mocked(getOrderDetail).mockResolvedValue([{ order_sn: 'A' }]);
+    vi.mocked(checkPrintEligibility).mockResolvedValue(new Map([['A', { canRequest: true }]]));
     expect(await shopeeProvider.listAutoPrintableShipmentIds!(ctx)).toEqual(['A']);
     expect(getPrintableOrderSns).not.toHaveBeenCalled();
   });
