@@ -7,8 +7,7 @@ import {
   getProcessedOrders,
   getPrintableOrderSns,
   getOrderDetail,
-  getLabelPdf,
-  checkPrintEligibility,
+  getReadyLabelPdfs,
   ShopeeOrderDetail
 } from '../services/shopee.js';
 import type {
@@ -48,12 +47,13 @@ async function listReadyShipments(ctx: AccountContext, opts: ListShipmentsOption
     console.error('[shopee] get_order_detail failed:', err);
     return [] as ShopeeOrderDetail[];
   });
-  const eligibility = await checkPrintEligibility(shop, details);
+  const readyPdfs = await getReadyLabelPdfs(shop, details);
   const bySn = new Map(details.map((d) => [d.order_sn, d]));
 
   const rows: NormalizedShipment[] = [];
   for (const entry of entries) {
     const order = bySn.get(entry.order_sn);
+    if (!readyPdfs.has(entry.order_sn)) continue;
 
     const items = (order?.item_list || [])
       .map((it) => `${it.model_quantity_purchased ?? 1}x ${it.item_name || 'Item'}`)
@@ -67,9 +67,8 @@ async function listReadyShipments(ctx: AccountContext, opts: ListShipmentsOption
       buyerNickname: order?.buyer_username || '-',
       items: items.length > 100 ? items.substring(0, 97) + '...' : items,
       status: 'ready_to_ship',
-      substatus: eligibility.get(entry.order_sn)?.canRequest ? 'label_requestable' : 'document_pending',
-      canPrint: eligibility.get(entry.order_sn)?.canRequest === true,
-      printReason: eligibility.get(entry.order_sn)?.reason || (!order ? 'Não foi possível consultar os pacotes na Shopee. Atualize para tentar novamente.' : undefined),
+      substatus: 'ready_to_print',
+      canPrint: true,
       city: order?.recipient_address?.city,
       state: order?.recipient_address?.state
     };
@@ -150,16 +149,16 @@ export const shopeeProvider: MarketplaceProvider = {
   async listPrintableShipmentIds(ctx: AccountContext): Promise<string[]> {
     const shop = shopOf(ctx);
     const ids = await getPrintableOrderSns(shop);
-    const checks = await checkPrintEligibility(shop, await getOrderDetail(shop, ids));
-    return ids.filter(id => checks.get(id)?.canRequest === true);
+    const ready = await getReadyLabelPdfs(shop, await getOrderDetail(shop, ids));
+    return ids.filter(id => ready.has(id));
   },
 
   async listAutoPrintableShipmentIds(ctx: AccountContext): Promise<string[]> {
     // Never auto-arrange shipping or request labels for unarranged orders.
     const shop = shopOf(ctx);
     const ids = [...new Set((await getProcessedOrders(shop)).map(o => o.order_sn))];
-    const checks = await checkPrintEligibility(shop, await getOrderDetail(shop, ids));
-    return ids.filter(id => checks.get(id)?.canRequest === true);
+    const ready = await getReadyLabelPdfs(shop, await getOrderDetail(shop, ids));
+    return ids.filter(id => ready.has(id));
   },
 
   async getLabelsPDF(ctx: AccountContext, externalIds: string[]): Promise<Buffer> {
@@ -167,21 +166,12 @@ export const shopeeProvider: MarketplaceProvider = {
 
     // An order can be split into several packages; each has its own label.
     const details = await getOrderDetail(shop, externalIds);
-    const packagesBySn = new Map(
-      details.map((d) => [d.order_sn, (d.package_list || []).map((p) => p.package_number)] as const)
-    );
-
+    const ready = await getReadyLabelPdfs(shop, details);
     const pdfs: Buffer[] = [];
-    for (const orderSn of externalIds) {
-      if (!packagesBySn.has(orderSn)) throw new Error(`Shopee não retornou os pacotes de ${orderSn}`);
-      const packages = packagesBySn.get(orderSn)!;
-      const targets: Array<string | undefined> = packages.length > 0 ? packages : [undefined];
-      for (const packageNumber of targets) {
-        const pdf = await getLabelPdf(shop, orderSn, packageNumber);
-        // A partial multi-package document must not be marked printed.
-        if (!pdf) throw new Error(`Etiqueta Shopee indisponível: ${orderSn}/${packageNumber || 'pedido'}. A Shopee não disponibilizou o documento. Tente novamente em alguns minutos.`);
-        pdfs.push(pdf);
-      }
+    for (const id of externalIds) {
+      const documents = ready.get(id);
+      if (!documents) throw new Error(`Etiqueta Shopee indisponível: ${id}. Não foi possível confirmar NF válida e PDF pronto em todos os pacotes. Atualize e tente novamente.`);
+      pdfs.push(...documents);
     }
 
     if (pdfs.length === 0) {
