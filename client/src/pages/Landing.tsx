@@ -33,7 +33,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [proPrice, setProPrice] = useState<number | null>(null);
-  const [startPrice, setStartPrice] = useState<number | null>(null);
+  const [founderPrice, setFounderPrice] = useState<number | null>(null);
   const [founderRemaining, setFounderRemaining] = useState<number | null>(null);
   const [founderCap, setFounderCap] = useState<number | null>(null);
 
@@ -48,8 +48,8 @@ export default function Landing() {
           const data = await res.json();
           const pro = (data.plans || []).find((p: Plan) => p.id === 'pro');
           if (pro?.price) setProPrice(pro.price.amount);
-          const start = (data.plans || []).find((p: Plan) => p.id === 'start');
-          if (start?.price) setStartPrice(start.price.amount);
+          const founder = (data.plans || []).find((p: Plan) => p.id === 'founder');
+          if (founder?.price) setFounderPrice(founder.price.amount);
           if (data.founder && typeof data.founder.remaining === 'number') {
             setFounderRemaining(data.founder.remaining);
             setFounderCap(typeof data.founder.cap === 'number' ? data.founder.cap : null);
@@ -72,8 +72,8 @@ export default function Landing() {
 
   // Motion is the default in this unmerged PR; ?hero=copy preserves the copy-only comparison.
   const motionAlternative = new URLSearchParams(window.location.search).get('hero') !== 'copy';
-  const priceLabel = proPrice !== null ? `R$ ${formatBRL(proPrice)}` : 'R$ 59,90';
-  const founderPriceLabel = startPrice !== null ? `R$ ${formatBRL(startPrice)}` : 'R$ 29,90';
+  const priceLabel = proPrice !== null ? `R$ ${formatBRL(proPrice)}` : 'R$ 19,90';
+  const founderPriceLabel = founderPrice !== null ? `R$ ${formatBRL(founderPrice)}` : 'R$ 7,90';
 
   return (
     <div className="min-h-screen bg-background">

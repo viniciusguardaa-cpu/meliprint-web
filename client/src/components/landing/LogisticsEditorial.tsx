@@ -70,7 +70,7 @@ export default function LogisticsEditorial({ onCta }: { onCta: () => void }) {
           <div className="flex flex-wrap gap-x-8 gap-y-4">
             {[
               { icon: MousePointerClick, text: 'Impressão em poucos cliques' },
-              { icon: Timer, text: 'Fila por prazo de despacho no Pro' },
+              { icon: Timer, text: 'Fila por prazo de despacho' },
               { icon: PackageCheck, text: 'Conferência de itens antes de imprimir' },
             ].map(({ icon: Icon, text }, i) => (
               <Reveal key={text} delay={i * 100}>

@@ -12,8 +12,8 @@ const router = Router();
 router.get('/', async (req: Request, res: Response) => {
   try {
     const founder = await getFounderSlotState();
-    // Sold-out founder launch: the Start plan stops being offered entirely
-    // (landing shows the sold-out state; /pricing falls back to Pro only).
+    // Sold-out founder launch: the Founder offer stops being offered entirely
+    // (landing shows the sold-out state; /pricing falls back to the regular complete offer).
     const plans = (await getActivePlans()).filter(
       (plan) => !(plan.id === FOUNDER_PLAN_ID && founder.soldOut)
     );
