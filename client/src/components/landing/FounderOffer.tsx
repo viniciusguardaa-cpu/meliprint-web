@@ -2,9 +2,9 @@ import { ArrowRight } from 'lucide-react';
 import Reveal from './Reveal';
 
 interface FounderOfferProps {
-  /** Formatted founder price, e.g. "R$ 29,90" (Start plan, from the plans API). */
+  /** Formatted founder price, e.g. "R$ 7,90" (complete Founder offer, from the plans API). */
   founderPriceLabel: string;
-  /** Formatted regular Pro price, e.g. "R$ 59,90". */
+  /** Formatted regular Pro price, e.g. "R$ 19,90". */
   proPriceLabel: string;
   /** Live remaining founder slots from /api/plans; null when unknown. */
   slotsRemaining?: number | null;
@@ -14,16 +14,16 @@ interface FounderOfferProps {
 }
 
 /**
- * Launch invite: 20 founder slots on the Start plan with locked pricing.
+ * Launch invite: 20 founder slots on the complete Founder offer with locked pricing.
  *
  * Honesty rules baked into the copy:
- * - The founder deal maps to the real Start plan (batch printing, PDF/ZPL) —
- *   nothing here promises Pro-only features like auto-print.
+ * - The founder deal maps to the real complete Founder offer (batch printing, PDF/ZPL) —
+ *   includes all full-plan features, including optional auto-print.
  * - "Valor travado" is true while the subscription stays active: contracted
- *   prices are versioned in the DB and Mercado Pago keeps billing the
+ *   prices are snapshotted in subscription contracts and Mercado Pago keeps billing the
  *   contracted amount.
- * - The slot count (20) is a launch commitment handled manually by the
- *   founder; there is no automated slot counter in checkout.
+ * - Slots are counted from paid activations by the server. Trials do not
+ *   consume a slot.
  */
 export default function FounderOffer({
   founderPriceLabel,
@@ -73,7 +73,7 @@ export default function FounderOffer({
             </h2>
             <p className="mt-5 text-base sm:text-lg text-muted-foreground">
               {soldOut
-                ? 'As 20 vagas da primeira turma já foram preenchidas. O LabelGo segue disponível no plano Pro.'
+                ? 'As 20 vagas da primeira turma já foram preenchidas. O LabelGo segue disponível no plano completo.'
                 : 'Entre na primeira turma, use o LabelGo com valor travado e ajude a moldar o produto com seu feedback.'}
             </p>
           </div>
@@ -93,7 +93,7 @@ export default function FounderOffer({
                   </span>
                 </div>
                 {soldOut ? (
-                  <p className="mt-2 text-brand-wasabi font-semibold">/mês no plano Pro</p>
+                  <p className="mt-2 text-brand-wasabi font-semibold">/mês no plano completo</p>
                 ) : (
                   <>
                     <p className="mt-2 text-brand-wasabi font-semibold">/mês, valor travado</p>
@@ -123,12 +123,12 @@ export default function FounderOffer({
               Para quem vende no <strong className="text-white font-semibold">Mercado Livre</strong>:{' '}
               {soldOut
                 ? 'impressão automática de etiquetas em lote, em PDF ou ZPL 10×15, direto do navegador.'
-                : 'etiquetas em lote, em PDF ou ZPL 10×15. Preço de fundador em troca do seu feedback.'}
+                : 'plano completo, com etiquetas em lote, PDF ou ZPL 10×15. Preço de fundador em troca do seu feedback.'}
             </p>
             {!soldOut && (
               <p className="relative mt-3 text-xs sm:text-sm text-white/45 leading-relaxed">
-                O plano Fundador é o Start com preço travado. Impressão automática continua no
-                plano Pro, a {proPriceLabel}/mês.
+                Fundador leva todos os recursos do plano completo: fila por prazo, conferência,
+                histórico e impressão automática com agente opcional. Mesmo plano, preço promocional.
               </p>
             )}
           </div>
@@ -140,7 +140,7 @@ export default function FounderOffer({
               onClick={onCta}
               className="btn-shine group inline-flex items-center justify-center gap-2.5 bg-primary text-white font-bold text-base sm:text-lg px-10 py-4 rounded-2xl shadow-[0_20px_50px_-12px_rgba(254,93,49,0.55)] transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] min-h-[56px]"
             >
-              {soldOut ? 'CONHECER O PLANO PRO' : 'QUERO SER FUNDADOR'}
+              {soldOut ? 'CONHECER O PLANO COMPLETO' : 'QUERO SER FUNDADOR'}
               <ArrowRight className="w-5 h-5 transition-transform duration-150 group-hover:translate-x-1" />
             </button>
             {!soldOut && (
