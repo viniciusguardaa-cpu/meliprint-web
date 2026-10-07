@@ -8,6 +8,7 @@ import {
   getPrintableOrderSns,
   getOrderDetail,
   getLabelPdf,
+  checkPrintEligibility,
   ShopeeOrderDetail
 } from '../services/shopee.js';
 import type {
@@ -47,6 +48,7 @@ async function listReadyShipments(ctx: AccountContext, opts: ListShipmentsOption
     console.error('[shopee] get_order_detail failed:', err);
     return [] as ShopeeOrderDetail[];
   });
+  const eligibility = await checkPrintEligibility(shop, details);
   const bySn = new Map(details.map((d) => [d.order_sn, d]));
 
   const rows: NormalizedShipment[] = [];
@@ -65,8 +67,9 @@ async function listReadyShipments(ctx: AccountContext, opts: ListShipmentsOption
       buyerNickname: order?.buyer_username || '-',
       items: items.length > 100 ? items.substring(0, 97) + '...' : items,
       status: 'ready_to_ship',
-      substatus: 'ready_to_print',
-      canPrint: true,
+      substatus: eligibility.get(entry.order_sn)?.canRequest ? 'label_requestable' : 'document_pending',
+      canPrint: eligibility.get(entry.order_sn)?.canRequest === true,
+      printReason: eligibility.get(entry.order_sn)?.reason || (!order ? 'Não foi possível consultar os pacotes na Shopee. Atualize para tentar novamente.' : undefined),
       city: order?.recipient_address?.city,
       state: order?.recipient_address?.state
     };
@@ -145,12 +148,18 @@ export const shopeeProvider: MarketplaceProvider = {
   listReadyShipments,
 
   async listPrintableShipmentIds(ctx: AccountContext): Promise<string[]> {
-    return getPrintableOrderSns(shopOf(ctx));
+    const shop = shopOf(ctx);
+    const ids = await getPrintableOrderSns(shop);
+    const checks = await checkPrintEligibility(shop, await getOrderDetail(shop, ids));
+    return ids.filter(id => checks.get(id)?.canRequest === true);
   },
 
   async listAutoPrintableShipmentIds(ctx: AccountContext): Promise<string[]> {
     // Never auto-arrange shipping or request labels for unarranged orders.
-    return [...new Set((await getProcessedOrders(shopOf(ctx))).map(o => o.order_sn))];
+    const shop = shopOf(ctx);
+    const ids = [...new Set((await getProcessedOrders(shop)).map(o => o.order_sn))];
+    const checks = await checkPrintEligibility(shop, await getOrderDetail(shop, ids));
+    return ids.filter(id => checks.get(id)?.canRequest === true);
   },
 
   async getLabelsPDF(ctx: AccountContext, externalIds: string[]): Promise<Buffer> {
@@ -170,13 +179,13 @@ export const shopeeProvider: MarketplaceProvider = {
       for (const packageNumber of targets) {
         const pdf = await getLabelPdf(shop, orderSn, packageNumber);
         // A partial multi-package document must not be marked printed.
-        if (!pdf) throw new Error(`Etiqueta Shopee indisponível: ${orderSn}/${packageNumber || 'pedido'}. Tente novamente após organizar o envio.`);
+        if (!pdf) throw new Error(`Etiqueta Shopee indisponível: ${orderSn}/${packageNumber || 'pedido'}. A Shopee não disponibilizou o documento. Tente novamente em alguns minutos.`);
         pdfs.push(pdf);
       }
     }
 
     if (pdfs.length === 0) {
-      throw new Error('Nenhuma etiqueta Shopee disponível (organize o envio na Shopee primeiro, ou o status não permite imprimir)');
+      throw new Error('Nenhuma etiqueta Shopee disponível.');
     }
     if (pdfs.length === 1) return pdfs[0];
 
