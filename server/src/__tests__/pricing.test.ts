@@ -127,7 +127,8 @@ describe('founder slot enforcement', () => {
     const [sql, params] = mockQuery.mock.calls[0];
     expect(sql).toContain('subscription_activated');
     expect(sql).toContain('DISTINCT');
-    expect(params).toContain('start');
+    expect(params).toContain('founder');
+    expect(sql).toContain("IN ($1, 'start')");
     expect(state).toEqual({ cap: 20, taken: 7, remaining: 13, soldOut: false });
   });
 
@@ -138,5 +139,17 @@ describe('founder slot enforcement', () => {
     const state = await getFounderSlotState();
     expect(state.remaining).toBe(0);
     expect(state.soldOut).toBe(true);
+  });
+});
+
+// Founder promotion has the same entitlement flags as Complete.
+describe('complete founder entitlements', () => {
+  it('grants each Pro feature through the founder offer', async () => {
+    mockQuery.mockReset();
+    const { planHasFeature } = await import('../services/pricing.js');
+    for (const feature of ['auto_print', 'sla_queue', 'packing_check', 'print_history'] as const) {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 'founder', [feature]: true }] });
+      expect(await planHasFeature('founder', feature)).toBe(true);
+    }
   });
 });
