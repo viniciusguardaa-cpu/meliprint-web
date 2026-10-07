@@ -34,10 +34,10 @@ export default function Header({ showSubscription = false, showDashboard = false
             </span>
           )}
           {user && (
-            <div className="flex items-center gap-1 rounded-full bg-muted px-2 py-1 mr-1" aria-label="Filtrar marketplace">
+            <div className="flex items-center gap-1 rounded-xl bg-muted/70 p-1 mr-1" aria-label="Filtrar marketplace">
               <button type="button" aria-label="Mostrar todos os marketplaces" aria-pressed={!marketplaceFilter}
                 onClick={() => onMarketplaceFilterChange ? onMarketplaceFilterChange('') : navigate('/dashboard')}
-                className={`h-8 px-2 rounded-full text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${!marketplaceFilter ? 'bg-surface shadow-sm text-foreground' : 'text-muted-foreground hover:bg-border'}`}>
+                className={`h-8 px-3 rounded-lg text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${!marketplaceFilter ? 'bg-surface shadow-sm text-foreground' : 'text-muted-foreground hover:bg-border'}`}>
                 Todos
               </button>
               {marketplaceMarks.map((marketplace) => (
@@ -48,7 +48,7 @@ export default function Header({ showSubscription = false, showDashboard = false
                   title={`Mostrar pedidos ${marketplace.name}`}
                   aria-label={`Mostrar pedidos ${marketplace.name}`}
                   aria-pressed={marketplaceFilter === marketplace.id}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${marketplaceFilter === marketplace.id ? 'bg-surface ring-2 ring-primary shadow-sm' : ''}`}
+                  className={`flex h-8 w-10 items-center justify-center rounded-lg transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${marketplaceFilter === marketplace.id ? 'bg-surface shadow-sm border border-border' : 'border border-transparent opacity-75 hover:opacity-100'}`}
                 >
                   <img src={marketplace.src} alt="" aria-hidden="true" className="h-6 w-7 object-contain" />
                 </button>
@@ -88,4 +88,4 @@ export default function Header({ showSubscription = false, showDashboard = false
       </div>
     </header>
   );
-}
+          }
