@@ -89,11 +89,11 @@ describe('shopee client', () => {
     expect(dl.body.shipping_document_type).toBe('NORMAL_AIR_WAYBILL');
   });
 
-  it('returns null without shipping anything when the order is not arranged', async () => {
+  it('reports unavailable documents without shipping anything', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
       jsonRes({ response: { result_list: [{ order_sn: 'A', fail_error: 'logistics.order_status_error' }] } })
     );
-    expect(await getLabelPdf(shop, 'A')).toBeNull();
+    await expect(getLabelPdf(shop, 'A')).rejects.toThrow('logistics.order_status_error');
     expect(fetchMock.mock.calls.every(([u]) => !/ship_order/.test(String(u)))).toBe(true);
   });
 });
