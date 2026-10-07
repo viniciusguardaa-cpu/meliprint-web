@@ -81,6 +81,7 @@ export default function Pricing() {
         body: JSON.stringify({
           planId,
           trial,
+          offeredAmount: plans.find(plan => plan.id === planId)?.price?.amount,
           visitorKey: getVisitorKey(),
           idempotencyKey: idempotencyKey.current,
         })
@@ -91,10 +92,13 @@ export default function Pricing() {
       if (!res.ok) {
         if (data.error === 'trial_already_used') {
           setSubStatus(prev => ({ ...(prev || { hasSubscription: false, status: null }), canTrial: false }));
-          throw new Error('O período de teste gratuito já foi utilizado. Assine o Pro para continuar.');
+          throw new Error('O período de teste gratuito já foi utilizado. Assine o plano completo para continuar.');
         }
         if (data.error === 'founder_sold_out') {
-          throw new Error('As vagas de fundador esgotaram. O plano Pro segue disponível.');
+          throw new Error('As vagas de fundador esgotaram. O plano completo segue disponível.');
+        }
+        if (data.error === 'checkout_price_changed') {
+          throw new Error('Este checkout foi criado com outro preço. Volte aos planos e confira o valor antes de iniciar um novo checkout. O checkout antigo não foi alterado.');
         }
         if (data.error === 'checkout_in_progress') {
           throw new Error('Já existe um checkout em andamento. Aguarde alguns segundos e tente novamente.');
@@ -128,6 +132,10 @@ export default function Pricing() {
   };
 
   const isTrialing = subStatus?.status === 'trialing';
+  const regular = plans.find(plan => plan.id === 'pro');
+  const founder = plans.find(plan => plan.id === 'founder');
+  // One product card. Founder is the promotional offer, not a reduced tier.
+  const offeredPlan = founder || regular;
   const canTrial = subStatus?.canTrial !== false && !isTrialing;
 
   return (
@@ -158,9 +166,10 @@ export default function Pricing() {
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            {plans.map((plan) => {
-              const isPro = plan.id === 'pro';
+          <div className="grid gap-6 max-w-xl mx-auto">
+            {(offeredPlan ? [offeredPlan] : []).map((plan) => {
+              const isPro = true;
+              const isFounder = plan.id === 'founder';
               return (
                 <div
                   key={plan.id}
@@ -169,7 +178,7 @@ export default function Pricing() {
                 >
                   {isPro && (
                     <div className="bg-secondary text-secondary-foreground text-center py-2 text-sm font-semibold">
-                      RECOMENDADO
+                      {isFounder ? 'PROMOÇÃO DE FUNDADOR - 20 VAGAS' : 'PLANO COMPLETO'}
                     </div>
                   )}
                   {!isPro && (
@@ -180,7 +189,7 @@ export default function Pricing() {
 
                   <div className="p-8">
                     {/* Plan name */}
-                    <h2 className="text-xl font-bold text-foreground mb-1">{plan.name}</h2>
+                    <h2 className="text-xl font-bold text-foreground mb-1">LabelGo Completo</h2>
                     <p className="text-muted-foreground text-sm mb-6">{plan.description}</p>
 
                     {/* Price */}
@@ -194,7 +203,8 @@ export default function Pricing() {
                           ,{plan.price ? (plan.price.amount % 1).toFixed(2).slice(2) : '00'}
                         </span>
                       </div>
-                      <p className="text-muted-foreground mt-2">por mês</p>
+                      <p className="text-muted-foreground mt-2">{isFounder ? 'por mês, valor travado enquanto ativo' : 'por mês'}</p>
+                      {isFounder && regular?.price && <p className="text-sm text-muted-foreground mt-2">Preço regular: <span className="line-through">R$ {regular.price.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês</span>. Todos os recursos incluídos.</p>}
                     </div>
 
                     {/* Features */}
@@ -248,7 +258,7 @@ export default function Pricing() {
                           {loading ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
                           ) : (
-                            isTrialing ? 'Assinar agora (converter trial)' : 'Assinar Pro agora'
+                            isTrialing ? 'Assinar agora (converter trial)' : isFounder ? 'Assinar completo por R$ 7,90/mês' : 'Assinar completo agora'
                           )}
                         </button>
                       </>
@@ -300,7 +310,7 @@ export default function Pricing() {
             Pagamento seguro
           </div>
           <div className="flex items-center gap-2">
-            <img src="https://http2.mlstatic.com/frontend-assets/mp-web-navigation/badge.svg" alt="Mercado Pago" className="h-5" />
+            <img src="/mercado-pago.svg" alt="Mercado Pago" className="h-8 w-auto" />
           </div>
         </div>
       </main>
