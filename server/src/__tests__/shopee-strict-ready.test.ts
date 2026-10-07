@@ -14,13 +14,13 @@ async function mockApi(status = 'READY', invalidPdf = false, failSecond = false)
     const target = JSON.parse(init?.body || '{}').order_list?.[0];
     if (path.endsWith('get_shipping_document_parameter')) return json({ result_list: [{ ...target, suggest_shipping_document_type: 'THERMAL_AIR_WAYBILL' }] });
     if (path.endsWith('get_shipping_document_result')) return json({ result_list: [{ ...target, status: failSecond && target.package_number === 'P2' ? 'PROCESSING' : status }] });
-    if (path.endsWith('download_shipping_document')) return new Response(invalidPdf ? '%PDF-not-a-valid-document' : pdf);
+    if (path.endsWith('download_shipping_document')) return new Response(invalidPdf ? '%PDF-not-a-valid-document' : Buffer.from(pdf));
     throw new Error('Unexpected write/call ' + path);
   });
   vi.stubGlobal('fetch', fetchMock); return fetchMock;
 }
 it('requests the documented invoice_data optional field', async () => {
-  const f = vi.fn(async () => json({ order_list: [] })); vi.stubGlobal('fetch', f);
+  const f = vi.fn(async (_input: unknown) => json({ order_list: [] })); vi.stubGlobal('fetch', f);
   await getOrderDetail(shop, ['A']);
   expect(new URL(String(f.mock.calls[0][0])).searchParams.get('response_optional_fields')).toContain('invoice_data');
 });
