@@ -1,6 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
+import { loadLabelPdf } from '../lib/labelPdf';
+
+function friendlyErrorMessage(detail: string): string {
+  if (/not yet ready|ainda não está pronta/i.test(detail)) {
+    return 'A etiqueta ainda não está pronta na Shopee. Aguarde alguns minutos e tente novamente.';
+  }
+  return 'Não foi possível carregar a etiqueta. Tente novamente.';
+}
 
 type InvoiceItem = {
   shipmentId: string;
@@ -15,6 +23,8 @@ export default function PrintLabels() {
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [printReady, setPrintReady] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const loggedRef = useRef(false);
 
   // Which connected account these labels belong to (optional — defaults to
   // the user's mercadolivre account server-side for backwards compat).
@@ -28,6 +38,8 @@ export default function PrintLabels() {
     .filter((s) => s.length > 0);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl: string | undefined;
     const run = async () => {
       if (shipmentIds.length === 0) {
         setError('Nenhuma etiqueta selecionada.');
@@ -37,21 +49,20 @@ export default function PrintLabels() {
 
       setLoading(true);
       setError(null);
+      setPrintReady(false);
+      setPdfUrl('');
+      loggedRef.current = false;
 
       try {
         const params = new URLSearchParams({ shipment_ids: shipmentIds.join(',') });
         if (accountId) params.set('account_id', accountId);
         if (provider) params.set('provider', provider);
         const url = `/api/labels/pdf?${params.toString()}`;
-        setPdfUrl(url);
-
-        // Record the print for the Pro history tab (best-effort, non-blocking).
-        fetch('/api/labels/print-log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ shipmentIds, accountId: accountId || undefined, provider: provider || undefined })
-        }).catch(() => { });
+        const pdf = await loadLabelPdf(url, controller.signal);
+        if (controller.signal.aborted) return;
+        objectUrl = URL.createObjectURL(pdf);
+        setPdfUrl(objectUrl);
+        setLoading(false);
 
         try {
           const invRes = await fetch('/api/labels/invoices', {
@@ -69,24 +80,39 @@ export default function PrintLabels() {
           setInvoices([]);
         }
 
-        setPrintReady(true);
-        setLoading(false);
-
-        setTimeout(() => {
-          try {
-            window.focus();
-            window.print();
-          } catch {
-          }
-        }, 500);
-      } catch {
-        setError('Erro ao carregar etiquetas.');
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setError(error instanceof Error ? error.message : 'Erro ao carregar etiquetas.');
         setLoading(false);
       }
     };
 
     run();
-  }, [rawIds]);
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [rawIds, accountId, provider]);
+
+  const printLabels = () => {
+    if (!printReady || !iframeRef.current?.contentWindow) return;
+    try {
+      iframeRef.current.contentWindow.focus();
+      iframeRef.current.contentWindow.print();
+      // This records opening the print dialog, not physical printer success.
+      if (!loggedRef.current) {
+        loggedRef.current = true;
+        fetch('/api/labels/print-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ shipmentIds, accountId: accountId || undefined, provider: provider || undefined })
+        }).catch(() => { });
+      }
+    } catch {
+      setError('Não foi possível abrir a impressão. Abra o PDF e imprima pelo visualizador.');
+    }
+  };
 
   const openInvoices = () => {
     const urls = invoices
@@ -122,11 +148,11 @@ export default function PrintLabels() {
 
       <div className="no-print sticky top-0 z-10 bg-surface border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          {loading ? 'Carregando...' : error ? error : `Etiquetas (${shipmentIds.length})`}
+          {loading ? 'Carregando...' : error ? 'Erro ao carregar a etiqueta' : `Etiquetas (${shipmentIds.length})`}
         </div>
         <div className="flex items-center gap-2">
           <Button
-            onClick={() => window.print()}
+            onClick={printLabels}
             disabled={!printReady}
           >
             Imprimir
@@ -141,10 +167,22 @@ export default function PrintLabels() {
         </div>
       </div>
 
+      {pdfUrl && (
+        <div className="no-print px-4 py-2 text-sm">
+          {printReady ? 'PDF carregado. Confira a etiqueta e clique em Imprimir.' : 'Abrindo PDF...'}
+          {' '}<a href={pdfUrl} target="_blank" rel="noreferrer">Abrir PDF</a>
+        </div>
+      )}
       {error ? (
-        <div className="p-6 text-foreground">{error}</div>
+        <div className="p-6 text-foreground">
+          <p>{friendlyErrorMessage(error)}</p>
+          <p className="mt-3 text-xs text-muted-foreground break-words">Detalhe técnico: {error.replace(/\s*A etiqueta ainda não está pronta na Shopee\. Aguarde alguns minutos e tente novamente\.?/gi, '').trim()}</p>
+        </div>
       ) : pdfUrl ? (
         <iframe
+          ref={iframeRef}
+          onLoad={() => setPrintReady(true)}
+          onError={() => { setPrintReady(false); setError('Não foi possível abrir o PDF.'); }}
           src={pdfUrl}
           style={{
             width: '100%',

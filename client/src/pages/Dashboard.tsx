@@ -27,6 +27,7 @@ interface Shipment {
   status: string;
   substatus: string;
   canPrint: boolean;
+  printReason?: string;
   city?: string;
   state?: string;
   dispatchDeadline?: string;
@@ -242,13 +243,8 @@ export default function Dashboard() {
       openLabelsPrintWindow(accountId, ids);
     }
 
-    // 2. Remover otimisticamente os envios impressos da lista "ready"
-    const printed = new Set(shipments.map(shipmentKey));
-    setReady(prev => prev.filter(s => !printed.has(shipmentKey(s))));
+    // Opening the page is not proof that generation or printing succeeded.
     setSelected(new Set());
-
-    // 3. Refresh após delay para o marketplace atualizar os status
-    setTimeout(() => fetchShipments(), 3000);
   };
 
   const handlePrintAll = async () => {
@@ -275,7 +271,7 @@ export default function Dashboard() {
     try {
       printShipments([packingShipment]);
       setPackingShipment(null);
-      toast.success('Separação confirmada — etiqueta enviada para impressão.');
+      toast.success('Separação confirmada. Abrindo a etiqueta para conferir e imprimir.');
     } catch (err) {
       if (err instanceof Error && err.message === 'Popup blocked') {
         toast.error('Permita popups no navegador para abrir a tela de impressão.');
@@ -360,7 +356,7 @@ export default function Dashboard() {
                 className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${tab === 'ready' ? 'bg-surface shadow text-foreground' : 'text-muted-foreground'
                   }`}
               >
-                Pronto ({ready.length})
+                {ready.some(s => s.marketplace === 'shopee') ? 'Etiquetas' : 'Pronto'} ({ready.length})
               </button>
               <button
                 onClick={() => setTab('reprint')}
@@ -611,9 +607,14 @@ export default function Dashboard() {
                       )}
                       <td className="px-4 py-4">
                         {shipment.canPrint ? (
-                          <Badge variant="success">Pronto</Badge>
+                          <Badge variant={shipment.marketplace === 'shopee' ? undefined : 'success'}>
+                            {shipment.marketplace === 'shopee' ? 'Disponível para solicitar' : 'Pronto'}
+                          </Badge>
                         ) : (
-                          <Badge>{shipment.substatus || shipment.status}</Badge>
+                          <span title={shipment.printReason}>
+                            <Badge>{shipment.marketplace === 'shopee' ? 'Aguardando Shopee' : shipment.substatus || shipment.status}</Badge>
+                            {shipment.printReason && <span className="block text-xs text-muted-foreground mt-1">{shipment.printReason}</span>}
+                          </span>
                         )}
                       </td>
                       {showPacking && (
