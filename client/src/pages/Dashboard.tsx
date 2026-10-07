@@ -608,7 +608,7 @@ export default function Dashboard() {
                       <td className="px-4 py-4">
                         {shipment.canPrint ? (
                           <Badge variant={shipment.marketplace === 'shopee' ? undefined : 'success'}>
-                            {shipment.marketplace === 'shopee' ? 'Disponível para solicitar' : 'Pronto'}
+                            {'Pronto'}
                           </Badge>
                         ) : (
                           <span title={shipment.printReason}>
