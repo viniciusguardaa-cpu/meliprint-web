@@ -55,9 +55,11 @@ export interface NormalizedShipment {
   items: string;
   /** Normalized status vocabulary: 'ready_to_ship' | ... */
   status: string;
-  /** Normalized substatus: 'ready_to_print' | 'invoice_pending' | '' */
+  /** Normalized substatus: 'ready_to_print' | 'invoice_pending' | 'label_requestable' | 'document_pending' | '' */
   substatus: string;
   canPrint: boolean;
+  /** Eligibility failure, shown without claiming the PDF is ready. */
+  printReason?: string;
   city?: string;
   state?: string;
   /** Pro (sla_queue): dispatch deadline, ISO date. */
