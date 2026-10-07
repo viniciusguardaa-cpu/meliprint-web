@@ -247,10 +247,10 @@ router.post('/users/:id/extend-trial', async (req: Request, res: Response) => {
 });
 
 // Growth metrics: funnel, abandonment, top pages, UTM performance.
-// ?days=N limits the event window (0 = all time, default 30).
+// ?days=N limits the event window (-1 = today in São Paulo, 0 = all time, default 30).
 router.get('/growth', async (req: Request, res: Response) => {
   try {
-    const days = req.query.days === undefined ? 30 : Math.max(0, Number(req.query.days) || 0);
+    const days = req.query.days === '-1' ? -1 : req.query.days === undefined ? 30 : Math.max(0, Number(req.query.days) || 0);
     const metrics = await getGrowthMetrics(days);
     res.json(metrics);
   } catch (error) {

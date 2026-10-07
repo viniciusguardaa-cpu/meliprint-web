@@ -11,23 +11,29 @@ export function AdminGrowthPanel({ growth, growthDays, onChangeDays }: {
     <>
         {growth && (
           <div className="bg-surface rounded-xl border border-border shadow-sm p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-primary" />
                 <h2 className="text-lg font-bold text-foreground">Analytics</h2>
               </div>
-              <div className="flex items-center gap-1">
-                {([7, 30, 90, 0] as const).map((d) => (
+              <div className="flex flex-wrap items-center gap-1">
+                {([-1, 7, 30, 90, 0] as const).map((d) => (
                   <button
                     key={d}
                     onClick={() => onChangeDays(d)}
+                    aria-pressed={growthDays === d}
+                    title={d === -1 ? 'Desde 00h de hoje (horário de São Paulo)' : undefined}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${growthDays === d ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-border'}`}
                   >
-                    {d === 0 ? 'Tudo' : `${d}d`}
+                    {d === -1 ? 'Hoje' : d === 0 ? 'Tudo' : `${d}d`}
                   </button>
                 ))}
               </div>
             </div>
+
+            {growthDays === -1 && (
+              <p className="text-xs text-muted-foreground mb-4">Desde 00h de hoje · horário de São Paulo</p>
+            )}
 
             {/* Traffic totals */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -116,7 +122,7 @@ export function AdminGrowthPanel({ growth, growthDays, onChangeDays }: {
                   <MiniBars
                     color="bg-primary"
                     data={growth.visitors_by_day.map((d) => ({
-                      label: `${new Date(d.day).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}: ${d.visitors} visitantes, ${d.views} views`,
+                      label: `${new Date(`${d.day.slice(0, 10)}T12:00:00Z`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })}: ${d.visitors} visitantes, ${d.views} views`,
                       value: d.visitors
                     }))}
                   />
