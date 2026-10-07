@@ -4,7 +4,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
 import { Printer, RefreshCw, CheckSquare, Square, Package, Calendar, AlarmClock, ClipboardCheck, AlertTriangle } from 'lucide-react';
 import Header from '../components/Header';
-import MarketplaceLogo from '../components/MarketplaceLogo';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
@@ -80,7 +79,7 @@ interface ProviderInfo {
 }
 
 export default function Dashboard() {
-  const { user, connectAccount, disconnectAccount, checkAuth } = useAuth();
+  const { user, connectAccount, checkAuth } = useAuth();
   const { subscription } = useSubscription();
   const navigate = useNavigate();
   const [ready, setReady] = useState<Shipment[]>([]);
@@ -433,8 +432,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Connected marketplace accounts */}
-        {accounts.length === 0 ? (
+        {/* First-use connection only. Manage accounts in Settings via the header. */}
+        {accounts.length === 0 && (
           <div className="bg-surface rounded-xl border border-dashed border-border shadow-sm p-8 mb-6 text-center">
             <Package className="w-12 h-12 text-border mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-foreground mb-1">
@@ -444,7 +443,7 @@ export default function Dashboard() {
               O LabelGo busca os envios prontos para impressão nas suas contas conectadas.
             </p>
             <div className="flex items-center justify-center gap-2 flex-wrap">
-              {providers.map((p) => (
+              {providers.filter((p) => p.id === 'mercadolivre' || p.id === 'shopee').map((p) => (
                 <Button
                   key={p.id}
                   onClick={() => handleConnectAccount(p.id)}
@@ -455,48 +454,6 @@ export default function Dashboard() {
                 </Button>
               ))}
             </div>
-          </div>
-        ) : (
-          <div className="bg-surface rounded-xl border border-border shadow-sm px-4 py-3 mb-6 flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-muted-foreground uppercase">Contas</span>
-            {accounts.map((a) => (
-              <span
-                key={a.id}
-                className={`inline-flex items-center gap-1.5 rounded-full pl-1.5 pr-1.5 py-1 text-sm ${a.status === 'reauth_required'
-                    ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-300'
-                    : 'bg-muted text-foreground'
-                  }`}
-              >
-                <MarketplaceLogo provider={a.provider} size={20} />
-                {a.status === 'reauth_required' && <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />}
-                {marketplaceLabel(a.provider)}{a.nickname ? ` · ${a.nickname}` : ''}
-                <button
-                  onClick={async () => {
-                    if (confirm(`Desconectar ${marketplaceLabel(a.provider)} (${a.nickname || a.externalUserId})?`)) {
-                      const ok = await disconnectAccount(a.id);
-                      if (!ok) setConnectError('Não foi possível desconectar. Defina uma senha antes de remover sua última forma de acesso.');
-                    }
-                  }}
-                  title="Desconectar conta"
-                  className="w-5 h-5 rounded-full text-muted-foreground hover:bg-border hover:text-foreground flex items-center justify-center text-xs leading-none"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            {providers
-              .filter((p) => !accounts.some((a) => a.provider === p.id))
-              .map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleConnectAccount(p.id)}
-                  disabled={p.configured === false}
-                  title={p.configured === false ? 'Disponível em breve' : undefined}
-                  className="text-sm text-primary hover:underline font-medium disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
-                >
-                  + Conectar {p.displayName}
-                </button>
-              ))}
           </div>
         )}
         {connectError && (
