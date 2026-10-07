@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useSubscription } from '../hooks/useSubscription';
 import { Printer, RefreshCw, CheckSquare, Square, Package, Calendar, AlarmClock, ClipboardCheck, AlertTriangle } from 'lucide-react';
@@ -83,6 +83,16 @@ export default function Dashboard() {
   const { user, connectAccount, checkAuth } = useAuth();
   const { subscription } = useSubscription();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterParam = searchParams.get('marketplace') || '';
+  const marketplaceFilter = ['mercadolivre', 'shopee'].includes(filterParam) ? filterParam : '';
+  const changeMarketplaceFilter = (provider: string) => {
+    setSelected(new Set());
+    setPackingShipment(null);
+    const params = new URLSearchParams(searchParams);
+    if (provider) params.set('marketplace', provider); else params.delete('marketplace');
+    setSearchParams(params);
+  };
   const [ready, setReady] = useState<Shipment[]>([]);
   const [reprint, setReprint] = useState<Shipment[]>([]);
   const [tab, setTab] = useState<'ready' | 'reprint' | 'history'>('ready');
@@ -164,7 +174,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     setSelected(new Set());
-  }, [tab]);
+    setPackingShipment(null);
+  }, [tab, marketplaceFilter]);
 
   // Pro print history: lazy-load when the tab is opened.
   useEffect(() => {
@@ -186,14 +197,13 @@ export default function Dashboard() {
     load();
   }, [tab, subscription?.printHistory]);
 
-  const visibleShipments = tab === 'ready' ? ready : tab === 'reprint' ? reprint : [];
+  const filteredReady = ready.filter(s => !marketplaceFilter || s.marketplace === marketplaceFilter);
+  const filteredReprint = reprint.filter(s => !marketplaceFilter || s.marketplace === marketplaceFilter);
+  const filteredHistory = history.filter(e => !marketplaceFilter || (e.provider || 'mercadolivre') === marketplaceFilter);
+  const visibleShipments = tab === 'ready' ? filteredReady : tab === 'reprint' ? filteredReprint : [];
   const printableShipments = visibleShipments.filter(s => s.canPrint);
   const allPrintableSelected = printableShipments.length > 0 &&
     printableShipments.every(s => selected.has(shipmentKey(s)));
-
-  // Show the marketplace badge only when the list mixes providers — keeps
-  // the single-marketplace UI as clean as before.
-  const showMarketplaceBadge = new Set(visibleShipments.map(s => s.marketplace)).size > 1;
 
   // Accounts needing reconnect: flagged server-side (needsReauth) or already
   // marked reauth_required on the session user — whichever sees it first.
@@ -321,14 +331,15 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header showSubscription />
+      <Header showSubscription marketplaceFilter={marketplaceFilter} onMarketplaceFilterChange={changeMarketplaceFilter} />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Actions Bar */}
-        <div className="bg-surface rounded-xl border border-border shadow-sm p-4 mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
+        <div className="bg-surface rounded-xl border border-border shadow-sm p-4 mb-6 flex flex-wrap xl:flex-nowrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+
+            <div className="flex items-center gap-2 flex-wrap">
               <Calendar className="w-4 h-4 text-muted-foreground" />
               <Input
                 type="date"
@@ -350,20 +361,20 @@ export default function Dashboard() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
-            <div className="flex items-center bg-muted rounded-lg p-1">
+            <div className="flex items-center bg-muted rounded-lg p-1 whitespace-nowrap">
               <button
                 onClick={() => setTab('ready')}
                 className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${tab === 'ready' ? 'bg-surface shadow text-foreground' : 'text-muted-foreground'
                   }`}
               >
-                {ready.some(s => s.marketplace === 'shopee') ? 'Etiquetas' : 'Pronto'} ({ready.length})
+                Pronto ({filteredReady.length})
               </button>
               <button
                 onClick={() => setTab('reprint')}
                 className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${tab === 'reprint' ? 'bg-surface shadow text-foreground' : 'text-muted-foreground'
                   }`}
               >
-                Reimpressão ({reprint.length})
+                Reimpressão ({filteredReprint.length})
               </button>
               {subscription?.printHistory && (
                 <button
@@ -464,7 +475,7 @@ export default function Dashboard() {
             <div className="bg-surface rounded-xl border border-border shadow-sm p-16 text-center text-muted-foreground">
               Carregando histórico...
             </div>
-          ) : history.length === 0 ? (
+          ) : filteredHistory.length === 0 ? (
             <div className="bg-surface rounded-xl border border-border shadow-sm p-16 text-center animate-fade-in">
               <Package className="w-16 h-16 text-border mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-muted-foreground mb-2">
@@ -486,13 +497,11 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {history.map((event) => (
+                    {filteredHistory.map((event) => (
                       <tr key={event.id}>
                         <td className="px-4 py-4">
                           <span className="font-mono text-sm text-muted-foreground">#{event.shipment_id}</span>
-                          {event.provider && event.provider !== 'mercadolivre' && (
-                            <span className="ml-2 text-xs text-muted-foreground/70">{marketplaceLabel(event.provider)}</span>
-                          )}
+                          <Badge className="ml-2">{marketplaceLabel(event.provider || 'mercadolivre')}</Badge>
                         </td>
                         <td className="px-4 py-4 text-sm text-muted-foreground">
                           {event.source === 'agent' ? 'Agente' : 'Navegador'}
@@ -583,9 +592,7 @@ export default function Dashboard() {
                         <span className="font-mono text-sm text-muted-foreground">
                           #{shipment.shipmentId}
                         </span>
-                        {showMarketplaceBadge && (
-                          <Badge className="ml-2">{marketplaceLabel(shipment.marketplace)}</Badge>
-                        )}
+                        <div className="mt-1"><Badge>{marketplaceLabel(shipment.marketplace)}</Badge></div>
                       </td>
                       <td className="px-4 py-4 font-medium text-foreground">
                         {shipment.buyerNickname}
