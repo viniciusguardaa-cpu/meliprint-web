@@ -284,6 +284,8 @@ export async function getShipmentList(
 export interface ShopeeOrderDetail {
   order_sn: string;
   status?: string;
+  order_status?: string;
+  invoice_data?: { status?: string; number?: string; access_key?: string; issue_date?: number; pending_reason?: string } | null;
   buyer_username?: string;
   ship_by_date?: number;
   recipient_address?: {
@@ -303,7 +305,7 @@ export interface ShopeeOrderDetail {
   package_list?: Array<{ package_number: string; shipping_carrier?: string }>;
 }
 
-const ORDER_DETAIL_FIELDS = 'buyer_username,item_list,recipient_address,package_list';
+const ORDER_DETAIL_FIELDS = 'buyer_username,item_list,recipient_address,package_list,invoice_data';
 
 /** Batch order detail — Shopee accepts up to 50 order_sns per call. */
 export async function getOrderDetail(
@@ -514,4 +516,53 @@ export async function getLabelPdf(
   }, true);
 
   return pdf && pdf.length > 0 ? pdf : null;
+}
+
+/** Strict ready list: never creates a document task, uploads NF or arranges shipment.
+ * NF is confirmed only by Shopee's positive invoice_data status, not by absence
+ * from a pending list or a READY_TO_SHIP order status. All packages must have an
+ * existing READY document and a parseable PDF, otherwise the whole order is out.
+ */
+export async function getReadyLabelPdfs(
+  shop: { accessToken: string; shopId: string },
+  orders: ShopeeOrderDetail[]
+): Promise<Map<string, Buffer[]>> {
+  const ready = new Map<string, Buffer[]>();
+  const { PDFDocument } = await import('pdf-lib');
+  for (const order of orders) {
+    const invoice = order.invoice_data;
+    if (invoice?.status !== 'valid' || !invoice.number?.trim() ||
+        !/^\d{44}$/.test(invoice.access_key || '') || !invoice.issue_date) continue;
+    if (order.order_status !== 'PROCESSED') continue;
+    const packages: Array<string | undefined> = order.package_list?.length
+      ? order.package_list.map(p => p.package_number) : [undefined];
+    if (order.package_list?.some(p => !p.package_number)) continue;
+    const pdfs: Buffer[] = [];
+    try {
+      for (const packageNumber of packages) {
+        const type = await getDocumentType(shop, order.order_sn, packageNumber);
+        if (!type) throw new Error('Documento sem tipo confirmado');
+        const target = packageNumber ? { order_sn: order.order_sn, package_number: packageNumber }
+          : { order_sn: order.order_sn };
+        const result = await documentPost('/api/v2/logistics/get_shipping_document_result', shop, {
+          order_list: [{ ...target, shipping_document_type: type }]
+        });
+        const entry: DocResult | undefined = result?.result_list?.find((r: DocResult) =>
+          r.order_sn === order.order_sn && (packageNumber ? r.package_number === packageNumber : !r.package_number));
+        if (entry?.status !== 'READY' || entry.fail_error) throw new Error('Documento ainda não está READY');
+        const pdf = await apiPost('/api/v2/logistics/download_shipping_document', shop, {
+          shipping_document_type: type, order_list: [target]
+        }, true);
+        if (!pdf || pdf.subarray(0, 5).toString() !== '%PDF-') throw new Error('Documento não é PDF');
+        const parsed = await PDFDocument.load(pdf);
+        if (parsed.getPageCount() === 0) throw new Error('PDF sem páginas');
+        pdfs.push(pdf);
+      }
+      ready.set(order.order_sn, pdfs);
+    } catch (error) {
+      // No PDF cache: recheck current NF and document state on every listing/print.
+      console.warn(`[shopee] readiness not confirmed for ${order.order_sn}:`, error instanceof Error ? error.message : 'unknown');
+    }
+  }
+  return ready;
 }

@@ -69,7 +69,7 @@ router.get('/', async (req: Request, res: Response) => {
       }
     }));
 
-    const ready = rows.filter((s) => s.substatus === 'ready_to_print' || s.marketplace === 'shopee');
+    const ready = rows.filter((s) => s.substatus === 'ready_to_print');
     const reprint = rows.filter((s) => s.substatus !== 'ready_to_print' && s.marketplace !== 'shopee');
 
     // Pro SLA queue: most urgent dispatch first — earliest deadline on top,
