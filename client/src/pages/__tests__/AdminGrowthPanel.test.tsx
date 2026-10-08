@@ -27,3 +27,11 @@ it('does not show the today explanation for rolling periods', () => {
   render(<AdminGrowthPanel growth={growth} growthDays={30} onChangeDays={vi.fn()} />);
   expect(screen.queryByText('Desde 00h de hoje · horário de São Paulo')).toBeNull();
 });
+it('shows the date and visitor count when the series has only one day', () => {
+  render(<AdminGrowthPanel growth={{ ...growth, visitors_by_day: [{ day: '2026-10-08', visitors: 23, views: 55 }] }} growthDays={-1} onChangeDays={vi.fn()} />);
+  expect(screen.getByText('08/10 · 23 visitantes únicos')).toBeTruthy();
+});
+it('does not add a single-day caption to multiple days', () => {
+  render(<AdminGrowthPanel growth={{ ...growth, visitors_by_day: [{ day: '2026-10-07', visitors: 16, views: 70 }, { day: '2026-10-08', visitors: 23, views: 55 }] }} growthDays={7} onChangeDays={vi.fn()} />);
+  expect(screen.queryByText('08/10 · 23 visitantes únicos')).toBeNull();
+});

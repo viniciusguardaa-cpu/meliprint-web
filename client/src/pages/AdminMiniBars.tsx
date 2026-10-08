@@ -5,7 +5,7 @@ export function MiniBars({ data, color }: { data: Array<{ label: string; value: 
     <div className="flex items-end gap-[2px] h-24">
       {data.map((d, i) => (
         <div key={i} title={`${d.label}: ${d.value}`}
-          className={`flex-1 rounded-sm ${color} transition-all`}
+          className={`flex-1 min-w-0 max-w-10 rounded-sm ${color} transition-all`}
           style={{ height: `${Math.max((d.value / max) * 100, d.value > 0 ? 4 : 1)}%`, opacity: d.value > 0 ? 1 : 0.25 }}
         />
       ))}
