@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-vi.mock('../db.js', () => ({ claimArrangeAttempt: vi.fn(), finishArrangeAttempt: vi.fn() }));
+vi.mock('../db.js', () => ({ claimArrangeAttempt: vi.fn(), finishArrangeAttempt: vi.fn(), getRecentlyArrangedPackages: vi.fn() }));
 import { planArrange, isEligibleOrder } from '../services/shopeeArrange.js';
 
 const validInvoice = { status: 'valid', number: '1', access_key: '1'.repeat(44), issue_date: 1 };

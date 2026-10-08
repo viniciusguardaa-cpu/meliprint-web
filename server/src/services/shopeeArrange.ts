@@ -2,12 +2,13 @@ import {
   getShipmentList,
   getOrderDetail,
   getShippingParameter,
+  requestDocumentCreation,
   arrangeShipment,
   hasValidInvoice,
   ShippingParameter,
   ShopeeOrderDetail
 } from './shopee.js';
-import { claimArrangeAttempt, finishArrangeAttempt } from '../db.js';
+import { claimArrangeAttempt, finishArrangeAttempt, getRecentlyArrangedPackages } from '../db.js';
 
 /**
  * Opt-in automatic "organizar envio" for Shopee.
@@ -81,6 +82,15 @@ export function isEligibleOrder(order: ShopeeOrderDetail): boolean {
 }
 
 export interface ArrangeSummary { arranged: number; skipped: number; failed: number }
+
+/** For orders we arranged: request the label document so Shopee reports it READY on a later poll. */
+export async function ensureDocumentsForArranged(accountId: number, shop: Shop): Promise<void> {
+  const rows = await getRecentlyArrangedPackages(accountId);
+  for (const row of rows.slice(0, 20)) {
+    await requestDocumentCreation(shop, row.order_sn, row.package_number || undefined);
+    await sleep(300);
+  }
+}
 
 export async function arrangeReadyShipments(accountId: number, shop: Shop, method: ArrangeMethod): Promise<ArrangeSummary> {
   const summary: ArrangeSummary = { arranged: 0, skipped: 0, failed: 0 };

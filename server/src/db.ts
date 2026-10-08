@@ -1203,3 +1203,13 @@ export async function finishArrangeAttempt(accountId: number, orderSn: string, p
     [accountId, orderSn, packageNumber, status, error ? error.slice(0, 500) : null]
   );
 }
+
+/** Packages LabelGo arranged itself in the last 48h (they may still need their label document requested). */
+export async function getRecentlyArrangedPackages(accountId: number) {
+  const result = await pool.query(
+    `SELECT "order_sn", "package_number" FROM "shipment_arrange_log"
+     WHERE "account_id" = $1 AND "status" = 'requested' AND "updated_at" > CURRENT_TIMESTAMP - INTERVAL '48 hours'`,
+    [accountId]
+  );
+  return result.rows as Array<{ order_sn: string; package_number: string }>;
+}

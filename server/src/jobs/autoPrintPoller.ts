@@ -12,7 +12,7 @@ import {
 import { getProvider } from '../providers/index.js';
 import { getFreshAccountContext } from '../services/accounts.js';
 import { reprocessNotificationRow } from '../routes/notifications.js';
-import { arrangeReadyShipments } from '../services/shopeeArrange.js';
+import { arrangeReadyShipments, ensureDocumentsForArranged } from '../services/shopeeArrange.js';
 import { withJobLock } from './withJobLock.js';
 
 const POLL_INTERVAL_MS = 5 * 60_000; // 5 minutes — reconciliation fallback.
@@ -69,6 +69,7 @@ async function pollUser(config: any) {
       try {
         const method = account.arrange_method === 'dropoff' ? 'dropoff' : 'pickup';
         const r = await arrangeReadyShipments(account.id, { accessToken: ctx.accessToken, shopId: ctx.externalUserId }, method);
+        await ensureDocumentsForArranged(account.id, { accessToken: ctx.accessToken, shopId: ctx.externalUserId });
         if (r.arranged || r.failed) console.log(`[autoPrintPoller] shopee#${account.id} arrange: ${r.arranged} arranged, ${r.failed} failed, ${r.skipped} skipped`);
       } catch (error) {
         console.error(`[autoPrintPoller] Shopee arrange failed for account ${account.id}:`, error);
