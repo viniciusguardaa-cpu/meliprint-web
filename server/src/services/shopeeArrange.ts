@@ -32,9 +32,10 @@ type Plan = { body: Record<string, unknown> } | { skip: string };
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 /** Pure decision: build the ship_order payload from Shopee's parameters, or explain the skip. */
-export function planArrange(orderSn: string, packageNumber: string, param: ShippingParameter, method: ArrangeMethod): Plan {
+export function planArrange(orderSn: string, packageNumber: string | undefined, param: ShippingParameter, method: ArrangeMethod): Plan {
   const needed = param.info_needed || {};
-  const base: Record<string, unknown> = { order_sn: orderSn, package_number: packageNumber };
+  // Shopee rejects package_number for unsplit orders (ship_order_not_need_pacakge_number).
+  const base: Record<string, unknown> = packageNumber ? { order_sn: orderSn, package_number: packageNumber } : { order_sn: orderSn };
 
   if (needed.non_integrated && !needed.pickup && !needed.dropoff) return { skip: 'canal não integrado' };
 
@@ -93,9 +94,11 @@ export async function arrangeReadyShipments(accountId: number, shop: Shop, metho
     for (const pkg of order.package_list!) {
       if (sent >= MAX_PER_CYCLE) return summary;
       const packageNumber = pkg.package_number;
+      // Single-package (unsplit) orders: ship_order must be sent without package_number.
+      const shipPackage = order.package_list!.length > 1 ? packageNumber : undefined;
       let plan: Plan;
       try {
-        plan = planArrange(order.order_sn, packageNumber, await getShippingParameter(shop, order.order_sn, packageNumber), method);
+        plan = planArrange(order.order_sn, shipPackage, await getShippingParameter(shop, order.order_sn, packageNumber), method);
       } catch (error) {
         console.warn(`[shopeeArrange] get_shipping_parameter failed for ${order.order_sn}:`, error instanceof Error ? error.message : error);
         summary.skipped++;

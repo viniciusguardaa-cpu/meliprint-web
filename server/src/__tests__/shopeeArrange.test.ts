@@ -17,6 +17,9 @@ describe('Shopee auto-arrange eligibility', () => {
 });
 
 describe('planArrange', () => {
+  it('omits package_number for unsplit orders', () => {
+    expect(planArrange('A', undefined, { info_needed: { dropoff: [] } }, 'dropoff')).toEqual({ body: { order_sn: 'A', dropoff: {} } });
+  });
   const pickupParam = (list: any[]) => ({ info_needed: { pickup: ['address_id', 'pickup_time_id'] }, pickup: { address_list: list } });
   it('uses the pickup address and recommended slot', () => {
     const p = planArrange('A', 'P1', pickupParam([{ address_id: 7, address_flag: ['pickup_address'], time_slot_list: [{ pickup_time_id: 'x' }, { pickup_time_id: 'y', flags: ['recommended'] }] }]), 'pickup');
