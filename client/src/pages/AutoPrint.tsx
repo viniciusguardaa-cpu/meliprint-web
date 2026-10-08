@@ -44,6 +44,33 @@ export default function AutoPrint() {
   const [pairingCode, setPairingCode] = useState<{ code: string; expiresAt: string } | null>(null);
   const [pairing, setPairing] = useState(false);
 
+  const [arrange, setArrange] = useState<{ connected: boolean; enabled: boolean; method: 'pickup' | 'dropoff' } | null>(null);
+
+  const fetchArrange = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auto-print/shopee-arrange', { credentials: 'include' });
+      if (res.ok) setArrange(await res.json());
+    } catch {
+      // non-critical
+    }
+  }, []);
+
+  const saveArrange = async (enabledNext: boolean, method: 'pickup' | 'dropoff') => {
+    try {
+      const res = await fetch('/api/auto-print/shopee-arrange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ enabled: enabledNext, method })
+      });
+      if (!res.ok) throw new Error('Falha ao salvar');
+      setArrange(await res.json());
+      toast.success(enabledNext ? 'Organizar envio automático ativado.' : 'Organizar envio automático desativado.');
+    } catch {
+      toast.error('Erro ao salvar a configuração da Shopee.');
+    }
+  };
+
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/auto-print/status', { credentials: 'include' });
@@ -80,10 +107,11 @@ export default function AutoPrint() {
   useEffect(() => {
     fetchStatus();
     fetchReviewJobs();
+    fetchArrange();
     // Refresh queue stats every 10s
     const interval = setInterval(() => { fetchStatus(); fetchReviewJobs(); }, 10000);
     return () => clearInterval(interval);
-  }, [fetchStatus, fetchReviewJobs]);
+  }, [fetchStatus, fetchReviewJobs, fetchArrange]);
 
   const handleEnable = async () => {
     setEnabling(true);
@@ -284,6 +312,33 @@ export default function AutoPrint() {
             )}
           </div>
         </div>
+
+        {/* Shopee: organizar envio automático (opt-in) */}
+        {enabled && arrange?.connected && (
+          <div className="bg-surface rounded-xl border border-border shadow-sm p-6 mb-6">
+            <h2 className="text-lg font-semibold text-foreground">Shopee: organizar envio automaticamente</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Quando um pedido tiver nota fiscal válida, o LabelGo organiza o envio na Shopee e a etiqueta sai sozinha.
+              Só pedidos com nota válida são organizados, uma única vez cada.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <select
+                value={arrange.method}
+                onChange={(e) => saveArrange(arrange.enabled, e.target.value as 'pickup' | 'dropoff')}
+                className="border border-border rounded-lg px-3 py-2 text-sm bg-surface"
+              >
+                <option value="pickup">Coleta (a Shopee busca)</option>
+                <option value="dropoff">Eu levo à agência</option>
+              </select>
+              <Button onClick={() => saveArrange(!arrange.enabled, arrange.method)}>
+                {arrange.enabled ? 'Desativar' : 'Ativar'}
+              </Button>
+              <Badge variant={arrange.enabled ? 'success' : 'neutral'} className="px-3 py-1 text-sm">
+                {arrange.enabled ? 'Ativo' : 'Inativo'}
+              </Badge>
+            </div>
+          </div>
+        )}
 
         {/* Needs review — uncertain outcomes, never auto-reprinted */}
         {enabled && reviewJobs.length > 0 && (

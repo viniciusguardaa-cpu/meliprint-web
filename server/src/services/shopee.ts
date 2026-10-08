@@ -13,8 +13,10 @@ import crypto from 'crypto';
  * SHOPEE_API_HOST overrides the API host (sandbox V2 or production);
  * SHOPEE_AUTH_HOST overrides the authorization page host.
  *
- * This client never arranges shipment (ship_order) on a seller's behalf:
- * labels are only generated for orders the seller already arranged.
+ * ship_order is only exposed through arrangeShipment() and is called solely by
+ * services/shopeeArrange.ts, which runs only for accounts that explicitly
+ * opted in to automatic shipment arrangement. Label generation itself never
+ * arranges shipment.
  */
 
 const DEFAULT_HOST = 'https://partner.shopeemobile.com';
@@ -516,6 +518,48 @@ export async function getLabelPdf(
   }, true);
 
   return pdf && pdf.length > 0 ? pdf : null;
+}
+
+// ---------------------------------------------------------------------------
+// Shipment arrangement (opt-in; see services/shopeeArrange.ts)
+// ---------------------------------------------------------------------------
+
+export interface ShippingParameter {
+  info_needed?: { pickup?: string[]; dropoff?: string[]; non_integrated?: string[] };
+  pickup?: {
+    address_list?: Array<{
+      address_id: number;
+      address_flag?: string[];
+      time_slot_list?: Array<{ pickup_time_id: string; date?: number; flags?: string[] }> | null;
+    }>;
+  } | null;
+  dropoff?: { branch_list?: Array<{ branch_id: number }> } | null;
+}
+
+/** Read-only: how this package can be arranged (v2.logistics.get_shipping_parameter). */
+export function getShippingParameter(
+  shop: { accessToken: string; shopId: string },
+  orderSn: string,
+  packageNumber?: string
+): Promise<ShippingParameter> {
+  const params: Record<string, string> = { order_sn: orderSn };
+  if (packageNumber) params.package_number = packageNumber;
+  return apiGet('/api/v2/logistics/get_shipping_parameter', shop, params);
+}
+
+/** WRITES to Shopee: arranges pickup/dropoff (v2.logistics.ship_order). */
+export async function arrangeShipment(
+  shop: { accessToken: string; shopId: string },
+  body: Record<string, unknown>
+): Promise<void> {
+  await apiPost('/api/v2/logistics/ship_order', shop, body);
+}
+
+/** True only for Shopee's positive NF status with a full key (same rule as label readiness). */
+export function hasValidInvoice(order: ShopeeOrderDetail): boolean {
+  const invoice = order.invoice_data;
+  return !!invoice && invoice.status === 'valid' && !!invoice.number?.trim() &&
+    /^\d{44}$/.test(invoice.access_key || '') && !!invoice.issue_date;
 }
 
 /** Strict ready list: never creates a document task, uploads NF or arranges shipment.

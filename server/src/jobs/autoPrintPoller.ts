@@ -12,6 +12,7 @@ import {
 import { getProvider } from '../providers/index.js';
 import { getFreshAccountContext } from '../services/accounts.js';
 import { reprocessNotificationRow } from '../routes/notifications.js';
+import { arrangeReadyShipments } from '../services/shopeeArrange.js';
 import { withJobLock } from './withJobLock.js';
 
 const POLL_INTERVAL_MS = 5 * 60_000; // 5 minutes — reconciliation fallback.
@@ -60,6 +61,18 @@ async function pollUser(config: any) {
     if (!ctx) {
       console.error(`[autoPrintPoller] Could not get access credentials for account ${account.id} (${account.provider})`);
       continue;
+    }
+
+    // Opt-in only (default off): organize pending Shopee shipments that already
+    // have a valid NF, so their labels can be generated and printed below.
+    if (account.provider === 'shopee' && account.auto_arrange_shipment === true) {
+      try {
+        const method = account.arrange_method === 'dropoff' ? 'dropoff' : 'pickup';
+        const r = await arrangeReadyShipments(account.id, { accessToken: ctx.accessToken, shopId: ctx.externalUserId }, method);
+        if (r.arranged || r.failed) console.log(`[autoPrintPoller] shopee#${account.id} arrange: ${r.arranged} arranged, ${r.failed} failed, ${r.skipped} skipped`);
+      } catch (error) {
+        console.error(`[autoPrintPoller] Shopee arrange failed for account ${account.id}:`, error);
+      }
     }
 
     try {
