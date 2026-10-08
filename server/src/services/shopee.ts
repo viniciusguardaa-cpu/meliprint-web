@@ -1,3 +1,4 @@
+import JSZip from 'jszip';
 import crypto from 'crypto';
 
 /**
@@ -448,6 +449,16 @@ async function getTrackingNumber(
   return resp?.tracking_number || undefined;
 }
 
+
+/** Shopee download_shipping_document answers with a ZIP holding the PDF(s); unwrap it. */
+async function unwrapDocument(buf: Buffer): Promise<Buffer> {
+  if (buf.subarray(0, 2).toString('latin1') !== 'PK') return buf;
+  const zip = await JSZip.loadAsync(buf);
+  const entries = Object.values(zip.files).filter(f => !f.dir && /\.pdf$/i.test(f.name));
+  if (entries.length !== 1) throw new Error(`Documento zip com ${entries.length} PDFs`);
+  return Buffer.from(await entries[0].async('uint8array'));
+}
+
 /**
  * Generate + download the shipping document PDF for one package.
  * Flow: get_shipping_document_parameter (document type Shopee allows) →
@@ -517,7 +528,7 @@ export async function getLabelPdf(
     ]
   }, true);
 
-  return pdf && pdf.length > 0 ? pdf : null;
+  return pdf && pdf.length > 0 ? await unwrapDocument(pdf) : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -635,9 +646,10 @@ export async function getReadyLabelPdfs(
         const entry: DocResult | undefined = result?.result_list?.find((r: DocResult) =>
           r.order_sn === order.order_sn && (packageNumber ? r.package_number === packageNumber : !r.package_number));
         if (entry?.status !== 'READY' || entry.fail_error) throw new Error('Documento ainda não está READY');
-        const pdf = await apiPost('/api/v2/logistics/download_shipping_document', shop, {
+        const downloaded = await apiPost('/api/v2/logistics/download_shipping_document', shop, {
           shipping_document_type: type, order_list: [target]
         }, true);
+        const pdf = downloaded ? await unwrapDocument(downloaded) : null;
         if (!pdf || pdf.subarray(0, 5).toString() !== '%PDF-') throw new Error('Documento não é PDF');
         const parsed = await PDFDocument.load(pdf);
         if (parsed.getPageCount() === 0) throw new Error('PDF sem páginas');
