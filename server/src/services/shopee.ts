@@ -424,7 +424,8 @@ export async function checkPrintEligibility(
 export async function getDocumentType(
   shop: { accessToken: string; shopId: string },
   orderSn: string,
-  packageNumber?: string
+  packageNumber?: string,
+  preferPdf = false
 ): Promise<string | null> {
   const entry: Record<string, string> = { order_sn: orderSn };
   if (packageNumber) entry.package_number = packageNumber;
@@ -435,6 +436,8 @@ export async function getDocumentType(
   if (!r || r.fail_error) {
     throw labelFailure(orderSn, packageNumber, r);
   }
+  // NORMAL_AIR_WAYBILL is a PDF; THERMAL_AIR_WAYBILL comes as a ZPL text file in a ZIP.
+  if (preferPdf && r.selectable_shipping_document_type?.includes('NORMAL_AIR_WAYBILL')) return 'NORMAL_AIR_WAYBILL';
   return r.suggest_shipping_document_type || r.selectable_shipping_document_type?.[0] || null;
 }
 
@@ -593,7 +596,7 @@ export async function requestDocumentCreation(
   if (createRequested.size > 2000) createRequested.clear();
   createRequested.set(key, Date.now());
   try {
-    const type = await getDocumentType(shop, orderSn, packageNumber);
+    const type = await getDocumentType(shop, orderSn, packageNumber, true);
     if (!type) return;
     const target: Record<string, string> = packageNumber ? { order_sn: orderSn, package_number: packageNumber } : { order_sn: orderSn };
     // Shopee validates tracking_number; without it BR orders fail with tracking_number_invalid.
@@ -636,7 +639,7 @@ export async function getReadyLabelPdfs(
     const pdfs: Buffer[] = [];
     try {
       for (const packageNumber of packages) {
-        const type = await getDocumentType(shop, order.order_sn, packageNumber);
+        const type = await getDocumentType(shop, order.order_sn, packageNumber, true);
         if (!type) throw new Error('Documento sem tipo confirmado');
         const target = packageNumber ? { order_sn: order.order_sn, package_number: packageNumber }
           : { order_sn: order.order_sn };
