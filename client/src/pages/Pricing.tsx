@@ -1,3 +1,4 @@
+import { trackMetaEvent } from '../lib/metaPixel';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Check, Zap, Shield, Loader2 } from 'lucide-react';
@@ -107,7 +108,8 @@ export default function Pricing() {
       }
 
       // If trial, redirect to dashboard (no MP checkout needed)
-      if (data.trial) {
+      if (data.trial === true && data.trialId) {
+        trackMetaEvent('StartTrial', String(data.trialId), {value: 0, currency: 'BRL'});
         window.location.href = '/dashboard';
         return;
       }

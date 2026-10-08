@@ -30,6 +30,7 @@ declare module 'express-session' {
   interface SessionData {
     /** Internal users.id — provider-agnostic identity. */
     userId?: number;
+    newRegistration?: boolean;
     adminCredentialVersion?: string;
     /** In-flight OAuth attempt (state + PKCE verifier + intent). */
     oauth?: {
@@ -112,6 +113,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
     });
 
     await createSessionForUser(req, user.id);
+    req.session.newRegistration = true;
     await trackEvent({ event_name: 'user_registered', user_id: user.id, properties: { method: 'password' } });
 
     // Verification email is best-effort — never block signup on mail delivery.
@@ -369,6 +371,7 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
     // Login flow: resolve to an internal user — existing account owner,
     // same-email user, or a brand-new account.
     let userId: number;
+    let newRegistration = false;
     if (existing) {
       userId = existing.user_id;
       await upsertMarketplaceAccount(userId, providerId, identity.externalUserId, {
@@ -393,6 +396,7 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
           emailVerified: !!identity.email
         });
         userId = user.id;
+        newRegistration = true;
       }
       await upsertMarketplaceAccount(userId, providerId, identity.externalUserId, {
         nickname: identity.nickname,
@@ -409,6 +413,7 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
     }
 
     await createSessionForUser(req, userId);
+    req.session.newRegistration = newRegistration;
     res.redirect(`${frontendUrl()}/dashboard`);
   } catch (error) {
     console.error('OAuth callback error:', error);
@@ -500,8 +505,11 @@ router.get('/me', async (req: Request, res: Response) => {
   }
 
   const accounts = await getMarketplaceAccountsForUser(user.id);
+  const newRegistration = req.session.newRegistration === true;
+  delete req.session.newRegistration;
   res.json({
     userId: user.id,
+    newRegistration,
     nickname: user.nickname,
     email: user.email,
     emailVerified: user.email_verified === true,

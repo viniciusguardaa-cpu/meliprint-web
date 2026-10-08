@@ -220,6 +220,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
 
       return res.json({
         trial: true,
+        trialId: trialSub.mp_preapproval_id,
         trialEndsAt: trialEndsAt.toISOString(),
         planId,
         planName: plan.name,
