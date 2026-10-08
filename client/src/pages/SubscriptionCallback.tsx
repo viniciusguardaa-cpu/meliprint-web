@@ -1,3 +1,4 @@
+import { saveConfirmedMetaSubscription } from '../lib/metaPixel';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
@@ -85,6 +86,7 @@ export default function SubscriptionCallback() {
           const checkout = await confirmedCheckout(checkoutId);
           if (cancelled) return;
           if (checkout) {
+            saveConfirmedMetaSubscription(checkout);
             trackSubscriptionConversion(checkout);
             setStatus('success');
             timer = setTimeout(() => navigate('/dashboard'), 3000);

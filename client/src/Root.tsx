@@ -1,6 +1,7 @@
 import React from 'react';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
+import MarketingConsent from './components/MarketingConsent';
 import SeoManager from './components/SeoManager';
 
 /**
@@ -13,6 +14,7 @@ export default function Root() {
     <React.StrictMode>
       <SeoManager />
       <App />
+      <MarketingConsent />
       <Toaster
         position="top-right"
         toastOptions={{

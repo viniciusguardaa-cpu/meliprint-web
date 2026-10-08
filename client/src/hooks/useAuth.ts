@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { trackMetaEvent } from '../lib/metaPixel';
 
 export interface ConnectedAccount {
   id: number;
@@ -32,6 +33,7 @@ export function useAuth() {
       if (res.ok) {
         const data = await res.json();
         setUser(data);
+        if (data.newRegistration === true) trackMetaEvent('CompleteRegistration', String(data.userId));
       } else {
         setUser(null);
       }
@@ -93,6 +95,7 @@ export function useAuth() {
       return data.message || 'Erro ao criar conta';
     }
     setUser(data.user);
+    if (data.user?.userId) trackMetaEvent('CompleteRegistration', String(data.user.userId));
     return null;
   };
 
