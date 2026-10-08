@@ -420,7 +420,7 @@ export async function checkPrintEligibility(
  * (get_shipping_document_parameter). Uses the type Shopee suggests; null when
  * the order is not printable yet (e.g. not arranged by the seller).
  */
-async function getDocumentType(
+export async function getDocumentType(
   shop: { accessToken: string; shopId: string },
   orderSn: string,
   packageNumber?: string
@@ -560,6 +560,40 @@ export function hasValidInvoice(order: ShopeeOrderDetail): boolean {
   const invoice = order.invoice_data;
   return !!invoice && invoice.status === 'valid' && !!invoice.number?.trim() &&
     /^\d{44}$/.test(invoice.access_key || '') && !!invoice.issue_date;
+}
+
+const createRequested = new Map<string, number>();
+const CREATE_RETRY_MS = 10 * 60_000;
+
+/**
+ * Ask Shopee to generate the label document (create_shipping_document), at most
+ * once per package per 10 min. Shopee answers "should print first" for
+ * get_shipping_document_result until this was requested. Used only for orders
+ * LabelGo itself arranged (see shopeeArrange), never for old orders.
+ */
+export async function requestDocumentCreation(
+  shop: { accessToken: string; shopId: string },
+  orderSn: string,
+  packageNumber?: string
+): Promise<void> {
+  const key = `${shop.shopId}:${orderSn}:${packageNumber || ''}`;
+  const last = createRequested.get(key);
+  if (last && Date.now() - last < CREATE_RETRY_MS) return;
+  if (createRequested.size > 2000) createRequested.clear();
+  createRequested.set(key, Date.now());
+  try {
+    const type = await getDocumentType(shop, orderSn, packageNumber);
+    if (!type) return;
+    const target: Record<string, string> = packageNumber ? { order_sn: orderSn, package_number: packageNumber } : { order_sn: orderSn };
+    const resp = await documentPost('/api/v2/logistics/create_shipping_document', shop, {
+      order_list: [{ ...target, shipping_document_type: type }]
+    });
+    const r: DocResult | undefined = resp?.result_list?.[0];
+    if (r?.fail_error) console.warn(`[shopee] create_shipping_document ${orderSn}: ${r.fail_error} ${r.fail_message || ''}`);
+    else console.log(`[shopee] create_shipping_document requested for ${orderSn}`);
+  } catch (error) {
+    console.warn(`[shopee] create_shipping_document failed for ${orderSn}:`, error instanceof Error ? error.message : error);
+  }
 }
 
 /** Strict ready list: never creates a document task, uploads NF or arranges shipment.
