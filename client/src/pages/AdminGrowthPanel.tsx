@@ -122,10 +122,17 @@ export function AdminGrowthPanel({ growth, growthDays, onChangeDays }: {
                   <MiniBars
                     color="bg-primary"
                     data={growth.visitors_by_day.map((d) => ({
-                      label: `${new Date(`${d.day.slice(0, 10)}T12:00:00Z`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })}: ${d.visitors} visitantes, ${d.views} views`,
+                      label: `${new Date(`${d.day.slice(0, 10)}T12:00:00Z`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })}: ${d.visitors} visitantes, ${d.views} páginas vistas`,
                       value: d.visitors
                     }))}
                   />
+                  {growth.visitors_by_day.length === 1 && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {new Date(`${growth.visitors_by_day[0].day.slice(0, 10)}T12:00:00Z`).toLocaleDateString('pt-BR', {
+                        day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo'
+                      })} · {growth.visitors_by_day[0].visitors} visitantes únicos
+                    </p>
+                  )}
                 </div>
               )}
 
