@@ -1159,3 +1159,47 @@ export async function consumePairingCode(code: string) {
 }
 
 export default pool;
+
+// ---------------------------------------------------------------------------
+// Shopee automatic shipment arrangement (opt-in, default off)
+// ---------------------------------------------------------------------------
+
+export async function setShopeeArrangeSettings(accountId: number, userId: number, enabled: boolean, method: 'pickup' | 'dropoff') {
+  const result = await pool.query(
+    `UPDATE "marketplace_accounts" SET "auto_arrange_shipment" = $3, "arrange_method" = $4, "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1 AND "user_id" = $2 AND "provider" = 'shopee' RETURNING "auto_arrange_shipment", "arrange_method"`,
+    [accountId, userId, enabled, method]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Claim a package before calling Shopee. Returns true only when this caller
+ * may send ship_order: a brand new row, or a previously 'failed' row (Shopee
+ * answered with an error, nothing arranged) under 3 attempts and older than 15 min.
+ * 'claimed' (uncertain) and 'requested' rows are never claimed again.
+ */
+export async function claimArrangeAttempt(accountId: number, orderSn: string, packageNumber: string, method: string): Promise<boolean> {
+  const inserted = await pool.query(
+    `INSERT INTO "shipment_arrange_log" ("account_id", "order_sn", "package_number", "method")
+     VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING "id"`,
+    [accountId, orderSn, packageNumber, method]
+  );
+  if (inserted.rows.length > 0) return true;
+  const retry = await pool.query(
+    `UPDATE "shipment_arrange_log" SET "status" = 'claimed', "attempts" = "attempts" + 1, "method" = $4, "updated_at" = CURRENT_TIMESTAMP
+     WHERE "account_id" = $1 AND "order_sn" = $2 AND "package_number" = $3
+       AND "status" = 'failed' AND "attempts" < 3 AND "updated_at" < CURRENT_TIMESTAMP - INTERVAL '15 minutes'
+     RETURNING "id"`,
+    [accountId, orderSn, packageNumber, method]
+  );
+  return retry.rows.length > 0;
+}
+
+export async function finishArrangeAttempt(accountId: number, orderSn: string, packageNumber: string, status: 'requested' | 'failed', error?: string) {
+  await pool.query(
+    `UPDATE "shipment_arrange_log" SET "status" = $4, "error" = $5, "updated_at" = CURRENT_TIMESTAMP
+     WHERE "account_id" = $1 AND "order_sn" = $2 AND "package_number" = $3`,
+    [accountId, orderSn, packageNumber, status, error ? error.slice(0, 500) : null]
+  );
+}

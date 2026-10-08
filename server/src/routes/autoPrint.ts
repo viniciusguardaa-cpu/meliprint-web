@@ -15,7 +15,8 @@ import {
   getJobsNeedingReview,
   resolveJobReview,
   createPairingCode,
-  getMarketplaceAccountsForUser
+  getMarketplaceAccountsForUser,
+  setShopeeArrangeSettings
 } from '../db.js';
 import pool from '../db.js';
 import { getProvider } from '../providers/index.js';
@@ -108,6 +109,24 @@ router.get('/status', requireActiveSubscription, async (req: Request, res: Respo
     lastHeartbeatAt: config?.last_heartbeat_at ?? null,
     queue: stats
   });
+});
+
+// Shopee: automatic "organizar envio" setting (opt-in, default off)
+router.get('/shopee-arrange', requirePlanFeature('auto_print'), async (req: Request, res: Response) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  const account = (await getMarketplaceAccountsForUser(req.session.userId)).find((a: any) => a.provider === 'shopee');
+  if (!account) return res.json({ connected: false, enabled: false, method: 'pickup' });
+  res.json({ connected: true, enabled: account.auto_arrange_shipment === true, method: account.arrange_method === 'dropoff' ? 'dropoff' : 'pickup' });
+});
+
+router.post('/shopee-arrange', requirePlanFeature('auto_print'), async (req: Request, res: Response) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  const enabled = req.body?.enabled === true;
+  const method = req.body?.method === 'dropoff' ? 'dropoff' : 'pickup';
+  const account = (await getMarketplaceAccountsForUser(req.session.userId)).find((a: any) => a.provider === 'shopee');
+  if (!account) return res.status(400).json({ error: 'account_not_connected' });
+  const row = await setShopeeArrangeSettings(account.id, req.session.userId, enabled, method);
+  res.json({ connected: true, enabled: row?.auto_arrange_shipment === true, method: row?.arrange_method ?? method });
 });
 
 // Update printer name
