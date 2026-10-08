@@ -321,6 +321,15 @@ export default function AutoPrint() {
               Quando um pedido tiver nota fiscal válida, o LabelGo organiza o envio na Shopee e a etiqueta sai sozinha.
               Só pedidos com nota válida são organizados, uma única vez cada.
             </p>
+            <div className="mt-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-amber-800" role="note">
+              <p className="font-semibold">Leia antes de ativar</p>
+              <ul className="mt-1 list-disc pl-5 space-y-1">
+                <li>Isso é uma ação real na sua loja da Shopee: o LabelGo pede à Shopee para organizar o envio por você.</li>
+                <li>Escolha o mesmo método que sua loja usa. Coleta: a Shopee busca o pacote. Eu levo à agência: você leva o pacote. Se o método não estiver disponível para o pedido, ele é pulado.</li>
+                <li>Vale também para pedidos antigos que ainda estão aguardando envio e já têm nota fiscal válida.</li>
+                <li>Vem desligado. Só começa depois que você clicar em Ativar, e você pode desativar quando quiser.</li>
+              </ul>
+            </div>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <select
                 value={arrange.method}
