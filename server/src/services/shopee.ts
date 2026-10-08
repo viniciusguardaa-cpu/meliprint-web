@@ -585,8 +585,15 @@ export async function requestDocumentCreation(
     const type = await getDocumentType(shop, orderSn, packageNumber);
     if (!type) return;
     const target: Record<string, string> = packageNumber ? { order_sn: orderSn, package_number: packageNumber } : { order_sn: orderSn };
+    // Shopee validates tracking_number; without it BR orders fail with tracking_number_invalid.
+    const trackingNumber = await getTrackingNumber(shop, orderSn, packageNumber);
+    if (!trackingNumber) {
+      console.log(`[shopee] create_shipping_document ${orderSn}: tracking number not available yet, will retry`);
+      createRequested.delete(key);
+      return;
+    }
     const resp = await documentPost('/api/v2/logistics/create_shipping_document', shop, {
-      order_list: [{ ...target, shipping_document_type: type }]
+      order_list: [{ ...target, shipping_document_type: type, tracking_number: trackingNumber }]
     });
     const r: DocResult | undefined = resp?.result_list?.[0];
     if (r?.fail_error) console.warn(`[shopee] create_shipping_document ${orderSn}: ${r.fail_error} ${r.fail_message || ''}`);
