@@ -11,7 +11,7 @@ const STEPS = [
   },
   {
     title: 'Gere as etiquetas',
-    desc: 'Processe as etiquetas em formato ZPL.',
+    desc: 'Reúna as etiquetas em um único PDF.',
   },
   {
     title: 'Imprima e pronto',
