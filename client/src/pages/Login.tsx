@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { trialDestination } from '../lib/trialIntent';
 import { useAuth } from '../hooks/useAuth';
 import { track } from '../lib/analytics';
 import { Input } from '../components/ui/input';
@@ -19,7 +20,7 @@ export default function Login() {
 
   useEffect(() => {
     if (user && !loading) {
-      navigate('/dashboard');
+      navigate(trialDestination());
     }
   }, [user, loading, navigate]);
 
@@ -33,7 +34,7 @@ export default function Login() {
     if (err) {
       setFormError(err);
     } else {
-      navigate('/dashboard');
+      navigate(trialDestination());
     }
   };
 
@@ -105,7 +106,7 @@ export default function Login() {
       </div>
 
       <button
-        onClick={() => { track('ml_oauth_started'); login(); }}
+        onClick={() => { track('ml_oauth_started'); login(trialDestination()); }}
         disabled={loading}
         className="w-full bg-yellow-400 hover:bg-yellow-400/90 text-foreground font-semibold py-3 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-3 disabled:opacity-50"
       >
