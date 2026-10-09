@@ -21,10 +21,12 @@ const BENEFITS = [
 interface HeroProps {
   motionAlternative?: boolean;
   priceLabel: string;
+  founderPriceLabel?: string | null;
+  slotsCap?: number | null;
   onPrimaryCta: () => void;
 }
 
-export default function Hero({ priceLabel, onPrimaryCta, motionAlternative = false }: HeroProps) {
+export default function Hero({ priceLabel, founderPriceLabel, slotsCap, onPrimaryCta, motionAlternative = false }: HeroProps) {
   const rootRef = useRef<HTMLElement>(null);
 
   // Mouse parallax with per-frame lerp — each frame eases the current offset
@@ -94,7 +96,7 @@ export default function Hero({ priceLabel, onPrimaryCta, motionAlternative = fal
   return (
     <section
       ref={rootRef}
-      className="relative overflow-hidden noise pt-28 sm:pt-36 lg:pt-40 pb-16 sm:pb-24"
+      className="relative overflow-hidden noise pt-8 sm:pt-16 lg:pt-20 pb-16 sm:pb-24"
       aria-labelledby="hero-title"
     >
       {/* Background: lime radial glow + soft blobs */}
@@ -127,7 +129,7 @@ export default function Hero({ priceLabel, onPrimaryCta, motionAlternative = fal
             <Reveal delay={90}>
               <h1
                 id="hero-title"
-                className="mt-5 text-[42px] sm:text-6xl lg:text-[64px] xl:text-[76px] font-extrabold text-foreground leading-[0.98] tracking-tight"
+                className="mt-5 text-[34px] sm:text-6xl lg:text-[64px] xl:text-[76px] font-extrabold text-foreground leading-[0.98] tracking-tight"
               >
                 {motionAlternative ? (<>O dia de etiquetas, <span className="text-primary">numa impressão só.</span></>) : (<>Etiquetas do <span className="text-primary">Mercado&nbsp;Livre</span> em lote, sem abrir cada pedido.</>)}
               </h1>
@@ -141,7 +143,7 @@ export default function Hero({ priceLabel, onPrimaryCta, motionAlternative = fal
             </Reveal>
 
             <Reveal delay={260}>
-              <ul className="mt-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 max-w-md mx-auto lg:mx-0 text-left">
+              <ul className="mt-5 hidden sm:grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 max-w-md mx-auto lg:mx-0 text-left">
                 {BENEFITS.map((b) => (
                   <li key={b} className="flex items-center gap-2.5 text-sm font-medium text-foreground/85">
                     <CheckCircle className="w-[18px] h-[18px] text-success shrink-0" />
@@ -152,12 +154,12 @@ export default function Hero({ priceLabel, onPrimaryCta, motionAlternative = fal
             </Reveal>
 
             <Reveal delay={340}>
-              <div className="mt-9 flex flex-col sm:flex-row items-center lg:justify-start justify-center gap-3.5">
+              <div className="mt-5 flex flex-col sm:flex-row items-center lg:justify-start justify-center gap-3.5">
                 <button
                   onClick={onPrimaryCta}
                   className="btn-shine group inline-flex items-center justify-center gap-2.5 bg-primary text-white font-bold text-base px-8 py-4 rounded-2xl shadow-[0_16px_40px_-12px_rgba(254,93,49,0.55)] transition-all duration-150 hover:scale-[1.02] hover:shadow-[0_20px_48px_-12px_rgba(254,93,49,0.65)] active:scale-[0.98] min-h-[52px] w-full sm:w-auto"
                 >
-                  Começar agora
+                  Testar grátis por 7 dias
                   <ArrowRight className="w-5 h-5 transition-transform duration-150 group-hover:translate-x-1" />
                 </button>
                 <button
@@ -173,17 +175,17 @@ export default function Hero({ priceLabel, onPrimaryCta, motionAlternative = fal
             </Reveal>
 
             <Reveal delay={420}>
-              <div className="mt-8 flex items-center justify-center lg:justify-start gap-3">
+              <div className="mt-5 flex flex-col items-center lg:items-start gap-2">
                 <div className="text-left">
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Plano completo</span>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-2xl sm:text-3xl font-extrabold text-foreground">{priceLabel}</span>
+                    <span className="text-2xl sm:text-3xl font-extrabold text-foreground">{founderPriceLabel || priceLabel}</span>
                     <span className="text-sm text-muted-foreground">/mês</span>
                   </div>
                 </div>
-                <span className="h-10 w-px bg-border mx-2" aria-hidden="true" />
+                {founderPriceLabel && <p className="text-xs text-muted-foreground">Primeiras {slotsCap ?? 20} assinaturas. Valor travado enquanto ativo.<br />Preço regular: {priceLabel}/mês.</p>}
                 <p className="text-xs sm:text-sm text-muted-foreground text-left leading-snug">
-                  7 dias grátis para testar.<br />Cancele quando quiser.
+                  7 dias grátis, sem cartão.<br />Cancele quando quiser.
                 </p>
               </div>
             </Reveal>
