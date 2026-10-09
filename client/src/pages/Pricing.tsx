@@ -1,5 +1,7 @@
 import { trackMetaEvent } from '../lib/metaPixel';
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { rememberTrialIntent, clearTrialIntent } from '../lib/trialIntent';
 import { useAuth } from '../hooks/useAuth';
 import { Check, Zap, Shield, Loader2 } from 'lucide-react';
 import Header from '../components/Header';
@@ -25,6 +27,7 @@ interface SubscriptionStatus {
 
 export default function Pricing() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorPlanId, setErrorPlanId] = useState<string | null>(null);
@@ -65,7 +68,8 @@ export default function Pricing() {
 
   const handleSubscribe = async (planId: string, trial: boolean = false) => {
     if (!user) {
-      window.location.href = '/login';
+      if (trial) rememberTrialIntent();
+      navigate(trial ? '/cadastro' : '/login');
       return;
     }
 
@@ -110,6 +114,7 @@ export default function Pricing() {
       // If trial, redirect to dashboard (no MP checkout needed)
       if (data.trial === true && data.trialId) {
         trackMetaEvent('StartTrial', String(data.trialId), {value: 0, currency: 'BRL'});
+        clearTrialIntent();
         window.location.href = '/dashboard';
         return;
       }
@@ -144,10 +149,10 @@ export default function Pricing() {
     <div className="min-h-screen bg-background">
       <Header showDashboard />
 
-      <main className="max-w-5xl mx-auto px-4 py-16" data-mp-subscriptions-page="without-plan-pending">
+      <main className="max-w-5xl mx-auto px-4 py-6 sm:py-16" data-mp-subscriptions-page="without-plan-pending">
         {/* Hero */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-foreground mb-4">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl sm:text-4xl font-bold text-foreground mb-4">
             Imprima etiquetas do Mercado Livre em segundos
           </h1>
           <p className="text-xl text-muted-foreground">
@@ -189,13 +194,13 @@ export default function Pricing() {
                     </div>
                   )}
 
-                  <div className="p-8">
+                  <div className="p-5 sm:p-8">
                     {/* Plan name */}
                     <h2 className="text-xl font-bold text-foreground mb-1">LabelGo Completo</h2>
                     <p className="text-muted-foreground text-sm mb-6">{plan.description}</p>
 
                     {/* Price */}
-                    <div className="text-center mb-8">
+                    <div className="text-center mb-4">
                       <div className="flex items-baseline justify-center gap-1">
                         <span className="text-2xl font-medium text-muted-foreground">R$</span>
                         <span className="text-6xl font-bold text-foreground">
@@ -208,18 +213,6 @@ export default function Pricing() {
                       <p className="text-muted-foreground mt-2">{isFounder ? 'por mês, valor travado enquanto ativo' : 'por mês'}</p>
                       {isFounder && regular?.price && <p className="text-sm text-muted-foreground mt-2">Preço regular: <span className="line-through">R$ {regular.price.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês</span>. Todos os recursos incluídos.</p>}
                     </div>
-
-                    {/* Features */}
-                    <ul className="space-y-3 mb-8">
-                      {plan.features.map((feature, index) => (
-                        <li key={index} className="flex items-center gap-3">
-                          <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                            <Check className="w-4 h-4 text-green-600" />
-                          </div>
-                          <span className="text-foreground/80 text-sm">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
 
                     {/* Error */}
                     {error && errorPlanId === plan.id && (
@@ -294,6 +287,18 @@ export default function Pricing() {
                         </Button>
                       </>
                     )}
+
+                    {/* Features */}
+                    <ul className="space-y-3 mb-8">
+                      {plan.features.map((feature, index) => (
+                        <li key={index} className="flex items-center gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                            <Check className="w-4 h-4 text-green-600" />
+                          </div>
+                          <span className="text-foreground/80 text-sm">{feature === 'Retries' ? 'Nova tentativa se a impressão falhar' : feature === 'PDF e ZPL' ? 'Etiquetas em PDF e formato para impressora térmica' : feature}</span>
+                        </li>
+                      ))}
+                    </ul>
 
                     <p className="text-center text-sm text-muted-foreground mt-4">
                       Cancele quando quiser. Sem fidelidade.
