@@ -414,7 +414,7 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
 
     await createSessionForUser(req, userId);
     req.session.newRegistration = newRegistration;
-    res.redirect(`${frontendUrl()}/dashboard`);
+    res.redirect(`${frontendUrl()}${pending.returnTo || "/dashboard"}`);
   } catch (error) {
     console.error('OAuth callback error:', error);
     res.redirect(`${frontendUrl()}/login?error=auth_failed`);
