@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { rememberTrialIntent } from '../lib/trialIntent';
 import { useAuth } from '../hooks/useAuth';
@@ -28,6 +28,53 @@ interface Plan {
 
 function formatBRL(amount: number): string {
   return amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function BatchDemo() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const syncPlayback = () => {
+      const video = videoRef.current;
+      if (!video) return;
+      if (preference.matches) video.pause();
+      else void video.play().catch(() => { /* Native controls remain available. */ });
+    };
+    syncPlayback();
+    preference.addEventListener('change', syncPlayback);
+    return () => preference.removeEventListener('change', syncPlayback);
+  }, []);
+
+  return (
+    <section className="px-4 py-8 sm:py-12" aria-labelledby="batch-demo-title">
+      <div className="mx-auto max-w-3xl">
+        <h2 id="batch-demo-title" className="mb-4 text-center text-xl font-semibold text-foreground sm:text-2xl">
+          Veja como imprimir em lote
+        </h2>
+        <video
+          ref={videoRef}
+          className="block aspect-video w-full rounded-2xl border border-border bg-background shadow-sm"
+          width={1280}
+          height={720}
+          autoPlay
+          muted
+          loop
+          playsInline
+          controls
+          preload="metadata"
+          poster="/2-labelgo-demo-poster.jpg"
+          aria-label="Demonstração: selecionar os pedidos, clicar em Imprimir e gerar um PDF com todas as etiquetas."
+        >
+          <source src="/1-labelgo-demo-rapido.mp4" type="video/mp4" />
+          Seu navegador não reproduz este vídeo. Selecione os pedidos e clique em Imprimir para gerar um PDF com as etiquetas.
+        </video>
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          Animação ilustrativa com pedidos fictícios. Você seleciona os pedidos antes de imprimir.
+        </p>
+      </div>
+    </section>
+  );
 }
 
 export default function Landing() {
@@ -88,6 +135,7 @@ export default function Landing() {
       <main>
         <Hero founderPriceLabel={founderPrice !== null && founderRemaining !== null && founderRemaining > 0 ? founderPriceLabel : null} slotsCap={founderCap} priceLabel={priceLabel} onPrimaryCta={handleCTA} motionAlternative={motionAlternative} />
         <FounderOffer founderPriceLabel={founderPriceLabel} proPriceLabel={priceLabel} slotsRemaining={founderRemaining} slotsCap={founderCap} onCta={handleCTA} />
+        <BatchDemo />
         <TrustBar />
         <BentoFeatures />
         <Workflow />
