@@ -63,10 +63,10 @@ function BatchDemo() {
           playsInline
           controls
           preload="metadata"
-          poster="/labelgo-demo-poster.jpg"
+          poster="/2-labelgo-demo-poster.jpg"
           aria-label="Demonstração: selecionar os pedidos, clicar em Imprimir e gerar um PDF com todas as etiquetas."
         >
-          <source src="/labelgo-demo-rapido.mp4" type="video/mp4" />
+          <source src="/1-labelgo-demo-rapido.mp4" type="video/mp4" />
           Seu navegador não reproduz este vídeo. Selecione os pedidos e clique em Imprimir para gerar um PDF com as etiquetas.
         </video>
         <p className="mt-3 text-center text-xs text-muted-foreground">
