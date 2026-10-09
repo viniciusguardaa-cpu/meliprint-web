@@ -46,7 +46,7 @@ export default function Navbar({ isLoggedIn, onPrimaryCta, onLogin, onDashboard 
   };
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 px-3 sm:px-6 pt-3 sm:pt-4">
+    <header className="sticky top-0 z-50 px-3 sm:px-6 pt-3 sm:pt-4">
       <div
         className={cn(
           'mx-auto flex items-center justify-between gap-4 px-4 sm:px-5 py-2.5 transition-all duration-300 max-w-7xl',
