@@ -13,8 +13,8 @@ export default function Root() {
   return (
     <React.StrictMode>
       <SeoManager />
-      <App />
       <MarketingConsent />
+      <App />
       <Toaster
         position="top-right"
         toastOptions={{
@@ -33,4 +33,4 @@ export default function Root() {
       />
     </React.StrictMode>
   );
-}
+}/Ap
