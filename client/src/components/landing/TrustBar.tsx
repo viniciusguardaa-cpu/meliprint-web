@@ -30,7 +30,7 @@ export default function TrustBar() {
         <Reveal delay={200}>
           <p className="mt-7 inline-flex items-center gap-2 text-xs font-medium text-muted-foreground/80 bg-white border border-black/[0.05] rounded-full px-4 py-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-success" />
-            Conexão via OAuth Mercado Livre
+            Conexão autorizada pelo Mercado Livre
           </p>
         </Reveal>
       </div>

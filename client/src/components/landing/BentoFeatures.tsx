@@ -71,7 +71,7 @@ export default function BentoFeatures() {
             <Card className={cn(CARD_LIGHT, 'h-full flex flex-col')}>
               <CardTitle
                 title="Impressão instantânea"
-                desc="Gere etiquetas em segundos e imprima pelo navegador — PDF ou ZPL, sem instalar nada."
+                desc="Gere etiquetas em segundos e imprima pelo navegador — PDF ou formato para impressora térmica, sem instalar nada."
               />
               <div className="relative flex-1 mt-6 min-h-[220px]">
                 <div className="absolute inset-x-6 top-2 bottom-0 rounded-t-2xl bg-muted/80 border border-b-0 border-black/[0.05]" />
@@ -79,7 +79,7 @@ export default function BentoFeatures() {
                 <ShippingLabel className="absolute left-1/2 -translate-x-1/2 top-14 w-44 sm:w-52 rotate-[3deg] opacity-90 transition-transform duration-500 group-hover:rotate-[5deg]" />
                 <span className="absolute bottom-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 bg-ink text-white text-[10px] font-semibold px-3 py-1.5 rounded-full">
                   <Printer className="w-3 h-3 text-secondary" />
-                  ZPL · PDF · 10x15
+                  PDF · Etiqueta 10x15
                 </span>
               </div>
             </Card>
@@ -146,7 +146,7 @@ export default function BentoFeatures() {
               </div>
               <CardTitle
                 title="Conexão segura"
-                desc="Você autoriza no site do Mercado Livre via OAuth. Sua senha nunca passa pelo LabelGo."
+                desc="Você autoriza no site do Mercado Livre pela conexão oficial. Sua senha nunca passa pelo LabelGo."
               />
             </Card>
           </Reveal>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { rememberTrialIntent } from '../lib/trialIntent';
 import { useAuth } from '../hooks/useAuth';
 import { getVisitorKey, track, captureUTM } from '../lib/analytics';
 import Navbar from '../components/landing/Navbar';
@@ -66,7 +67,8 @@ export default function Landing() {
     if (user) {
       navigate('/dashboard');
     } else {
-      navigate('/pricing');
+      rememberTrialIntent();
+      navigate('/cadastro');
     }
   };
 
@@ -84,7 +86,7 @@ export default function Landing() {
         onDashboard={() => navigate('/dashboard')}
       />
       <main>
-        <Hero priceLabel={priceLabel} onPrimaryCta={handleCTA} motionAlternative={motionAlternative} />
+        <Hero founderPriceLabel={founderPrice !== null && founderRemaining !== null && founderRemaining > 0 ? founderPriceLabel : null} slotsCap={founderCap} priceLabel={priceLabel} onPrimaryCta={handleCTA} motionAlternative={motionAlternative} />
         <FounderOffer founderPriceLabel={founderPriceLabel} proPriceLabel={priceLabel} slotsRemaining={founderRemaining} slotsCap={founderCap} onCta={handleCTA} />
         <TrustBar />
         <BentoFeatures />

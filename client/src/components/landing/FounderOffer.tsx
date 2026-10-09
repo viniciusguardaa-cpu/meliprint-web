@@ -122,8 +122,8 @@ export default function FounderOffer({
             <p className="relative text-white/75 text-sm sm:text-base leading-relaxed">
               Para quem vende no <strong className="text-white font-semibold">Mercado Livre</strong>:{' '}
               {soldOut
-                ? 'impressão automática de etiquetas em lote, em PDF ou ZPL 10×15, direto do navegador.'
-                : 'plano completo, com etiquetas em lote, PDF ou ZPL 10×15. Preço de fundador em troca do seu feedback.'}
+                ? 'impressão de etiquetas em lote, em PDF ou formato para impressora térmica 10×15, direto do navegador.'
+                : 'plano completo, com etiquetas em lote, PDF ou formato para impressora térmica 10×15. Preço de fundador em troca do seu feedback.'}
             </p>
             {!soldOut && (
               <p className="relative mt-3 text-xs sm:text-sm text-white/45 leading-relaxed">

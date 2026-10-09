@@ -58,9 +58,9 @@ export function useAuth() {
   };
 
   /** Login with Mercado Livre — kept for the main CTA. */
-  const login = async () => {
+  const login = async (returnTo?: string) => {
     try {
-      await startOAuth('mercadolivre');
+      await startOAuth('mercadolivre', returnTo);
     } catch (err) {
       alert(err instanceof Error && err.message
         ? err.message

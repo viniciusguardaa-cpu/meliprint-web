@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { trialDestination } from '../lib/trialIntent';
 import { useAuth } from '../hooks/useAuth';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -17,7 +18,7 @@ export default function Register() {
 
   useEffect(() => {
     if (user && !loading) {
-      navigate('/dashboard');
+      navigate(trialDestination());
     }
   }, [user, loading, navigate]);
 
@@ -31,7 +32,7 @@ export default function Register() {
     if (err) {
       setFormError(err);
     } else {
-      navigate('/dashboard');
+      navigate(trialDestination());
     }
   };
 
@@ -116,7 +117,7 @@ export default function Register() {
       </div>
 
       <button
-        onClick={() => login()}
+        onClick={() => login(trialDestination())}
         disabled={loading}
         className="w-full bg-yellow-400 hover:bg-yellow-400/90 text-foreground font-semibold py-3 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-3 disabled:opacity-50"
       >
