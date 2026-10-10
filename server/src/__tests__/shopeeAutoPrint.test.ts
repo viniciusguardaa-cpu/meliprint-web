@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('../services/shopee.js', () => ({
   buildAuthUrl: vi.fn(), exchangeCodeForToken: vi.fn(), refreshAccessToken: vi.fn(), getShopInfo: vi.fn(),
   getShipmentList: vi.fn(), getPrintableOrderSns: vi.fn(), getProcessedOrders: vi.fn(),
-  getReadyLabelPdfs: vi.fn(), getOrderDetail: vi.fn()
+  invalidateReadyLabelPdfs: vi.fn(), getReadyLabelPdfs: vi.fn(), getOrderDetail: vi.fn()
 }));
 import { shopeeProvider } from '../providers/shopee.js';
 import { getProcessedOrders, getOrderDetail, getReadyLabelPdfs, getPrintableOrderSns } from '../services/shopee.js';
