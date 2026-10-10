@@ -8,7 +8,7 @@ import {
   ShippingParameter,
   ShopeeOrderDetail
 } from './shopee.js';
-import { claimArrangeAttempt, finishArrangeAttempt, getRecentlyArrangedPackages } from '../db.js';
+import { claimArrangeAttempt, finishArrangeAttempt, getRecentlyArrangedPackages, getArrangeAttempts } from '../db.js';
 
 /**
  * Opt-in automatic "organizar envio" for Shopee.
@@ -26,6 +26,8 @@ import { claimArrangeAttempt, finishArrangeAttempt, getRecentlyArrangedPackages 
 
 export type ArrangeMethod = 'pickup' | 'dropoff';
 const MAX_PER_CYCLE = 10;
+const ineligibleUntil = new Map<string, number>();
+const INELIGIBLE_TTL_MS = 60_000;
 
 type Shop = { accessToken: string; shopId: string };
 type Plan = { body: Record<string, unknown> } | { skip: string };
@@ -97,13 +99,31 @@ export async function arrangeReadyShipments(accountId: number, shop: Shop, metho
   const entries = await getShipmentList(shop, 100);
   const sns = [...new Set(entries.map(e => e.order_sn))];
   if (sns.length === 0) return summary;
-  const details = await getOrderDetail(shop, sns);
+  // Query durable attempts before expensive order/parameter calls. The atomic
+  // claim below remains the final race guard, including for split orders.
+  const attempts = await getArrangeAttempts(accountId, sns);
+  const attempted = new Set(attempts.map(p => `${p.order_sn}:${p.package_number}`));
+  const allPackagesKnown = sns.filter(sn => {
+    const packages = entries.filter(e => e.order_sn === sn);
+    return packages.length > 0 && packages.every(p => p.package_number && attempted.has(`${sn}:${p.package_number}`));
+  });
+  const blocked = new Set(allPackagesKnown);
+  const candidates = sns.filter(sn => !blocked.has(sn) &&
+    (ineligibleUntil.get(`${accountId}:${sn}:${method}`) || 0) <= Date.now());
+  summary.skipped += sns.length - candidates.length;
+  if (!candidates.length) return summary;
+  const details = await getOrderDetail(shop, candidates);
   let sent = 0;
   for (const order of details) {
-    if (!isEligibleOrder(order)) { summary.skipped++; continue; }
+    if (!isEligibleOrder(order)) {
+      if (ineligibleUntil.size > 2000) ineligibleUntil.clear();
+      ineligibleUntil.set(`${accountId}:${order.order_sn}:${method}`, Date.now() + INELIGIBLE_TTL_MS);
+      summary.skipped++; continue;
+    }
     for (const pkg of order.package_list!) {
       if (sent >= MAX_PER_CYCLE) return summary;
       const packageNumber = pkg.package_number;
+      if (attempted.has(`${order.order_sn}:${packageNumber}`)) { summary.skipped++; continue; }
       // Single-package (unsplit) orders: ship_order must be sent without package_number.
       const shipPackage = order.package_list!.length > 1 ? packageNumber : undefined;
       let plan: Plan;
