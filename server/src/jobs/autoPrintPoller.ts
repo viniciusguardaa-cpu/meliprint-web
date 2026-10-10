@@ -20,6 +20,8 @@ const POLL_INTERVAL_MS = 5 * 60_000; // 5 minutes — reconciliation fallback.
 // This poller catches anything missed by notifications.
 const BATCH_SIZE = 20;
 const AUTO_PRINT_LOCK = 491001;
+const SHOPEE_PRINT_LOCK = 491004;
+const SHOPEE_POLL_INTERVAL_MS = 60_000;
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -30,7 +32,7 @@ function sleep(ms: number) {
  * through its provider — new providers are picked up automatically once the
  * user connects an account.
  */
-async function pollUser(config: any) {
+async function pollUser(config: any, shopeeOnly = false) {
   const accounts = await getMarketplaceAccountsForUser(config.user_id);
   if (accounts.length === 0) {
     console.warn(`[autoPrintPoller] No marketplace accounts for user ${config.user_id}, skipping`);
@@ -38,6 +40,7 @@ async function pollUser(config: any) {
   }
 
   for (const account of accounts) {
+    if ((account.provider === 'shopee') !== shopeeOnly) continue;
     // Reconnect-needed accounts can't refresh — skip quietly (UI shows the
     // reconnect banner; no point hammering the provider every cycle).
     if (account.status === 'reauth_required') {
@@ -75,6 +78,8 @@ async function pollUser(config: any) {
         console.error(`[autoPrintPoller] Shopee arrange failed for account ${account.id}:`, error);
       }
     }
+
+    if (!config.enabled) continue; // Arrange-only opt-in does not enable printing.
 
     try {
       const known = await getQueuedShipmentIds(config.user_id, account.provider);
@@ -126,7 +131,7 @@ async function pollUser(config: any) {
 }
 
 export function startAutoPrintPoller() {
-  console.log('🔄 Auto-print poller started (5min interval — reconciliation fallback for ML notifications)');
+  console.log('🔄 Auto-print poller started (ML 5min reconciliation, Shopee 60s discovery)');
 
   const run = async () => {
     try {
@@ -163,6 +168,19 @@ export function startAutoPrintPoller() {
       console.error('[autoPrintPoller] Fatal error:', error);
     }
   };
+
+  const runShopee = async () => {
+    try {
+      await withJobLock(SHOPEE_PRINT_LOCK, async () => {
+        const configs = await getAutoPrintEnabledConfigs(true);
+        for (const config of configs) await pollUser(config, true);
+      });
+    } catch (error) {
+      console.error('[autoPrintPoller] Shopee sweep failed:', error);
+    }
+  };
+  runShopee();
+  setInterval(runShopee, SHOPEE_POLL_INTERVAL_MS);
 
   // Run immediately, then on interval
   run();

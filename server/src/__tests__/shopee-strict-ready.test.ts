@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
-import { getReadyLabelPdfs, getOrderDetail, ShopeeOrderDetail } from '../services/shopee.js';
+import { invalidateReadyLabelPdfs, getReadyLabelPdfs, getOrderDetail, ShopeeOrderDetail } from '../services/shopee.js';
 const shop = { accessToken: 'test', shopId: '123' };
 const invoice = { status: 'valid', number: '1', access_key: '1'.repeat(44), issue_date: 1700000000 };
 const order = (extra = {}): ShopeeOrderDetail => ({ order_sn: 'A', order_status: 'PROCESSED', invoice_data: invoice, ...extra });
 const json = (response: unknown) => new Response(JSON.stringify({ response }));
-beforeEach(() => { process.env.SHOPEE_PARTNER_ID = '1'; process.env.SHOPEE_PARTNER_KEY = 'test'; });
+beforeEach(() => { invalidateReadyLabelPdfs(shop.shopId, ['A']); process.env.SHOPEE_PARTNER_ID = '1'; process.env.SHOPEE_PARTNER_KEY = 'test'; });
 afterEach(() => vi.unstubAllGlobals());
 async function mockApi(status = 'READY', invalidPdf = false, failSecond = false) {
   const doc = await PDFDocument.create(); doc.addPage([283, 425]); const pdf = await doc.save();

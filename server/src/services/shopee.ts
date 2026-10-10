@@ -577,11 +577,11 @@ export function hasValidInvoice(order: ShopeeOrderDetail): boolean {
 }
 
 const createRequested = new Map<string, number>();
-const CREATE_RETRY_MS = 10 * 60_000;
+const CREATE_RETRY_MS = 90_000;
 
 /**
  * Ask Shopee to generate the label document (create_shipping_document), at most
- * once per package per 10 min. Shopee answers "should print first" for
+ * once per package per 90 seconds. Shopee answers "should print first" for
  * get_shipping_document_result until this was requested. Used only for orders
  * LabelGo itself arranged (see shopeeArrange), never for old orders.
  */
@@ -592,18 +592,28 @@ export async function requestDocumentCreation(
 ): Promise<void> {
   const key = `${shop.shopId}:${orderSn}:${packageNumber || ''}`;
   const last = createRequested.get(key);
-  if (last && Date.now() - last < CREATE_RETRY_MS) return;
+  if (last !== undefined && Date.now() - last < CREATE_RETRY_MS) return;
   if (createRequested.size > 2000) createRequested.clear();
   createRequested.set(key, Date.now());
   try {
     const type = await getDocumentType(shop, orderSn, packageNumber, true);
     if (!type) return;
     const target: Record<string, string> = packageNumber ? { order_sn: orderSn, package_number: packageNumber } : { order_sn: orderSn };
+    // Completed documents need no more creation requests on faster sweeps.
+    const existing = await documentPost('/api/v2/logistics/get_shipping_document_result', shop, {
+      order_list: [{ ...target, shipping_document_type: type }]
+    }).catch(() => null);
+    if (existing?.result_list?.some((r: DocResult) => r.order_sn === orderSn &&
+      (packageNumber ? r.package_number === packageNumber : !r.package_number) && r.status === 'READY' && !r.fail_error)) return;
     // Shopee validates tracking_number; without it BR orders fail with tracking_number_invalid.
-    const trackingNumber = await getTrackingNumber(shop, orderSn, packageNumber);
+    let trackingNumber: string | undefined;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      trackingNumber = await getTrackingNumber(shop, orderSn, packageNumber);
+      if (trackingNumber) break;
+      if (attempt < 2) await sleep(5000);
+    }
     if (!trackingNumber) {
       console.log(`[shopee] create_shipping_document ${orderSn}: tracking number not available yet, will retry`);
-      createRequested.delete(key);
       return;
     }
     const resp = await documentPost('/api/v2/logistics/create_shipping_document', shop, {
@@ -622,33 +632,54 @@ export async function requestDocumentCreation(
  * from a pending list or a READY_TO_SHIP order status. All packages must have an
  * existing READY document and a parseable PDF, otherwise the whole order is out.
  */
+// Cache only validated bytes. Live invoice, status and document READY checks
+// still run before using them. Never cache a negative result or an error.
+const readyPdfCache = new Map<string, { pdf: Buffer; expiresAt: number }>();
+const PDF_CACHE_TTL_MS = 60_000;
+const PDF_CACHE_MAX_BYTES = 32 * 1024 * 1024;
+function pdfKey(shopId: string, orderSn: string, packageNumber?: string) {
+  return `${shopId}:${orderSn}:${packageNumber || ''}`;
+}
+export function invalidateReadyLabelPdfs(shopId: string, orderSns: string[]) {
+  const prefixes = orderSns.map(sn => `${shopId}:${sn}:`);
+  for (const key of readyPdfCache.keys()) {
+    if (prefixes.some(p => key.startsWith(p))) readyPdfCache.delete(key);
+  }
+}
+
 export async function getReadyLabelPdfs(
   shop: { accessToken: string; shopId: string },
   orders: ShopeeOrderDetail[]
 ): Promise<Map<string, Buffer[]>> {
   const ready = new Map<string, Buffer[]>();
   const { PDFDocument } = await import('pdf-lib');
-  for (const order of orders) {
-    const invoice = order.invoice_data;
-    if (invoice?.status !== 'valid' || !invoice.number?.trim() ||
-        !/^\d{44}$/.test(invoice.access_key || '') || !invoice.issue_date) continue;
-    if (order.order_status !== 'PROCESSED') continue;
-    const packages: Array<string | undefined> = order.package_list?.length
-      ? order.package_list.map(p => p.package_number) : [undefined];
-    if (order.package_list?.some(p => !p.package_number)) continue;
-    const pdfs: Buffer[] = [];
-    try {
-      for (const packageNumber of packages) {
-        const type = await getDocumentType(shop, order.order_sn, packageNumber, true);
+  const tasks = orders.filter(order => hasValidInvoice(order) && order.order_status === 'PROCESSED' &&
+    !order.package_list?.some(p => !p.package_number)).flatMap(order =>
+      (order.package_list?.length ? order.package_list.map(p => p.package_number) : [undefined])
+        .map(packageNumber => ({ orderSn: order.order_sn, packageNumber })));
+  const results: Array<Buffer | null> = Array(tasks.length).fill(null);
+  let next = 0;
+  const worker = async () => {
+    while (next < tasks.length) {
+      const i = next++;
+      const { orderSn, packageNumber } = tasks[i];
+      const key = pdfKey(shop.shopId, orderSn, packageNumber);
+      try {
+        const type = await getDocumentType(shop, orderSn, packageNumber, true);
         if (!type) throw new Error('Documento sem tipo confirmado');
-        const target = packageNumber ? { order_sn: order.order_sn, package_number: packageNumber }
-          : { order_sn: order.order_sn };
+        const target = packageNumber ? { order_sn: orderSn, package_number: packageNumber } : { order_sn: orderSn };
         const result = await documentPost('/api/v2/logistics/get_shipping_document_result', shop, {
           order_list: [{ ...target, shipping_document_type: type }]
         });
         const entry: DocResult | undefined = result?.result_list?.find((r: DocResult) =>
-          r.order_sn === order.order_sn && (packageNumber ? r.package_number === packageNumber : !r.package_number));
+          r.order_sn === orderSn && (packageNumber ? r.package_number === packageNumber : !r.package_number));
         if (entry?.status !== 'READY' || entry.fail_error) throw new Error('Documento ainda não está READY');
+        const cached = readyPdfCache.get(key);
+        if (cached && cached.expiresAt > Date.now()) {
+          results[i] = cached.pdf;
+          continue;
+        }
+        readyPdfCache.delete(key);
         const downloaded = await apiPost('/api/v2/logistics/download_shipping_document', shop, {
           shipping_document_type: type, order_list: [target]
         }, true);
@@ -656,13 +687,24 @@ export async function getReadyLabelPdfs(
         if (!pdf || pdf.subarray(0, 5).toString() !== '%PDF-') throw new Error('Documento não é PDF');
         const parsed = await PDFDocument.load(pdf);
         if (parsed.getPageCount() === 0) throw new Error('PDF sem páginas');
-        pdfs.push(pdf);
+        results[i] = pdf;
+        let bytes = pdf.length;
+        for (const [k, v] of readyPdfCache) {
+          if (v.expiresAt <= Date.now()) readyPdfCache.delete(k);
+          else bytes += v.pdf.length;
+        }
+        if (bytes > PDF_CACHE_MAX_BYTES || readyPdfCache.size >= 200) readyPdfCache.clear();
+        if (pdf.length <= PDF_CACHE_MAX_BYTES) readyPdfCache.set(key, { pdf, expiresAt: Date.now() + PDF_CACHE_TTL_MS });
+      } catch (error) {
+        readyPdfCache.delete(key);
+        console.warn(`[shopee] readiness not confirmed for ${orderSn}:`, error instanceof Error ? error.message : 'unknown');
       }
-      ready.set(order.order_sn, pdfs);
-    } catch (error) {
-      // No PDF cache: recheck current NF and document state on every listing/print.
-      console.warn(`[shopee] readiness not confirmed for ${order.order_sn}:`, error instanceof Error ? error.message : 'unknown');
     }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, tasks.length) }, worker));
+  for (const order of orders) {
+    const indices = tasks.map((task, i) => task.orderSn === order.order_sn ? i : -1).filter(i => i >= 0);
+    if (indices.length && indices.every(i => results[i])) ready.set(order.order_sn, indices.map(i => results[i]!));
   }
   return ready;
 }

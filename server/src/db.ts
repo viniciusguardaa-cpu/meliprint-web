@@ -684,14 +684,17 @@ export async function updateAutoPrintLastPolled(userId: number) {
   );
 }
 
-export async function getAutoPrintEnabledConfigs() {
+export async function getAutoPrintEnabledConfigs(includeShopeeArrange = false) {
   // Only configs whose owner currently has Pro access: authorized/active
   // subscription on an auto_print plan, in-window trial, cancelled-but-still-
   // in-period, or a free-access courtesy account.
   const result = await pool.query(
     `SELECT c.* FROM "auto_print_config" c
      JOIN "users" u ON u."id" = c."user_id"
-     WHERE c."enabled" = true AND u."blocked_at" IS NULL AND (
+     WHERE (c."enabled" = true OR ($1 AND EXISTS (
+       SELECT 1 FROM "marketplace_accounts" a WHERE a."user_id" = c."user_id"
+       AND a."provider" = 'shopee' AND a."auto_arrange_shipment" = true
+     ))) AND u."blocked_at" IS NULL AND (
        EXISTS (
          SELECT 1 FROM "subscriptions" s
          JOIN "plans" p ON p."id" = s."plan_id"
@@ -704,7 +707,7 @@ export async function getAutoPrintEnabledConfigs() {
        OR EXISTS (
          SELECT 1 FROM "free_access" f WHERE LOWER(f."email") = LOWER(u."email") AND u."email" IS NOT NULL
        )
-     )`
+     )`, [includeShopeeArrange]
   );
   result.rows.forEach(hydrateAutoPrintRow);
   return result.rows;
@@ -1175,9 +1178,8 @@ export async function setShopeeArrangeSettings(accountId: number, userId: number
 
 /**
  * Claim a package before calling Shopee. Returns true only when this caller
- * may send ship_order: a brand new row, or a previously 'failed' row (Shopee
- * answered with an error, nothing arranged) under 3 attempts and older than 15 min.
- * 'claimed' (uncertain) and 'requested' rows are never claimed again.
+ * may send ship_order: a brand new row only. Failed, claimed (uncertain),
+ * and requested rows are never retried automatically.
  */
 export async function claimArrangeAttempt(accountId: number, orderSn: string, packageNumber: string, method: string): Promise<boolean> {
   const inserted = await pool.query(
@@ -1186,14 +1188,7 @@ export async function claimArrangeAttempt(accountId: number, orderSn: string, pa
     [accountId, orderSn, packageNumber, method]
   );
   if (inserted.rows.length > 0) return true;
-  const retry = await pool.query(
-    `UPDATE "shipment_arrange_log" SET "status" = 'claimed', "attempts" = "attempts" + 1, "method" = $4, "updated_at" = CURRENT_TIMESTAMP
-     WHERE "account_id" = $1 AND "order_sn" = $2 AND "package_number" = $3
-       AND "status" = 'failed' AND "attempts" < 3 AND "updated_at" < CURRENT_TIMESTAMP - INTERVAL '15 minutes'
-     RETURNING "id"`,
-    [accountId, orderSn, packageNumber, method]
-  );
-  return retry.rows.length > 0;
+  return false; // Any prior attempt is terminal for automatic arrangement.
 }
 
 export async function finishArrangeAttempt(accountId: number, orderSn: string, packageNumber: string, status: 'requested' | 'failed', error?: string) {
@@ -1213,3 +1208,13 @@ export async function getRecentlyArrangedPackages(accountId: number) {
   );
   return result.rows as Array<{ order_sn: string; package_number: string }>;
 }
+
+/** Existing package attempts, including failures and uncertain outcomes. */
+export async function getArrangeAttempts(accountId: number, orderSns: string[]) {
+  if (!orderSns.length) return [];
+  const result = await pool.query(
+    `SELECT "order_sn", "package_number" FROM "shipment_arrange_log"
+     WHERE "account_id" = $1 AND "order_sn" = ANY($2::text[])`, [accountId, orderSns]
+  );
+  return result.rows as Array<{ order_sn: string; package_number: string }>;
+  }
