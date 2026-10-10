@@ -174,3 +174,11 @@ describe('PDF queue compatibility', () => {
     expect(mockQuery.mock.calls[0][1]).toEqual([42, 'shopee', 'SN1', pdf.toString('base64')]);
   });
 });
+
+it('never retries any existing arrangement attempt, including failed rows', async () => {
+  const { claimArrangeAttempt } = await import('../db.js');
+  mockQuery.mockReset(); mockQuery.mockResolvedValue({ rows: [] });
+  expect(await claimArrangeAttempt(1, 'A', 'P1', 'dropoff')).toBe(false);
+  expect(mockQuery).toHaveBeenCalledTimes(1);
+  expect(mockQuery.mock.calls[0][0]).not.toContain('UPDATE');
+});
