@@ -8,6 +8,7 @@ import {
   getPrintableOrderSns,
   getOrderDetail,
   getReadyLabelPdfs,
+  invalidateReadyLabelPdfs,
   ShopeeOrderDetail
 } from '../services/shopee.js';
 import type {
@@ -167,6 +168,7 @@ export const shopeeProvider: MarketplaceProvider = {
     // An order can be split into several packages; each has its own label.
     const details = await getOrderDetail(shop, externalIds);
     const ready = await getReadyLabelPdfs(shop, details);
+    invalidateReadyLabelPdfs(shop.shopId, externalIds); // A print/download must not leave cached bytes.
     const pdfs: Buffer[] = [];
     for (const id of externalIds) {
       const documents = ready.get(id);
