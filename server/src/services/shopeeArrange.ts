@@ -118,16 +118,25 @@ export function processedDocsEnabled(accountId: number, env: NodeJS.ProcessEnv =
 export async function ensureDocumentsForProcessed(accountId: number, shop: Shop, env: NodeJS.ProcessEnv = process.env): Promise<number> {
   if (!processedDocsEnabled(accountId, env)) return 0;
   const allowed = new Set(listFromEnv('SHOPEE_PROCESSED_DOCS_ORDER_SNS', env));
-  const sns = [...new Set((await getProcessedOrders(shop, 100)).map(o => o.order_sn))].filter(sn => allowed.has(sn));
+  const processed = new Set((await getProcessedOrders(shop, 100)).map(o => o.order_sn));
+  const sns = [...allowed].filter(sn => processed.has(sn));
+  for (const sn of allowed) if (!processed.has(sn)) console.log(`[shopeeDocOnce] account ${accountId} ${sn}: not in PROCESSED list, skipped`);
   if (!sns.length) return 0;
   let requested = 0;
   for (const order of await getOrderDetail(shop, sns)) {
-    if (!allowed.has(order.order_sn) || order.order_status !== 'PROCESSED' || !hasValidInvoice(order)) continue;
+    const sn = order.order_sn;
+    if (!allowed.has(sn)) continue;
+    if (order.order_status !== 'PROCESSED') { console.log(`[shopeeDocOnce] ${sn}: status ${order.order_status}, skipped`); continue; }
+    if (!hasValidInvoice(order)) { console.log(`[shopeeDocOnce] ${sn}: no valid NF, skipped`); continue; }
     const pkgs = order.package_list || [];
-    if (!pkgs.length || pkgs.some(p => !p.package_number)) continue;
+    if (!pkgs.length || pkgs.some(p => !p.package_number)) { console.log(`[shopeeDocOnce] ${sn}: package without number, skipped`); continue; }
     for (const pkg of pkgs) {
-      if (!(await claimArrangeAttempt(accountId, order.order_sn, pkg.package_number!, 'doc-once'))) continue;
-      await requestDocumentCreation(shop, order.order_sn, pkg.package_number);
+      if (!(await claimArrangeAttempt(accountId, sn, pkg.package_number!, 'doc-once'))) {
+        console.log(`[shopeeDocOnce] ${sn}/${pkg.package_number}: claim already exists (earlier attempt), not retrying`);
+        continue;
+      }
+      console.log(`[shopeeDocOnce] claimed ${sn}/${pkg.package_number}; requesting create_shipping_document`);
+      await requestDocumentCreation(shop, sn, pkg.package_number);
       requested++;
     }
   }
