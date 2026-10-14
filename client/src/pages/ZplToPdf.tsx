@@ -122,7 +122,7 @@ export default function ZplToPdf() {
           </h2>
           <p className="text-white/80 mb-4">
             Conecte seu Mercado Livre ao LabelGo e imprima etiquetas em segundos.
-            Com o LabelGo Pro, suas etiquetas saem automaticamente na impressora.
+            Com o LabelGo Completo, suas etiquetas saem automaticamente na impressora.
           </p>
           <Link
             to="/pricing/"
