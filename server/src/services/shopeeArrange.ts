@@ -100,10 +100,10 @@ export async function ensureDocumentsForArranged(accountId: number, shop: Shop, 
 }
 
 // --- Gated, durable, allowlisted doc creation for packages LabelGo arranged ---
-// Needs BOTH SHOPEE_FAIR_DOCS_ACCOUNT_IDS (account) and SHOPEE_FAIR_DOCS_ORDER_SNS (exact orders, max 3).
+// Needs BOTH SHOPEE_FAIR_DOCS_ACCOUNT_IDS (account) and SHOPEE_FAIR_DOCS_ORDER_SNS (exact order, max 1).
 // Per package: real Shopee order_status must be PROCESSED (SHIPPED etc. = terminal skip), then a DURABLE
 // atomic claim (requested -> doc_claimed) allows at most ONE create ever; no retry after restart/redeploy.
-export const FAIR_MAX_ORDERS = 3;
+export const FAIR_MAX_ORDERS = 1;
 export function fairDocsTargets(accountId: number, env: NodeJS.ProcessEnv = process.env): string[] {
   if (!listFromEnv('SHOPEE_FAIR_DOCS_ACCOUNT_IDS', env).includes(String(accountId))) return [];
   return listFromEnv('SHOPEE_FAIR_DOCS_ORDER_SNS', env).slice(0, FAIR_MAX_ORDERS);
