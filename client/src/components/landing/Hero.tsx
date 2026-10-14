@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import Reveal from './Reveal';
 import { DashboardMockup, ThermalPrinter, PackageBoxes } from './visuals';
+import BatchDemo from './BatchDemo';
 import MotionHeroDemo from './MotionHeroDemo';
 
 const BENEFITS = [
@@ -21,12 +22,13 @@ const BENEFITS = [
 interface HeroProps {
   motionAlternative?: boolean;
   priceLabel: string;
+  pricesReady?: boolean;
   founderPriceLabel?: string | null;
   slotsCap?: number | null;
   onPrimaryCta: () => void;
 }
 
-export default function Hero({ priceLabel, founderPriceLabel, slotsCap, onPrimaryCta, motionAlternative = false }: HeroProps) {
+export default function Hero({ pricesReady = true, priceLabel, founderPriceLabel, slotsCap, onPrimaryCta, motionAlternative = false }: HeroProps) {
   const rootRef = useRef<HTMLElement>(null);
 
   // Mouse parallax with per-frame lerp — each frame eases the current offset
@@ -90,7 +92,13 @@ export default function Hero({ priceLabel, founderPriceLabel, slotsCap, onPrimar
   });
 
   const scrollToHow = () => {
-    document.querySelector('#como-funciona')?.scrollIntoView({ behavior: 'smooth' });
+    const mobile = window.matchMedia('(max-width: 767px)').matches;
+    const target = document.querySelector(mobile ? '#demo-hero' : '#como-funciona');
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (mobile) {
+      const video = target?.querySelector('video');
+      if (video && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) void video.play().catch(() => {});
+    }
   };
 
   return (
@@ -174,7 +182,9 @@ export default function Hero({ priceLabel, founderPriceLabel, slotsCap, onPrimar
               </div>
             </Reveal>
 
-            <Reveal delay={420}>
+            <div className="md:hidden"><BatchDemo variant="hero" /></div>
+
+            {pricesReady && <Reveal delay={420}>
               <div className="mt-5 flex flex-col items-center lg:items-start gap-2">
                 <div className="text-left">
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Plano completo</span>
@@ -188,7 +198,7 @@ export default function Hero({ priceLabel, founderPriceLabel, slotsCap, onPrimar
                   7 dias grátis, sem cartão.<br />Cancele quando quiser.
                 </p>
               </div>
-            </Reveal>
+            </Reveal>}
           </div>
 
           {/* ------- Product showcase ------- */}
