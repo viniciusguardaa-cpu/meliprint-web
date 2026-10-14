@@ -54,6 +54,10 @@ export default function Register() {
         </div>
       )}
 
+      <p className="mb-4 rounded-lg border border-black/[0.08] bg-secondary/20 px-4 py-3 text-sm font-medium text-foreground">
+        7 dias grátis, sem cartão.
+      </p>
+
       <form onSubmit={handleRegister} className="space-y-4">
         <div>
           <label htmlFor="nickname" className="block text-sm font-medium text-foreground mb-1">
