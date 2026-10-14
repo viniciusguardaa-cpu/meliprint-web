@@ -1,5 +1,6 @@
 import {
   getShipmentList,
+  getProcessedOrders,
   getOrderDetail,
   getShippingParameter,
   requestDocumentCreation,
@@ -92,6 +93,45 @@ export async function ensureDocumentsForArranged(accountId: number, shop: Shop):
     await requestDocumentCreation(shop, row.order_sn, row.package_number || undefined);
     await sleep(300);
   }
+}
+
+/**
+ * One-shot, allowlisted document request for already-arranged (PROCESSED) orders with a
+ * valid NF whose label document was never requested (e.g. arranged outside LabelGo):
+ * Shopee answers "should print first" until create_shipping_document ran.
+ *
+ * Authority is explicit and narrow: BOTH the account id (SHOPEE_PROCESSED_DOCS_ACCOUNT_IDS)
+ * and the exact order_sn (SHOPEE_PROCESSED_DOCS_ORDER_SNS) must be listed; unset = off.
+ * Each package is claimed durably (shipment_arrange_log, method 'doc-once', status stays
+ * 'claimed') BEFORE the single create call, so it is attempted at most once, also across
+ * restarts/redeploys; a failed or uncertain attempt is never retried automatically.
+ * Never ship_order.
+ */
+export function listFromEnv(name: string, env: NodeJS.ProcessEnv = process.env): string[] {
+  return (env[name] || '').split(',').map(x => x.trim()).filter(Boolean);
+}
+export function processedDocsEnabled(accountId: number, env: NodeJS.ProcessEnv = process.env): boolean {
+  return listFromEnv('SHOPEE_PROCESSED_DOCS_ACCOUNT_IDS', env).includes(String(accountId))
+    && listFromEnv('SHOPEE_PROCESSED_DOCS_ORDER_SNS', env).length > 0;
+}
+
+export async function ensureDocumentsForProcessed(accountId: number, shop: Shop, env: NodeJS.ProcessEnv = process.env): Promise<number> {
+  if (!processedDocsEnabled(accountId, env)) return 0;
+  const allowed = new Set(listFromEnv('SHOPEE_PROCESSED_DOCS_ORDER_SNS', env));
+  const sns = [...new Set((await getProcessedOrders(shop, 100)).map(o => o.order_sn))].filter(sn => allowed.has(sn));
+  if (!sns.length) return 0;
+  let requested = 0;
+  for (const order of await getOrderDetail(shop, sns)) {
+    if (!allowed.has(order.order_sn) || order.order_status !== 'PROCESSED' || !hasValidInvoice(order)) continue;
+    const pkgs = order.package_list || [];
+    if (!pkgs.length || pkgs.some(p => !p.package_number)) continue;
+    for (const pkg of pkgs) {
+      if (!(await claimArrangeAttempt(accountId, order.order_sn, pkg.package_number!, 'doc-once'))) continue;
+      await requestDocumentCreation(shop, order.order_sn, pkg.package_number);
+      requested++;
+    }
+  }
+  return requested;
 }
 
 export async function arrangeReadyShipments(accountId: number, shop: Shop, method: ArrangeMethod): Promise<ArrangeSummary> {
