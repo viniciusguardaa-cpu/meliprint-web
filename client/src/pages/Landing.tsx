@@ -119,8 +119,12 @@ export default function Landing() {
     }
   };
 
-  // Motion is the default in this unmerged PR; ?hero=copy preserves the copy-only comparison.
-  const motionAlternative = new URLSearchParams(window.location.search).get('hero') !== 'copy';
+  // Motion is the default; ?hero=copy preserves the copy-only comparison.
+  // Read the query string after mount: window does not exist during the build-time prerender.
+  const [motionAlternative, setMotionAlternative] = useState(true);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('hero') === 'copy') setMotionAlternative(false);
+  }, []);
   const priceLabel = proPrice !== null ? `R$ ${formatBRL(proPrice)}` : 'R$ 19,90';
   const founderPriceLabel = founderPrice !== null ? `R$ ${formatBRL(founderPrice)}` : 'R$ 7,90';
 
