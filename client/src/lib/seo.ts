@@ -101,7 +101,7 @@ const SOFTWARE_APPLICATION_LD = {
     'Impressão de etiquetas do Mercado Livre em lote',
     'Etiquetas 10x15 em PDF pelo navegador',
     'Envio de ZPL para impressora térmica',
-    'Impressão automática com agente para Windows (plano Pro)',
+    'Impressão automática com agente para Windows (plano Completo)',
     'Conexão oficial via OAuth do Mercado Livre',
   ],
   publisher: { '@id': ORGANIZATION_ID },
