@@ -73,10 +73,19 @@ async function pollUser(config: any, shopeeOnly = false) {
         const method = account.arrange_method === 'dropoff' ? 'dropoff' : 'pickup';
         const r = await arrangeReadyShipments(account.id, { accessToken: ctx.accessToken, shopId: ctx.externalUserId }, method);
         await ensureDocumentsForArranged(account.id, { accessToken: ctx.accessToken, shopId: ctx.externalUserId });
-        await ensureDocumentsForProcessed(account.id, { accessToken: ctx.accessToken, shopId: ctx.externalUserId });
         if (r.arranged || r.failed) console.log(`[autoPrintPoller] shopee#${account.id} arrange: ${r.arranged} arranged, ${r.failed} failed, ${r.skipped} skipped`);
       } catch (error) {
         console.error(`[autoPrintPoller] Shopee arrange failed for account ${account.id}:`, error);
+      }
+    }
+
+    // Separate, env-gated one-shot (account id + exact order_sn allowlist); does not depend on
+    // auto_arrange_shipment because it never arranges shipment, it only requests one label document.
+    if (account.provider === 'shopee') {
+      try {
+        await ensureDocumentsForProcessed(account.id, { accessToken: ctx.accessToken, shopId: ctx.externalUserId });
+      } catch (error) {
+        console.error(`[autoPrintPoller] Shopee processed-docs failed for account ${account.id}:`, error);
       }
     }
 
