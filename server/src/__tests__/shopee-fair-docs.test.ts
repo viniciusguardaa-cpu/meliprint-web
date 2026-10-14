@@ -30,10 +30,10 @@ it('legacy path untouched without the env', async () => {
   await ensureDocumentsForArranged(27, shop, {} as any);
   expect(m.getRecentlyArrangedPackagesAll).not.toHaveBeenCalled(); expect(m.requestDocumentCreation).toHaveBeenCalledTimes(20);
 }, 20000);
-it('account enabled but no exact order allowlisted => no calls at all; other accounts keep legacy; max 3 orders', async () => {
+it('account enabled but no exact order allowlisted => no calls at all; other accounts keep legacy; max 1 order', async () => {
   await ensureDocumentsForArranged(27, shop, { SHOPEE_FAIR_DOCS_ACCOUNT_IDS: '27' } as any);
   expect(m.requestDocumentCreation).not.toHaveBeenCalled(); expect(m.getOrderDetail).not.toHaveBeenCalled();
-  expect(fairDocsTargets(28, env('A'))).toEqual([]); expect(fairDocsTargets(27, env('A,B,C,D,E'))).toEqual(['A', 'B', 'C']);
+  expect(fairDocsTargets(28, env('A'))).toEqual([]); expect(fairDocsTargets(27, env('A,B,C,D,E'))).toEqual(['A']);
 });
 it('only the allowlisted order is touched, 60 old rows never; create exactly once', async () => {
   m.requestDocumentCreation.mockResolvedValue('create_sent_ok');
