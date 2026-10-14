@@ -4,7 +4,7 @@ vi.mock('../jobs/withJobLock.js', () => ({ withJobLock: vi.fn(async (_key, run) 
 vi.mock('../providers/index.js', () => ({ getProvider: vi.fn() }));
 vi.mock('../services/accounts.js', () => ({ getFreshAccountContext: vi.fn() }));
 vi.mock('../routes/notifications.js', () => ({ reprocessNotificationRow: vi.fn() }));
-vi.mock('../services/shopeeArrange.js', () => ({ arrangeReadyShipments: vi.fn(), ensureDocumentsForArranged: vi.fn() }));
+vi.mock('../services/shopeeArrange.js', () => ({ arrangeReadyShipments: vi.fn(), ensureDocumentsForArranged: vi.fn(), ensureDocumentsForProcessed: vi.fn() }));
 import * as db from '../db.js';
 import { getProvider } from '../providers/index.js';
 import { getFreshAccountContext } from '../services/accounts.js';
