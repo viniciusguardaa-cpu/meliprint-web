@@ -1209,6 +1209,15 @@ export async function getRecentlyArrangedPackages(accountId: number) {
   return result.rows as Array<{ order_sn: string; package_number: string }>;
 }
 
+/** Read-only detail of existing attempt rows (method/status/age; error text is clipped). */
+export async function getArrangeAttemptDetail(accountId: number, orderSn: string) {
+  const result = await pool.query(
+    `SELECT "package_number", "method", "status", "attempts", SUBSTRING(COALESCE("error", '') FROM '^[A-Za-z0-9_.]{1,80}') AS "error", "created_at", "updated_at"
+     FROM "shipment_arrange_log" WHERE "account_id" = $1 AND "order_sn" = $2`, [accountId, orderSn]
+  );
+  return result.rows as Array<{ package_number: string; method: string | null; status: string; attempts: number; error: string; created_at: Date; updated_at: Date }>;
+}
+
 /** Existing package attempts, including failures and uncertain outcomes. */
 export async function getArrangeAttempts(accountId: number, orderSns: string[]) {
   if (!orderSns.length) return [];
@@ -1217,4 +1226,4 @@ export async function getArrangeAttempts(accountId: number, orderSns: string[]) 
      WHERE "account_id" = $1 AND "order_sn" = ANY($2::text[])`, [accountId, orderSns]
   );
   return result.rows as Array<{ order_sn: string; package_number: string }>;
-  }
+}
