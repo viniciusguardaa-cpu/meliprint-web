@@ -253,7 +253,7 @@ export default function Pricing() {
                           {loading ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
                           ) : (
-                            isTrialing ? 'Assinar agora (converter trial)' : isFounder ? 'Assinar completo por R$ 7,90/mês' : 'Assinar completo agora'
+                            isTrialing ? 'Assinar agora (converter trial)' : isFounder && plan.price ? `Assinar completo por R$ ${plan.price.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês` : 'Assinar completo agora'
                           )}
                         </button>
                       </>
