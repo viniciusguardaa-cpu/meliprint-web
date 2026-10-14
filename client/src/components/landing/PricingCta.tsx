@@ -6,15 +6,17 @@ const BENEFITS = [
   'Impressões ilimitadas',
   'Suporte por e-mail',
   'Cancele quando quiser',
-  '7 dias grátis para testar',
+  '7 dias grátis, sem cartão',
 ];
 
 interface PricingCtaProps {
   priceLabel: string;
+  regularPriceLabel?: string | null;
+  slotsCap?: number | null;
   onCta: () => void;
 }
 
-export default function PricingCta({ priceLabel, onCta }: PricingCtaProps) {
+export default function PricingCta({ priceLabel, regularPriceLabel = null, slotsCap = null, onCta }: PricingCtaProps) {
   return (
     <section id="planos" className="py-14 sm:py-24 scroll-mt-24" aria-labelledby="pricing-title">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
@@ -48,6 +50,12 @@ export default function PricingCta({ priceLabel, onCta }: PricingCtaProps) {
                 </span>
                 <span className="text-white/50 text-lg pb-1.5 sm:pb-2.5">/mês</span>
               </div>
+
+              {regularPriceLabel && (
+                <p className="mt-3 text-sm text-white/60">
+                  Primeiras {slotsCap ?? 20} assinaturas, valor travado enquanto ativo. Preço regular: {regularPriceLabel}/mês.
+                </p>
+              )}
 
               <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
                 {BENEFITS.map((b) => (
