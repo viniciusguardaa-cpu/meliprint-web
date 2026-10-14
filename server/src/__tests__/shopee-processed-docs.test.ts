@@ -1,11 +1,11 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 const m = vi.hoisted(() => ({
-  getProcessedOrders: vi.fn(), getOrderDetail: vi.fn(), requestDocumentCreation: vi.fn(),
+  getProcessedOrders: vi.fn(), getOrderDetail: vi.fn(), requestDocumentCreation: vi.fn(), diagnoseDocument: vi.fn().mockResolvedValue('x'),
   getShipmentList: vi.fn(), getShippingParameter: vi.fn(), arrangeShipment: vi.fn(),
   claimArrangeAttempt: vi.fn(), finishArrangeAttempt: vi.fn(), getRecentlyArrangedPackages: vi.fn(), getArrangeAttempts: vi.fn()
 }));
 vi.mock('../services/shopee.js', () => ({ ...m, hasValidInvoice: (o: any) => o.invoice_data?.status === 'valid' }));
-vi.mock('../db.js', () => ({ claimArrangeAttempt: m.claimArrangeAttempt, finishArrangeAttempt: m.finishArrangeAttempt, getRecentlyArrangedPackages: m.getRecentlyArrangedPackages, getArrangeAttempts: m.getArrangeAttempts }));
+vi.mock('../db.js', () => ({ claimArrangeAttempt: m.claimArrangeAttempt, finishArrangeAttempt: m.finishArrangeAttempt, getRecentlyArrangedPackages: m.getRecentlyArrangedPackages, getArrangeAttempts: m.getArrangeAttempts, getArrangeAttemptDetail: vi.fn().mockResolvedValue([]) }));
 import { ensureDocumentsForProcessed, processedDocsEnabled } from '../services/shopeeArrange.js';
 const shop = { accessToken: 't', shopId: 's' };
 const on = { SHOPEE_PROCESSED_DOCS_ACCOUNT_IDS: '27', SHOPEE_PROCESSED_DOCS_ORDER_SNS: 'A' } as any;
