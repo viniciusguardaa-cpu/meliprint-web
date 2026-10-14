@@ -1209,6 +1209,17 @@ export async function getRecentlyArrangedPackages(accountId: number) {
   return result.rows as Array<{ order_sn: string; package_number: string }>;
 }
 
+/** Same 48h window as getRecentlyArrangedPackages, but complete (bounded) and with timestamps, for fair selection. */
+export async function getRecentlyArrangedPackagesAll(accountId: number, limit = 500) {
+  const result = await pool.query(
+    `SELECT "order_sn", "package_number", "updated_at" FROM "shipment_arrange_log"
+     WHERE "account_id" = $1 AND "status" = 'requested' AND "updated_at" > CURRENT_TIMESTAMP - INTERVAL '48 hours'
+     ORDER BY "updated_at" DESC LIMIT $2`,
+    [accountId, limit]
+  );
+  return result.rows as Array<{ order_sn: string; package_number: string; updated_at: Date }>;
+}
+
 /** Read-only detail of existing attempt rows (method/status/age; error text is clipped). */
 export async function getArrangeAttemptDetail(accountId: number, orderSn: string) {
   const result = await pool.query(
