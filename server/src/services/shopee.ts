@@ -585,26 +585,28 @@ const CREATE_RETRY_MS = 90_000;
  * get_shipping_document_result until this was requested. Used only for orders
  * LabelGo itself arranged (see shopeeArrange), never for old orders.
  */
+export type DocCreateOutcome = 'throttled' | 'no_document_type' | 'already_ready' | 'no_tracking' | 'create_failed' | 'create_sent_ok' | 'create_error_response';
+
 export async function requestDocumentCreation(
   shop: { accessToken: string; shopId: string },
   orderSn: string,
   packageNumber?: string
-): Promise<void> {
+): Promise<DocCreateOutcome> {
   const key = `${shop.shopId}:${orderSn}:${packageNumber || ''}`;
   const last = createRequested.get(key);
-  if (last !== undefined && Date.now() - last < CREATE_RETRY_MS) return;
+  if (last !== undefined && Date.now() - last < CREATE_RETRY_MS) return 'throttled';
   if (createRequested.size > 2000) createRequested.clear();
   createRequested.set(key, Date.now());
   try {
     const type = await getDocumentType(shop, orderSn, packageNumber, true);
-    if (!type) return;
+    if (!type) { console.log(`[shopee] create_shipping_document ${orderSn}: no document type from Shopee, skipped`); return 'no_document_type'; }
     const target: Record<string, string> = packageNumber ? { order_sn: orderSn, package_number: packageNumber } : { order_sn: orderSn };
     // Completed documents need no more creation requests on faster sweeps.
     const existing = await documentPost('/api/v2/logistics/get_shipping_document_result', shop, {
       order_list: [{ ...target, shipping_document_type: type }]
     }).catch(() => null);
     if (existing?.result_list?.some((r: DocResult) => r.order_sn === orderSn &&
-      (packageNumber ? r.package_number === packageNumber : !r.package_number) && r.status === 'READY' && !r.fail_error)) return;
+      (packageNumber ? r.package_number === packageNumber : !r.package_number) && r.status === 'READY' && !r.fail_error)) { console.log(`[shopee] create_shipping_document ${orderSn}: already READY, skipped`); return 'already_ready'; }
     // Shopee validates tracking_number; without it BR orders fail with tracking_number_invalid.
     let trackingNumber: string | undefined;
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -614,17 +616,51 @@ export async function requestDocumentCreation(
     }
     if (!trackingNumber) {
       console.log(`[shopee] create_shipping_document ${orderSn}: tracking number not available yet, will retry`);
-      return;
+      return 'no_tracking';
     }
     const resp = await documentPost('/api/v2/logistics/create_shipping_document', shop, {
       order_list: [{ ...target, shipping_document_type: type, tracking_number: trackingNumber }]
     });
     const r: DocResult | undefined = resp?.result_list?.[0];
-    if (r?.fail_error) console.warn(`[shopee] create_shipping_document ${orderSn}: ${r.fail_error} ${r.fail_message || ''}`);
-    else console.log(`[shopee] create_shipping_document requested for ${orderSn}`);
+    if (r?.fail_error) { console.warn(`[shopee] create_shipping_document ${orderSn}: ${r.fail_error} ${r.fail_message || ''}`); return 'create_error_response'; }
+    console.log(`[shopee] create_shipping_document requested for ${orderSn}`);
+    return 'create_sent_ok';
   } catch (error) {
     console.warn(`[shopee] create_shipping_document failed for ${orderSn}:`, error instanceof Error ? error.message : error);
+    return 'create_failed';
   }
+}
+
+/**
+ * Read-only diagnosis for one package: NEVER calls create_shipping_document.
+ * Returns only non-secret facts (document types, statuses, error codes).
+ */
+function safeCode(v?: string): string { const m = /^[A-Za-z0-9_.]{1,80}/.exec(v || ''); return m ? m[0] : '-'; }
+
+export async function diagnoseDocument(
+  shop: { accessToken: string; shopId: string },
+  orderSn: string,
+  packageNumber?: string
+): Promise<string> {
+  const target: Record<string, string> = packageNumber ? { order_sn: orderSn, package_number: packageNumber } : { order_sn: orderSn };
+  const parts: string[] = [];
+  let type: string | undefined;
+  try {
+    const resp = await documentPost('/api/v2/logistics/get_shipping_document_parameter', shop, { order_list: [target] });
+    const r: DocResult | undefined = resp?.result_list?.[0];
+    type = r?.suggest_shipping_document_type || r?.selectable_shipping_document_type?.[0];
+    parts.push(`param: suggest=${r?.suggest_shipping_document_type || '-'} selectable=${(r?.selectable_shipping_document_type || []).join('|') || '-'} fail=${safeCode(r?.fail_error)}`);
+  } catch (e) { parts.push(`param: error ${safeCode((e as any)?.data?.error) !== '-' ? safeCode((e as any).data.error) : (e instanceof Error ? e.name : 'unknown')}`); }
+  try {
+    const resp = await documentPost('/api/v2/logistics/get_shipping_document_result', shop, { order_list: [{ ...target, ...(type ? { shipping_document_type: type } : {}) }] });
+    const r: DocResult | undefined = resp?.result_list?.[0];
+    parts.push(`result: status=${r?.status || '-'} fail=${safeCode(r?.fail_error)}`);
+  } catch (e) { parts.push(`result: error ${safeCode((e as any)?.data?.error) !== '-' ? safeCode((e as any).data.error) : (e instanceof Error ? e.name : 'unknown')}`); }
+  try {
+    const tn = await getTrackingNumber(shop, orderSn, packageNumber);
+    parts.push(`tracking: ${tn ? 'present' : 'absent'}`);
+  } catch { parts.push('tracking: error'); }
+  return parts.join(' ; ');
 }
 
 /** Strict ready list: never creates a document task, uploads NF or arranges shipment.
