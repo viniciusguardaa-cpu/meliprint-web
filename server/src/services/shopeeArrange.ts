@@ -10,7 +10,7 @@ import {
   ShippingParameter,
   ShopeeOrderDetail
 } from './shopee.js';
-import { claimArrangeAttempt, finishArrangeAttempt, getRecentlyArrangedPackages, getArrangeAttempts, getArrangeAttemptDetail, getRecentlyArrangedPackagesAll } from '../db.js';
+import { claimArrangeAttempt, finishArrangeAttempt, getRecentlyArrangedPackages, getArrangeAttempts, getArrangeAttemptDetail, getRecentlyArrangedPackagesAll, claimDocAttempt, setDocState } from '../db.js';
 const diagAt = new Map<string, number>();
 
 /**
@@ -35,8 +35,7 @@ const INELIGIBLE_TTL_MS = 60_000;
 type Shop = { accessToken: string; shopId: string };
 type Plan = { body: Record<string, unknown> } | { skip: string };
 
-export const pacing = { factor: 1 };
-function sleep(ms: number) { return new Promise(r => setTimeout(r, ms * pacing.factor)); }
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 /** Pure decision: build the ship_order payload from Shopee's parameters, or explain the skip. */
 export function planArrange(orderSn: string, packageNumber: string | undefined, param: ShippingParameter, method: ArrangeMethod): Plan {
@@ -91,7 +90,8 @@ export interface ArrangeSummary { arranged: number; skipped: number; failed: num
 
 /** For orders we arranged: request the label document so Shopee reports it READY on a later poll. */
 export async function ensureDocumentsForArranged(accountId: number, shop: Shop, env: NodeJS.ProcessEnv = process.env): Promise<void> {
-  if (listFromEnv('SHOPEE_FAIR_DOCS_ACCOUNT_IDS', env).includes(String(accountId))) return ensureDocumentsFair(accountId, shop);
+  const fair = fairDocsTargets(accountId, env);
+  if (listFromEnv('SHOPEE_FAIR_DOCS_ACCOUNT_IDS', env).includes(String(accountId))) return ensureDocumentsFair(accountId, shop, fair);
   const rows = await getRecentlyArrangedPackages(accountId);
   for (const row of rows.slice(0, 20)) {
     await requestDocumentCreation(shop, row.order_sn, row.package_number || undefined);
@@ -99,59 +99,44 @@ export async function ensureDocumentsForArranged(accountId: number, shop: Shop, 
   }
 }
 
-// --- Fair selection (opt-in per account via SHOPEE_FAIR_DOCS_ACCOUNT_IDS; unset = legacy path above) ---
-export interface DocProgress { readyAt?: number; lastTriedAt?: number; holdUntil?: number; creates?: number }
-export const FAIR_MAX_CREATES = 3;
-const FAIR_CREATE_HOLD_MS = 5 * 60_000;
-export const FAIR_BATCH = 20;
-const FAIR_RETRY_MS = 90_000;
-const FAIR_READY_RECHECK_MS = 60 * 60_000;
-const docProgress = new Map<string, DocProgress>();
-export function __resetDocProgress() { docProgress.clear(); }
-
-/** Pure. Skips packages known READY (recheck hourly) or tried <90s ago; never-tried first (newest first),
- * then least recently tried, so a large backlog of old/READY rows cannot starve new packages. */
-export function selectDocTargets<T extends { order_sn: string; package_number: string; updated_at: Date | string }>(
-  rows: T[], progress: Map<string, DocProgress>, now: number, limit = FAIR_BATCH
-): T[] {
-  const key = (r: T) => `${r.order_sn}:${r.package_number}`;
-  return rows
-    .filter(r => {
-      const p = progress.get(key(r));
-      if (!p) return true;
-      if (p.readyAt !== undefined && now - p.readyAt < FAIR_READY_RECHECK_MS) return false;
-      if (p.lastTriedAt !== undefined && now - p.lastTriedAt < FAIR_RETRY_MS) return false;
-      if (p.holdUntil !== undefined && now < p.holdUntil) return false;
-      if ((p.creates || 0) >= FAIR_MAX_CREATES) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      const ta = progress.get(key(a))?.lastTriedAt, tb = progress.get(key(b))?.lastTriedAt;
-      if (ta === undefined && tb !== undefined) return -1;
-      if (ta !== undefined && tb === undefined) return 1;
-      if (ta !== undefined && tb !== undefined && ta !== tb) return ta - tb;
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-    })
-    .slice(0, limit);
+// --- Gated, durable, allowlisted doc creation for packages LabelGo arranged ---
+// Needs BOTH SHOPEE_FAIR_DOCS_ACCOUNT_IDS (account) and SHOPEE_FAIR_DOCS_ORDER_SNS (exact order, max 1).
+// Per package: real Shopee order_status must be PROCESSED (SHIPPED etc. = terminal skip), then a DURABLE
+// atomic claim (requested -> doc_claimed) allows at most ONE create ever; no retry after restart/redeploy.
+export const FAIR_MAX_ORDERS = 1;
+export function fairDocsTargets(accountId: number, env: NodeJS.ProcessEnv = process.env): string[] {
+  if (!listFromEnv('SHOPEE_FAIR_DOCS_ACCOUNT_IDS', env).includes(String(accountId))) return [];
+  return listFromEnv('SHOPEE_FAIR_DOCS_ORDER_SNS', env).slice(0, FAIR_MAX_ORDERS);
 }
 
-async function ensureDocumentsFair(accountId: number, shop: Shop): Promise<void> {
-  const rows = await getRecentlyArrangedPackagesAll(accountId);
-  if (docProgress.size > 5000) docProgress.clear();
-  const targets = selectDocTargets(rows, docProgress, Date.now());
-  const counts: Record<string, number> = {};
-  for (const row of targets) {
+async function ensureDocumentsFair(accountId: number, shop: Shop, orderSns: string[]): Promise<void> {
+  if (!orderSns.length) return;
+  const rows = (await getRecentlyArrangedPackagesAll(accountId)).filter(r => orderSns.includes(r.order_sn));
+  if (!rows.length) { console.log(`[shopeeFairDocs] account ${accountId}: allowlisted orders have no pending 'requested' package`); return; }
+  const details = await getOrderDetail(shop, [...new Set(rows.map(r => r.order_sn))]);
+  const bySn = new Map(details.map(d => [d.order_sn, d]));
+  for (const row of rows) {
+    const tag = `${row.order_sn}/${row.package_number}`;
+    const order = bySn.get(row.order_sn);
+    if (!order || order.order_status !== 'PROCESSED') {
+      await setDocState(accountId, row.order_sn, row.package_number, 'doc_skipped', `status_${order?.order_status || 'unknown'}`);
+      console.log(`[shopeeFairDocs] ${tag}: order_status=${order?.order_status || 'not returned'}, terminal skip (no create)`);
+      continue;
+    }
+    if (!(await claimDocAttempt(accountId, row.order_sn, row.package_number))) { console.log(`[shopeeFairDocs] ${tag}: doc claim already taken, not retrying`); continue; }
+    console.log(`[shopeeFairDocs] ${tag}: PROCESSED, doc claimed (once)`);
     const outcome = await requestDocumentCreation(shop, row.order_sn, row.package_number || undefined);
-    const k = `${row.order_sn}:${row.package_number}`;
-    const now = Date.now();
-    const prev = docProgress.get(k);
-    const sent = outcome === 'create_sent_ok' || outcome === 'create_error_response';
-    docProgress.set(k, { lastTriedAt: now, creates: (prev?.creates || 0) + (sent ? 1 : 0),
-      ...(sent ? { holdUntil: now + FAIR_CREATE_HOLD_MS } : {}), ...(outcome === 'already_ready' ? { readyAt: now } : {}) });
-    counts[outcome] = (counts[outcome] || 0) + 1;
-    await sleep(300);
+    let state: string | null;
+    switch (outcome) {
+      case 'already_ready': state = 'doc_ready'; break;
+      case 'create_sent_ok': state = 'doc_requested'; break;
+      case 'create_error_response': state = 'doc_failed'; break;
+      case 'create_failed': state = null; break; // may have reached Shopee: stays doc_claimed, never auto-retried
+      default: state = 'requested'; // no_tracking / no_document_type / throttled: create was NOT sent, release the claim
+    }
+    if (state) await setDocState(accountId, row.order_sn, row.package_number, state, outcome);
+    console.log(`[shopeeFairDocs] ${tag}: outcome=${outcome} state=${state || 'doc_claimed(uncertain)'}`);
   }
-  if (targets.length) console.log(`[shopeeFairDocs] account ${accountId}: ${rows.length} recent packages, ${targets.length} processed`, JSON.stringify(counts));
 }
 
 /**

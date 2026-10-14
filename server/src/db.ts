@@ -1220,6 +1220,24 @@ export async function getRecentlyArrangedPackagesAll(accountId: number, limit = 
   return result.rows as Array<{ order_sn: string; package_number: string; updated_at: Date }>;
 }
 
+/** Atomic, durable: only one caller ever moves a package requested -> doc_claimed (create allowed once). */
+export async function claimDocAttempt(accountId: number, orderSn: string, packageNumber: string): Promise<boolean> {
+  const r = await pool.query(
+    `UPDATE "shipment_arrange_log" SET "status" = 'doc_claimed', "updated_at" = CURRENT_TIMESTAMP
+     WHERE "account_id" = $1 AND "order_sn" = $2 AND "package_number" = $3 AND "status" = 'requested' RETURNING "id"`,
+    [accountId, orderSn, packageNumber]
+  );
+  return r.rows.length > 0;
+}
+
+export async function setDocState(accountId: number, orderSn: string, packageNumber: string, status: string, note?: string) {
+  await pool.query(
+    `UPDATE "shipment_arrange_log" SET "status" = $4, "error" = $5, "updated_at" = CURRENT_TIMESTAMP
+     WHERE "account_id" = $1 AND "order_sn" = $2 AND "package_number" = $3`,
+    [accountId, orderSn, packageNumber, status.slice(0, 20), note ? note.slice(0, 60) : null]
+  );
+}
+
 /** Read-only detail of existing attempt rows (method/status/age; error text is clipped). */
 export async function getArrangeAttemptDetail(accountId: number, orderSn: string) {
   const result = await pool.query(
