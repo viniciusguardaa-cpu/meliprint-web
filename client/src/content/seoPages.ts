@@ -58,11 +58,11 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
       {
         heading: 'Forma 1 — enviar ZPL direto a uma impressora térmica',
-        body: 'Uma impressora térmica compatível com ZPL2 recebe o código cru e imprime a etiqueta sem conversão — é o caminho mais rápido e sem diálogo de impressão. Com o LabelGo Pro e o agente para Windows instalado, o ZPL é enviado automaticamente à térmica assim que a venda é confirmada.',
+        body: 'Uma impressora térmica compatível com ZPL2 recebe o código cru e imprime a etiqueta sem conversão — é o caminho mais rápido e sem diálogo de impressão. Com o LabelGo Completo e o agente para Windows instalado, o ZPL é enviado automaticamente à térmica assim que a venda é confirmada.',
         bullets: [
           'Exige impressora térmica que entenda ZPL/ZPL2 e mídia de 100 mm.',
           'Sem conversão, sem diálogo de impressão, etiqueta sai direto.',
-          'A automação completa é o modo Pro: agente instalado + térmica USB.',
+          'A automação completa é a impressão automática: agente instalado + térmica USB.',
         ],
       },
       {
@@ -82,7 +82,7 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
         heading: 'Qual método escolher',
         bullets: [
           'Poucas etiquetas, sem térmica: PDF pelo navegador ou o conversor gratuito.',
-          'Volume alto + térmica com ZPL2: envio direto ou impressão automática do Pro.',
+          'Volume alto + térmica com ZPL2: envio direto ou impressão automática do LabelGo.',
           'ZPL em mãos sem saber o que fazer: converta para PDF e imprima normal.',
         ],
       },
@@ -156,7 +156,7 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
       {
         q: 'Preciso de impressora térmica?',
-        a: 'Não. O PDF da etiqueta imprime em qualquer impressora comum; a térmica só é necessária para o envio direto em ZPL ou para a impressão automática do Pro.',
+        a: 'Não. O PDF da etiqueta imprime em qualquer impressora comum; a térmica só é necessária para o envio direto em ZPL ou para a impressão automática do LabelGo.',
       },
     ],
     related: [
@@ -182,7 +182,7 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
       {
         heading: '3. Selecione e imprima',
-        body: 'Marque um ou vários envios e imprima. Pelo navegador, o LabelGo gera um PDF único que vai para qualquer impressora instalada — comum ou térmica com driver. No plano Pro, o agente para Windows imprime em ZPL automaticamente na térmica assim que a venda entra.',
+        body: 'Marque um ou vários envios e imprima. Pelo navegador, o LabelGo gera um PDF único que vai para qualquer impressora instalada — comum ou térmica com driver. No plano Completo, o agente para Windows imprime em ZPL automaticamente na térmica assim que a venda entra.',
         links: [
           { href: '/imprimir-etiquetas-em-lote/', label: 'Imprimir várias de uma vez' },
           { href: '/pricing/', label: 'Comparar planos' },
@@ -202,7 +202,7 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
     faqs: [
       {
         q: 'Preciso instalar algum programa?',
-        a: 'Para imprimir em PDF pelo navegador, não. Só é preciso instalar o agente do LabelGo (Windows) se quiser a impressão automática em térmica do plano Pro.',
+        a: 'Para imprimir em PDF pelo navegador, não. Só é preciso instalar o agente do LabelGo (Windows) se quiser a impressão automática em térmica do plano Completo.',
       },
       {
         q: 'Funciona no celular?',
@@ -240,7 +240,7 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
       {
         heading: 'Imprimir 10x15 em impressora térmica',
-        body: 'Térmicas de etiquetas trabalham com mídia de 100 mm de largura. Para receber ZPL direto — como faz o agente do LabelGo Pro — a impressora precisa entender ZPL2. Com o driver instalado no computador, qualquer térmica também imprime o PDF gerado pelo navegador.',
+        body: 'Térmicas de etiquetas trabalham com mídia de 100 mm de largura. Para receber ZPL direto — como faz o agente do LabelGo Completo — a impressora precisa entender ZPL2. Com o driver instalado no computador, qualquer térmica também imprime o PDF gerado pelo navegador.',
         links: [{ href: '/impressora-termica-mercado-livre/', label: 'Como escolher a impressora térmica' }],
       },
       {
@@ -288,9 +288,9 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
         heading: 'Checklist antes de comprar',
         bullets: [
           'Largura de impressão de pelo menos 100 mm — a etiqueta do Mercado Livre é 10x15 cm.',
-          'Suporte a ZPL/ZPL2 para receber o código direto — é o que a impressão automática do LabelGo Pro usa.',
+          'Suporte a ZPL/ZPL2 para receber o código direto — é o que a impressão automática do LabelGo Completo usa.',
           'Com driver instalado no computador, a térmica também imprime o PDF gerado pelo navegador.',
-          'Conexão USB é suficiente — é o que o agente do Pro utiliza.',
+          'Conexão USB é suficiente — é o que o agente do LabelGo utiliza.',
           'Térmica direta (sem ribbon) é o tipo mais comum para etiquetas de envio.',
         ],
       },
@@ -304,9 +304,9 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
         links: [{ href: '/converter-zpl-pdf/', label: 'Conversor ZPL para PDF' }],
       },
       {
-        heading: 'Impressão automática com o LabelGo Pro',
+        heading: 'Impressão automática com o LabelGo Completo',
         body: 'Com o agente LabelGo instalado em um computador Windows, a impressora térmica USB recebe a etiqueta em ZPL automaticamente quando uma venda é confirmada — sem cliques e sem diálogo de impressão. Sem o agente, a impressão em PDF pelo navegador continua disponível em todos os planos.',
-        links: [{ href: '/pricing/', label: 'Conhecer o LabelGo Pro' }],
+        links: [{ href: '/pricing/', label: 'Conhecer o LabelGo Completo' }],
       },
     ],
     faqs: [
@@ -316,11 +316,11 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
       {
         q: 'Precisa ser Zebra?',
-        a: 'Não. Qualquer térmica que aceite mídia de 100 mm imprime a etiqueta via PDF com driver. ZPL2 só é exigida para o envio direto/automático do Pro.',
+        a: 'Não. Qualquer térmica que aceite mídia de 100 mm imprime a etiqueta via PDF com driver. ZPL2 só é exigida para o envio direto/automático do LabelGo.',
       },
       {
         q: 'USB ou Wi-Fi?',
-        a: 'USB resolve e é o que o agente do LabelGo Pro usa. Wi-Fi só ajuda se a impressora ficar longe do computador.',
+        a: 'USB resolve e é o que o agente do LabelGo Completo usa. Wi-Fi só ajuda se a impressora ficar longe do computador.',
       },
       {
         q: 'Dá para testar sem comprar impressora?',
@@ -408,8 +408,8 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       },
       {
         heading: 'E se você quiser zero cliques',
-        body: 'No plano Pro, o agente para Windows imprime cada etiqueta automaticamente na térmica assim que a venda é confirmada — sem nem abrir o painel. É o mesmo fluxo do lote, mas contínuo e sem seleção manual.',
-        links: [{ href: '/pricing/', label: 'Conhecer o LabelGo Pro' }],
+        body: 'No plano Completo, o agente para Windows imprime cada etiqueta automaticamente na térmica assim que a venda é confirmada — sem nem abrir o painel. É o mesmo fluxo do lote, mas contínuo e sem seleção manual.',
+        links: [{ href: '/pricing/', label: 'Conhecer o LabelGo Completo' }],
       },
     ],
     faqs: [
