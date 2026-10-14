@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { rememberTrialIntent } from '../lib/trialIntent';
 import { useAuth } from '../hooks/useAuth';
 import { getVisitorKey, track, captureUTM } from '../lib/analytics';
 import Navbar from '../components/landing/Navbar';
+import BatchDemo from '../components/landing/BatchDemo';
 import Hero from '../components/landing/Hero';
 import TrustBar from '../components/landing/TrustBar';
 import BentoFeatures from '../components/landing/BentoFeatures';
@@ -30,53 +31,6 @@ function formatBRL(amount: number): string {
   return amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function BatchDemo() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const syncPlayback = () => {
-      const video = videoRef.current;
-      if (!video) return;
-      if (preference.matches) video.pause();
-      else void video.play().catch(() => { /* Native controls remain available. */ });
-    };
-    syncPlayback();
-    preference.addEventListener('change', syncPlayback);
-    return () => preference.removeEventListener('change', syncPlayback);
-  }, []);
-
-  return (
-    <section className="px-4 py-8 sm:py-12" aria-labelledby="batch-demo-title">
-      <div className="mx-auto max-w-3xl">
-        <h2 id="batch-demo-title" className="mb-4 text-center text-xl font-semibold text-foreground sm:text-2xl">
-          Veja como imprimir em lote
-        </h2>
-        <video
-          ref={videoRef}
-          className="block aspect-video w-full rounded-2xl border border-border bg-background shadow-sm"
-          width={1280}
-          height={720}
-          autoPlay
-          muted
-          loop
-          playsInline
-          controls
-          preload="metadata"
-          poster="/2-labelgo-demo-poster.jpg"
-          aria-label="Demonstração: selecionar os pedidos, clicar em Imprimir e gerar um PDF com todas as etiquetas."
-        >
-          <source src="/1-labelgo-demo-rapido.mp4" type="video/mp4" />
-          Seu navegador não reproduz este vídeo. Selecione os pedidos e clique em Imprimir para gerar um PDF com as etiquetas.
-        </video>
-        <p className="mt-3 text-center text-xs text-muted-foreground">
-          Animação ilustrativa com pedidos fictícios. Você seleciona os pedidos antes de imprimir.
-        </p>
-      </div>
-    </section>
-  );
-}
-
 export default function Landing() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -84,14 +38,18 @@ export default function Landing() {
   const [founderPrice, setFounderPrice] = useState<number | null>(null);
   const [founderRemaining, setFounderRemaining] = useState<number | null>(null);
   const [founderCap, setFounderCap] = useState<number | null>(null);
+  const [plansLoaded, setPlansLoaded] = useState(false);
 
   useEffect(() => {
     captureUTM();
     track('landing_view', { path: window.location.pathname });
+    const controller = new AbortController();
+    // Slow or hung API: stop waiting after 4s and show the regular prices instead of hiding them.
+    const timer = window.setTimeout(() => controller.abort(), 4000);
     const fetchPlans = async () => {
       try {
         const visitorKey = getVisitorKey();
-        const res = await fetch(`/api/plans?visitor_key=${encodeURIComponent(visitorKey)}`);
+        const res = await fetch(`/api/plans?visitor_key=${encodeURIComponent(visitorKey)}`, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           const pro = (data.plans || []).find((p: Plan) => p.id === 'pro');
@@ -104,10 +62,14 @@ export default function Landing() {
           }
         }
       } catch {
-        // ignore — fallback to no price display
+        // ignore — fallback to regular price once the request settles
+      } finally {
+        window.clearTimeout(timer);
+        setPlansLoaded(true);
       }
     };
     fetchPlans();
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, []);
 
   const handleCTA = () => {
@@ -133,8 +95,8 @@ export default function Landing() {
         onDashboard={() => navigate('/dashboard')}
       />
       <main>
-        <Hero founderPriceLabel={founderPrice !== null && founderRemaining !== null && founderRemaining > 0 ? founderPriceLabel : null} slotsCap={founderCap} priceLabel={priceLabel} onPrimaryCta={handleCTA} motionAlternative={motionAlternative} />
-        <FounderOffer founderPriceLabel={founderPriceLabel} proPriceLabel={priceLabel} slotsRemaining={founderRemaining} slotsCap={founderCap} onCta={handleCTA} />
+        <Hero pricesReady={plansLoaded} founderPriceLabel={founderPrice !== null && founderRemaining !== null && founderRemaining > 0 ? founderPriceLabel : null} slotsCap={founderCap} priceLabel={priceLabel} onPrimaryCta={handleCTA} motionAlternative={motionAlternative} />
+        {plansLoaded && founderRemaining !== null && <FounderOffer founderPriceLabel={founderPriceLabel} proPriceLabel={priceLabel} slotsRemaining={founderRemaining} slotsCap={founderCap} onCta={handleCTA} />}
         <BatchDemo />
         <TrustBar />
         <BentoFeatures />
@@ -142,7 +104,7 @@ export default function Landing() {
         <ProductStory />
         <LogisticsEditorial onCta={handleCTA} />
         <Testimonials />
-        <PricingCta priceLabel={priceLabel} onCta={handleCTA} />
+        {plansLoaded && <PricingCta priceLabel={founderPrice !== null && founderRemaining !== null && founderRemaining > 0 ? founderPriceLabel : priceLabel} regularPriceLabel={founderPrice !== null && founderRemaining !== null && founderRemaining > 0 ? priceLabel : null} slotsCap={founderCap} onCta={handleCTA} />}
         <Faq />
       </main>
       <Footer />
