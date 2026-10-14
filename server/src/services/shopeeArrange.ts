@@ -120,9 +120,21 @@ export function processedDocsEnabled(accountId: number, env: NodeJS.ProcessEnv =
 export async function ensureDocumentsForProcessed(accountId: number, shop: Shop, env: NodeJS.ProcessEnv = process.env): Promise<number> {
   if (!processedDocsEnabled(accountId, env)) return 0;
   const allowed = new Set(listFromEnv('SHOPEE_PROCESSED_DOCS_ORDER_SNS', env));
-  const processed = new Set((await getProcessedOrders(shop, 100)).map(o => o.order_sn));
+  const processedList = await getProcessedOrders(shop, 100);
+  const processed = new Set(processedList.map(o => o.order_sn));
   const sns = [...allowed].filter(sn => processed.has(sn));
-  for (const sn of allowed) if (!processed.has(sn)) console.log(`[shopeeDocOnce] account ${accountId} ${sn}: not in PROCESSED list, skipped`);
+  for (const sn of allowed) if (!processed.has(sn)) {
+    console.log(`[shopeeDocOnce] account ${accountId} ${sn}: not in PROCESSED list (list size ${processedList.length}), skipped`);
+    const dk = `${accountId}:${sn}:status`;
+    if (Date.now() - (diagAt.get(dk) || 0) > 600_000) {
+      diagAt.set(dk, Date.now());
+      try {
+        const [detail] = await getOrderDetail(shop, [sn]);
+        console.log(`[shopeeDocOnce] ${sn} current order_status=${detail?.order_status || 'not returned'} packages=${detail?.package_list?.length ?? 0} valid_nf=${detail ? hasValidInvoice(detail) : 'n/a'}`);
+        for (const r of await getArrangeAttemptDetail(accountId, sn)) console.log(`[shopeeDocOnce] ${sn} claim row: pkg=${r.package_number} method=${r.method} status=${r.status} attempts=${r.attempts} created=${new Date(r.created_at).toISOString()} updated=${new Date(r.updated_at).toISOString()} error=${r.error || '-'}`);
+      } catch (e) { console.warn(`[shopeeDocOnce] ${sn} status read failed:`, e instanceof Error ? e.name : 'unknown'); }
+    }
+  }
   if (!sns.length) return 0;
   let requested = 0;
   for (const order of await getOrderDetail(shop, sns)) {
