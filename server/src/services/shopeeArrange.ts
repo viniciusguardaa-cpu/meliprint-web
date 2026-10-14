@@ -4,12 +4,14 @@ import {
   getOrderDetail,
   getShippingParameter,
   requestDocumentCreation,
+  diagnoseDocument,
   arrangeShipment,
   hasValidInvoice,
   ShippingParameter,
   ShopeeOrderDetail
 } from './shopee.js';
-import { claimArrangeAttempt, finishArrangeAttempt, getRecentlyArrangedPackages, getArrangeAttempts } from '../db.js';
+import { claimArrangeAttempt, finishArrangeAttempt, getRecentlyArrangedPackages, getArrangeAttempts, getArrangeAttemptDetail } from '../db.js';
+const diagAt = new Map<string, number>();
 
 /**
  * Opt-in automatic "organizar envio" for Shopee.
@@ -133,10 +135,21 @@ export async function ensureDocumentsForProcessed(accountId: number, shop: Shop,
     for (const pkg of pkgs) {
       if (!(await claimArrangeAttempt(accountId, sn, pkg.package_number!, 'doc-once'))) {
         console.log(`[shopeeDocOnce] ${sn}/${pkg.package_number}: claim already exists (earlier attempt), not retrying`);
+        // Read-only diagnosis, at most every 10 min per package; no create call, no claim change.
+        const dk = `${accountId}:${sn}:${pkg.package_number}`;
+        if (Date.now() - (diagAt.get(dk) || 0) > 600_000) {
+          diagAt.set(dk, Date.now());
+          try {
+            const rows = await getArrangeAttemptDetail(accountId, sn);
+            for (const r of rows) console.log(`[shopeeDocOnce] ${sn} claim row: pkg=${r.package_number} method=${r.method} status=${r.status} attempts=${r.attempts} created=${new Date(r.created_at).toISOString()} updated=${new Date(r.updated_at).toISOString()} error=${r.error || '-'}`);
+            console.log(`[shopeeDocOnce] ${sn}/${pkg.package_number} read-only diagnosis: ${await diagnoseDocument(shop, sn, pkg.package_number!)}`);
+          } catch (e) { console.warn(`[shopeeDocOnce] ${sn} diagnosis failed:`, e instanceof Error ? e.message : 'unknown'); }
+        }
         continue;
       }
       console.log(`[shopeeDocOnce] claimed ${sn}/${pkg.package_number}; requesting create_shipping_document`);
-      await requestDocumentCreation(shop, sn, pkg.package_number);
+      const outcome = await requestDocumentCreation(shop, sn, pkg.package_number);
+      console.log(`[shopeeDocOnce] ${sn}/${pkg.package_number}: create outcome=${outcome}`);
       requested++;
     }
   }
