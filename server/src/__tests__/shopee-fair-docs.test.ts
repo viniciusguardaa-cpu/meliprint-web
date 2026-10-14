@@ -1,75 +1,76 @@
 import { beforeEach, expect, it, vi } from 'vitest';
+type Row = { order_sn: string; package_number: string; status: string; updated_at: Date };
+const store = vi.hoisted(() => ({ rows: [] as any[] }));
 const m = vi.hoisted(() => ({
   getShipmentList: vi.fn(), getProcessedOrders: vi.fn(), getOrderDetail: vi.fn(), getShippingParameter: vi.fn(),
   requestDocumentCreation: vi.fn(), arrangeShipment: vi.fn(), diagnoseDocument: vi.fn(),
   claimArrangeAttempt: vi.fn(), finishArrangeAttempt: vi.fn(), getRecentlyArrangedPackages: vi.fn(), getArrangeAttempts: vi.fn(),
-  getArrangeAttemptDetail: vi.fn(), getRecentlyArrangedPackagesAll: vi.fn()
+  getArrangeAttemptDetail: vi.fn(),
+  getRecentlyArrangedPackagesAll: vi.fn(async () => store.rows.filter(r => r.status === 'requested')),
+  // faithful fake of the atomic UPDATE ... WHERE status='requested' (single-threaded JS = atomic like SQL row lock)
+  claimDocAttempt: vi.fn(async (_a: number, sn: string, pkg: string) => {
+    const r = store.rows.find(x => x.order_sn === sn && x.package_number === pkg && x.status === 'requested');
+    if (!r) return false; r.status = 'doc_claimed'; return true;
+  }),
+  setDocState: vi.fn(async (_a: number, sn: string, pkg: string, status: string) => {
+    const r = store.rows.find(x => x.order_sn === sn && x.package_number === pkg); if (r) r.status = status;
+  })
 }));
 vi.mock('../services/shopee.js', () => ({ ...m, hasValidInvoice: () => true }));
 vi.mock('../db.js', () => m);
-
-import { ensureDocumentsForArranged, selectDocTargets, __resetDocProgress, pacing } from '../services/shopeeArrange.js';
+import { ensureDocumentsForArranged, fairDocsTargets } from '../services/shopeeArrange.js';
 const shop = { accessToken: 't', shopId: 's' };
-const on = { SHOPEE_FAIR_DOCS_ACCOUNT_IDS: '27' } as any;
-const rowsOf = (n: number, startMin = 0) => Array.from({ length: n }, (_, i) => ({
-  order_sn: `O${startMin + i}`, package_number: `P${startMin + i}`, updated_at: new Date(Date.UTC(2026, 9, 14, 12, 0) - (startMin + i) * 60_000)
-}));
-beforeEach(() => { pacing.factor = 0; vi.clearAllMocks(); __resetDocProgress(); vi.useRealTimers(); });
+const env = (orders: string) => ({ SHOPEE_FAIR_DOCS_ACCOUNT_IDS: '27', SHOPEE_FAIR_DOCS_ORDER_SNS: orders } as any);
+const mk = (sn: string, status = 'requested'): Row => ({ order_sn: sn, package_number: 'P' + sn, status, updated_at: new Date() });
+const detail = (status: string) => async (_s: any, sns: string[]) => sns.map(sn => ({ order_sn: sn, order_status: status }));
+beforeEach(() => { vi.clearAllMocks(); store.rows = Array.from({ length: 60 }, (_, i) => mk('OLD' + i)); store.rows.push(mk('NEW1')); m.getOrderDetail.mockImplementation(detail('PROCESSED')); });
 
-it('legacy path is untouched for accounts not enabled', async () => {
-  m.getRecentlyArrangedPackages.mockResolvedValue(rowsOf(30));
-  m.requestDocumentCreation.mockResolvedValue('already_ready');
-  await ensureDocumentsForArranged(5, shop, on);
-  expect(m.getRecentlyArrangedPackagesAll).not.toHaveBeenCalled();
-  expect(m.requestDocumentCreation).toHaveBeenCalledTimes(20);
+it('legacy path untouched without the env', async () => {
+  m.getRecentlyArrangedPackages.mockResolvedValue(store.rows.slice(0, 30)); m.requestDocumentCreation.mockResolvedValue('already_ready');
+  await ensureDocumentsForArranged(27, shop, {} as any);
+  expect(m.getRecentlyArrangedPackagesAll).not.toHaveBeenCalled(); expect(m.requestDocumentCreation).toHaveBeenCalledTimes(20);
+}, 20000);
+it('account enabled but no exact order allowlisted => no calls at all; other accounts keep legacy; max 3 orders', async () => {
+  await ensureDocumentsForArranged(27, shop, { SHOPEE_FAIR_DOCS_ACCOUNT_IDS: '27' } as any);
+  expect(m.requestDocumentCreation).not.toHaveBeenCalled(); expect(m.getOrderDetail).not.toHaveBeenCalled();
+  expect(fairDocsTargets(28, env('A'))).toEqual([]); expect(fairDocsTargets(27, env('A,B,C,D,E'))).toEqual(['A', 'B', 'C']);
 });
-it('50 packages: 40 old READY + 10 new pending - new ones reached in the FIRST cycle, READY ones stop consuming slots', async () => {
-  const rows = [...rowsOf(10, 0), ...rowsOf(40, 100)]; // 10 newest pending, 40 older READY
-  m.getRecentlyArrangedPackagesAll.mockResolvedValue(rows);
-  const ready = new Set(rows.slice(10).map(r => r.order_sn));
-  const created = new Set<string>();
-  m.requestDocumentCreation.mockImplementation(async (_s: any, sn: string) => {
-    if (ready.has(sn)) return 'already_ready';
-    created.add(sn); return 'create_sent_ok';
-  });
-  vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(Date.UTC(2026, 9, 14, 12, 0));
-  await ensureDocumentsForArranged(27, shop, on);
-  expect([...created].sort()).toEqual(rows.slice(0, 10).map(r => r.order_sn).sort());
-  expect(m.requestDocumentCreation).toHaveBeenCalledTimes(20); // 10 new + 10 old, batch bound
-  // cycles later: all old READY get checked once (batch of 20) and then skipped
-  for (let i = 1; i <= 2; i++) { vi.setSystemTime(Date.UTC(2026, 9, 14, 12, 0) + i * 100_000); await ensureDocumentsForArranged(27, shop, on); }
-  const calls = m.requestDocumentCreation.mock.calls.map(c => c[1] as string);
-  for (const sn of ready) expect(calls.filter(x => x === sn).length).toBe(1); // checked exactly once, no starvation, no repeat
-  // pending ones: create sent once, held 5 min (no repeat inside the hold)
-  expect(calls.filter(x => created.has(x)).length).toBe(10);
-});
-it('continuous volume: a package arranged later is picked on the next cycle even with 100 READY rows ahead', async () => {
-  const old = rowsOf(100, 200);
-  const ready = new Set(old.map(r => r.order_sn));
-  m.requestDocumentCreation.mockImplementation(async (_s: any, sn: string) => ready.has(sn) ? 'already_ready' : 'create_sent_ok');
-  vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(Date.UTC(2026, 9, 14, 12, 0));
-  m.getRecentlyArrangedPackagesAll.mockResolvedValue(old);
-  for (let i = 0; i < 3; i++) { await ensureDocumentsForArranged(27, shop, on); vi.advanceTimersByTime(100_000); }
-  m.requestDocumentCreation.mockClear();
-  const fresh = { order_sn: 'NEW1', package_number: 'PNEW1', updated_at: new Date(Date.now()) };
-  m.getRecentlyArrangedPackagesAll.mockResolvedValue([fresh, ...old]);
-  await ensureDocumentsForArranged(27, shop, on);
-  expect(m.requestDocumentCreation.mock.calls[0][1]).toBe('NEW1');
-});
-it('selection is bounded, pure, and gives every unready package a turn (round robin)', () => {
-  const rows = rowsOf(45); const prog = new Map(); let now = 1_000_000; const seen = new Set<string>();
-  for (let c = 0; c < 4; c++) {
-    const t = selectDocTargets(rows, prog, now); expect(t.length).toBeLessThanOrEqual(20);
-    for (const r of t) { seen.add(r.order_sn); prog.set(`${r.order_sn}:${r.package_number}`, { lastTriedAt: now }); }
-    now += 100_000;
-  }
-  expect(seen.size).toBe(45);
-});
-it('caps creates per package and never ship_order', async () => {
-  const rows = rowsOf(1); m.getRecentlyArrangedPackagesAll.mockResolvedValue(rows);
+it('only the allowlisted order is touched, 60 old rows never; create exactly once', async () => {
   m.requestDocumentCreation.mockResolvedValue('create_sent_ok');
-  vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(Date.UTC(2026, 9, 14, 12, 0));
-  for (let i = 0; i < 6; i++) { await ensureDocumentsForArranged(27, shop, on); vi.advanceTimersByTime(6 * 60_000); }
-  expect(m.requestDocumentCreation).toHaveBeenCalledTimes(3);
+  await ensureDocumentsForArranged(27, shop, env('NEW1'));
+  expect(m.requestDocumentCreation).toHaveBeenCalledTimes(1); expect(m.requestDocumentCreation.mock.calls[0][1]).toBe('NEW1');
+  expect(m.getOrderDetail.mock.calls[0][1]).toEqual(['NEW1']);
+  expect(store.rows.find(r => r.order_sn === 'NEW1')!.status).toBe('doc_requested');
+  expect(store.rows.filter(r => r.status === 'requested').length).toBe(60);
+  for (let i = 0; i < 5; i++) await ensureDocumentsForArranged(27, shop, env('NEW1')); // later cycles / "restart" (state is in the store)
+  expect(m.requestDocumentCreation).toHaveBeenCalledTimes(1);
+});
+it('SHIPPED (or unknown) is a terminal skip: no create, never revisited', async () => {
+  m.getOrderDetail.mockImplementation(detail('SHIPPED'));
+  for (let i = 0; i < 3; i++) await ensureDocumentsForArranged(27, shop, env('NEW1'));
+  expect(m.requestDocumentCreation).not.toHaveBeenCalled(); expect(m.claimDocAttempt).not.toHaveBeenCalled();
+  expect(store.rows.find(r => r.order_sn === 'NEW1')!.status).toBe('doc_skipped');
+  expect(m.getOrderDetail).toHaveBeenCalledTimes(1);
+});
+it('error response and uncertain exception are terminal (no automatic retry)', async () => {
+  m.requestDocumentCreation.mockResolvedValue('create_error_response');
+  for (let i = 0; i < 3; i++) await ensureDocumentsForArranged(27, shop, env('NEW1'));
+  expect(m.requestDocumentCreation).toHaveBeenCalledTimes(1); expect(store.rows.find(r => r.order_sn === 'NEW1')!.status).toBe('doc_failed');
+  vi.clearAllMocks(); store.rows.find(r => r.order_sn === 'NEW1')!.status = 'requested';
+  m.getOrderDetail.mockImplementation(detail('PROCESSED')); m.requestDocumentCreation.mockResolvedValue('create_failed');
+  for (let i = 0; i < 3; i++) await ensureDocumentsForArranged(27, shop, env('NEW1'));
+  expect(m.requestDocumentCreation).toHaveBeenCalledTimes(1); expect(store.rows.find(r => r.order_sn === 'NEW1')!.status).toBe('doc_claimed');
+});
+it('create NOT sent (no tracking yet) releases the claim so it can be tried later; READY is recorded', async () => {
+  m.requestDocumentCreation.mockResolvedValueOnce('no_tracking').mockResolvedValueOnce('already_ready');
+  await ensureDocumentsForArranged(27, shop, env('NEW1'));
+  expect(store.rows.find(r => r.order_sn === 'NEW1')!.status).toBe('requested');
+  await ensureDocumentsForArranged(27, shop, env('NEW1'));
+  expect(store.rows.find(r => r.order_sn === 'NEW1')!.status).toBe('doc_ready');
   expect(m.arrangeShipment).not.toHaveBeenCalled();
+});
+it('concurrent cycles: only one wins the durable claim', async () => {
+  let n = 0; m.requestDocumentCreation.mockImplementation(async () => { n++; await new Promise(r => setTimeout(r, 5)); return 'create_sent_ok'; });
+  await Promise.all([ensureDocumentsForArranged(27, shop, env('NEW1')), ensureDocumentsForArranged(27, shop, env('NEW1'))]);
+  expect(n).toBe(1);
 });
