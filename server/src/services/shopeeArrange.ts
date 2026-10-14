@@ -10,7 +10,7 @@ import {
   ShippingParameter,
   ShopeeOrderDetail
 } from './shopee.js';
-import { claimArrangeAttempt, finishArrangeAttempt, getRecentlyArrangedPackages, getArrangeAttempts, getArrangeAttemptDetail } from '../db.js';
+import { claimArrangeAttempt, finishArrangeAttempt, getRecentlyArrangedPackages, getArrangeAttempts, getArrangeAttemptDetail, getRecentlyArrangedPackagesAll } from '../db.js';
 const diagAt = new Map<string, number>();
 
 /**
@@ -35,7 +35,8 @@ const INELIGIBLE_TTL_MS = 60_000;
 type Shop = { accessToken: string; shopId: string };
 type Plan = { body: Record<string, unknown> } | { skip: string };
 
-function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+export const pacing = { factor: 1 };
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms * pacing.factor)); }
 
 /** Pure decision: build the ship_order payload from Shopee's parameters, or explain the skip. */
 export function planArrange(orderSn: string, packageNumber: string | undefined, param: ShippingParameter, method: ArrangeMethod): Plan {
@@ -89,12 +90,68 @@ export function isEligibleOrder(order: ShopeeOrderDetail): boolean {
 export interface ArrangeSummary { arranged: number; skipped: number; failed: number }
 
 /** For orders we arranged: request the label document so Shopee reports it READY on a later poll. */
-export async function ensureDocumentsForArranged(accountId: number, shop: Shop): Promise<void> {
+export async function ensureDocumentsForArranged(accountId: number, shop: Shop, env: NodeJS.ProcessEnv = process.env): Promise<void> {
+  if (listFromEnv('SHOPEE_FAIR_DOCS_ACCOUNT_IDS', env).includes(String(accountId))) return ensureDocumentsFair(accountId, shop);
   const rows = await getRecentlyArrangedPackages(accountId);
   for (const row of rows.slice(0, 20)) {
     await requestDocumentCreation(shop, row.order_sn, row.package_number || undefined);
     await sleep(300);
   }
+}
+
+// --- Fair selection (opt-in per account via SHOPEE_FAIR_DOCS_ACCOUNT_IDS; unset = legacy path above) ---
+export interface DocProgress { readyAt?: number; lastTriedAt?: number; holdUntil?: number; creates?: number }
+export const FAIR_MAX_CREATES = 3;
+const FAIR_CREATE_HOLD_MS = 5 * 60_000;
+export const FAIR_BATCH = 20;
+const FAIR_RETRY_MS = 90_000;
+const FAIR_READY_RECHECK_MS = 60 * 60_000;
+const docProgress = new Map<string, DocProgress>();
+export function __resetDocProgress() { docProgress.clear(); }
+
+/** Pure. Skips packages known READY (recheck hourly) or tried <90s ago; never-tried first (newest first),
+ * then least recently tried, so a large backlog of old/READY rows cannot starve new packages. */
+export function selectDocTargets<T extends { order_sn: string; package_number: string; updated_at: Date | string }>(
+  rows: T[], progress: Map<string, DocProgress>, now: number, limit = FAIR_BATCH
+): T[] {
+  const key = (r: T) => `${r.order_sn}:${r.package_number}`;
+  return rows
+    .filter(r => {
+      const p = progress.get(key(r));
+      if (!p) return true;
+      if (p.readyAt !== undefined && now - p.readyAt < FAIR_READY_RECHECK_MS) return false;
+      if (p.lastTriedAt !== undefined && now - p.lastTriedAt < FAIR_RETRY_MS) return false;
+      if (p.holdUntil !== undefined && now < p.holdUntil) return false;
+      if ((p.creates || 0) >= FAIR_MAX_CREATES) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const ta = progress.get(key(a))?.lastTriedAt, tb = progress.get(key(b))?.lastTriedAt;
+      if (ta === undefined && tb !== undefined) return -1;
+      if (ta !== undefined && tb === undefined) return 1;
+      if (ta !== undefined && tb !== undefined && ta !== tb) return ta - tb;
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    })
+    .slice(0, limit);
+}
+
+async function ensureDocumentsFair(accountId: number, shop: Shop): Promise<void> {
+  const rows = await getRecentlyArrangedPackagesAll(accountId);
+  if (docProgress.size > 5000) docProgress.clear();
+  const targets = selectDocTargets(rows, docProgress, Date.now());
+  const counts: Record<string, number> = {};
+  for (const row of targets) {
+    const outcome = await requestDocumentCreation(shop, row.order_sn, row.package_number || undefined);
+    const k = `${row.order_sn}:${row.package_number}`;
+    const now = Date.now();
+    const prev = docProgress.get(k);
+    const sent = outcome === 'create_sent_ok' || outcome === 'create_error_response';
+    docProgress.set(k, { lastTriedAt: now, creates: (prev?.creates || 0) + (sent ? 1 : 0),
+      ...(sent ? { holdUntil: now + FAIR_CREATE_HOLD_MS } : {}), ...(outcome === 'already_ready' ? { readyAt: now } : {}) });
+    counts[outcome] = (counts[outcome] || 0) + 1;
+    await sleep(300);
+  }
+  if (targets.length) console.log(`[shopeeFairDocs] account ${accountId}: ${rows.length} recent packages, ${targets.length} processed`, JSON.stringify(counts));
 }
 
 /**
