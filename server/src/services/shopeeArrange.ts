@@ -10,7 +10,7 @@ import {
   ShippingParameter,
   ShopeeOrderDetail
 } from './shopee.js';
-import { claimArrangeAttempt, finishArrangeAttempt, getRecentlyArrangedPackages, getArrangeAttempts, getArrangeAttemptDetail, getRecentlyArrangedPackagesAll } from '../db.js';
+import { claimArrangeAttempt, finishArrangeAttempt, getRecentlyArrangedPackages, getArrangeAttempts, getArrangeAttemptDetail, getRecentlyArrangedPackagesAll, markPackageNotPrintable } from '../db.js';
 const diagAt = new Map<string, number>();
 
 /**
@@ -94,7 +94,12 @@ export async function ensureDocumentsForArranged(accountId: number, shop: Shop, 
   if (listFromEnv('SHOPEE_FAIR_DOCS_ACCOUNT_IDS', env).includes(String(accountId))) return ensureDocumentsFair(accountId, shop);
   const rows = await getRecentlyArrangedPackages(accountId);
   for (const row of rows.slice(0, 20)) {
-    await requestDocumentCreation(shop, row.order_sn, row.package_number || undefined);
+    const outcome = await requestDocumentCreation(shop, row.order_sn, row.package_number || undefined);
+    // Shopee says this package can never print (already shipped): stop asking, keep the history row.
+    if (outcome === 'package_not_printable' && row.package_number) {
+      await markPackageNotPrintable(accountId, row.order_sn, row.package_number);
+      console.log(`[shopee] ${row.order_sn}/${row.package_number}: package_can_not_print, marked terminal (no more create requests)`);
+    }
     await sleep(300);
   }
 }

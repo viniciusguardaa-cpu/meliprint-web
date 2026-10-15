@@ -1220,6 +1220,15 @@ export async function getRecentlyArrangedPackagesAll(accountId: number, limit = 
   return result.rows as Array<{ order_sn: string; package_number: string; updated_at: Date }>;
 }
 
+/** Terminal marker for a package Shopee says can never print (e.g. already shipped). Only moves a 'requested' row; keeps history. */
+export async function markPackageNotPrintable(accountId: number, orderSn: string, packageNumber: string) {
+  await pool.query(
+    `UPDATE "shipment_arrange_log" SET "status" = 'doc_skipped', "error" = 'package_can_not_print', "updated_at" = CURRENT_TIMESTAMP
+     WHERE "account_id" = $1 AND "order_sn" = $2 AND "package_number" = $3 AND "status" = 'requested'`,
+    [accountId, orderSn, packageNumber]
+  );
+}
+
 /** Read-only detail of existing attempt rows (method/status/age; error text is clipped). */
 export async function getArrangeAttemptDetail(accountId: number, orderSn: string) {
   const result = await pool.query(
