@@ -34,7 +34,10 @@
       "output": "dist"
     },
     "win": {
-      "target": "nsis",
+      "target": [
+        "nsis",
+        "appx"
+      ],
       "icon": "app/assets/icon.png"
     },
     "nsis": {
@@ -51,7 +54,20 @@
     },
     "asarUnpack": [
       "node_modules/pdf-to-printer/dist/**"
-    ]
+    ],
+    "appx": {
+      "applicationId": "LabelGoAgent",
+      "displayName": "LabelGo Agent",
+      "identityName": "LabelGo.LabelGo",
+      "publisher": "CN=5DB92569-5B1C-439F-B0AC-599EE95F5342",
+      "publisherDisplayName": "Label Go",
+      "languages": [
+        "pt-BR"
+      ],
+      "backgroundColor": "#ffffff",
+      "showNameOnTiles": false,
+      "addAutoLaunchExtension": false
+    }
   },
   "engines": {
     "node": ">=18"
