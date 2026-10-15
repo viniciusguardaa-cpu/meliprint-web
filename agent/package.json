@@ -57,7 +57,7 @@
     ],
     "appx": {
       "applicationId": "LabelGoAgent",
-      "displayName": "LabelGo Agent",
+      "displayName": "Label Go",
       "identityName": "LabelGo.LabelGo",
       "publisher": "CN=5DB92569-5B1C-439F-B0AC-599EE95F5342",
       "publisherDisplayName": "Label Go",
