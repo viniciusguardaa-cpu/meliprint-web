@@ -1,0 +1,20 @@
+# .github/workflows/agent-msix.yml (so manual, nao roda sozinho)
+name: Build LabelGo Agent MSIX
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx electron-builder --win appx --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: labelgo-agent-msix
+          path: agent/dist/*.appx
