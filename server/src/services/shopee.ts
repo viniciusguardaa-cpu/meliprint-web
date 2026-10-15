@@ -585,7 +585,7 @@ const CREATE_RETRY_MS = 90_000;
  * get_shipping_document_result until this was requested. Used only for orders
  * LabelGo itself arranged (see shopeeArrange), never for old orders.
  */
-export type DocCreateOutcome = 'throttled' | 'no_document_type' | 'already_ready' | 'no_tracking' | 'create_failed' | 'create_sent_ok' | 'create_error_response';
+export type DocCreateOutcome = 'throttled' | 'no_document_type' | 'already_ready' | 'no_tracking' | 'create_failed' | 'create_sent_ok' | 'create_error_response' | 'package_not_printable';
 
 export async function requestDocumentCreation(
   shop: { accessToken: string; shopId: string },
@@ -622,7 +622,11 @@ export async function requestDocumentCreation(
       order_list: [{ ...target, shipping_document_type: type, tracking_number: trackingNumber }]
     });
     const r: DocResult | undefined = resp?.result_list?.[0];
-    if (r?.fail_error) { console.warn(`[shopee] create_shipping_document ${orderSn}: ${r.fail_error} ${r.fail_message || ''}`); return 'create_error_response'; }
+    if (r?.fail_error) {
+      console.warn(`[shopee] create_shipping_document ${orderSn}: ${r.fail_error} ${r.fail_message || ''}`);
+      // Shipped/closed packages can never print: terminal, callers must stop asking.
+      return r.fail_error === 'logistics.package_can_not_print' ? 'package_not_printable' : 'create_error_response';
+    }
     console.log(`[shopee] create_shipping_document requested for ${orderSn}`);
     return 'create_sent_ok';
   } catch (error) {
