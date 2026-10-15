@@ -16,8 +16,8 @@ export default function Privacy() {
           <section>
             <h2 className="text-lg font-semibold text-foreground">1. Quem somos</h2>
             <p>
-              Esta Política de Privacidade descreve como <strong>[RAZÃO SOCIAL DA EMPRESA]</strong>
-              {' '}(CNPJ <strong>[CNPJ]</strong>), responsável pelo LabelGo, coleta, usa e protege
+              Esta Política de Privacidade descreve como <strong>Guarda &amp; Guarda Ltda (Companhia do Papel)</strong>
+              {' '}(CNPJ <strong>00.397.452/0001-59</strong>), responsável pelo LabelGo, coleta, usa e protege
               seus dados pessoais, em conformidade com a Lei Geral de Proteção de Dados
               (Lei nº 13.709/2018 - LGPD).
             </p>
