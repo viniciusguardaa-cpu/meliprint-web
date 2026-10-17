@@ -421,6 +421,8 @@ export default function AutoPrint() {
               </ol>
 
               <div className="flex flex-col sm:flex-row gap-3">
+                <a href="https://apps.microsoft.com/detail/9NJGXJJTR1FP" target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'secondary' })}><Download className="w-4 h-4" /> Baixar na Microsoft Store (recomendado)</a>
+
                 <a
                   href={AGENT_DOWNLOAD_URL}
                   download
