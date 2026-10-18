@@ -28,10 +28,26 @@ export default function TrustBar() {
           </div>
         </Reveal>
         <Reveal delay={200}>
-          <p className="mt-7 inline-flex items-center gap-2 text-xs font-medium text-muted-foreground/80 bg-white border border-black/[0.05] rounded-full px-4 py-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-success" />
-            Conexão autorizada pelo Mercado Livre
-          </p>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+            <p className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground/80 bg-white border border-black/[0.05] rounded-full px-4 py-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-success" />
+              Conexão autorizada pelo Mercado Livre
+            </p>
+            <a
+              href="https://apps.microsoft.com/detail/9NJGXJJTR1FP"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground/80 bg-white border border-black/[0.05] rounded-full px-4 py-1.5 hover:border-black/[0.15] transition-colors"
+            >
+              <svg viewBox="0 0 23 23" className="w-3.5 h-3.5" aria-hidden="true">
+                <path fill="#f35325" d="M1 1h10v10H1z" />
+                <path fill="#81bc06" d="M12 1h10v10H12z" />
+                <path fill="#05a6f0" d="M1 12h10v10H1z" />
+                <path fill="#ffba08" d="M12 12h10v10H12z" />
+              </svg>
+              Agente aprovado na Microsoft Store
+            </a>
+          </div>
         </Reveal>
       </div>
     </section>
