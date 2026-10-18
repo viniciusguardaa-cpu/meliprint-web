@@ -25,12 +25,6 @@ interface ReviewJob {
   sent_to_printer_at: string | null;
 }
 
-// O Netlify redireciona /downloads/LabelGoAgent-Setup.exe para o asset do
-// release `agent-latest` no GitHub (buildado por agent-installer.yml).
-// Para hospedar em outro lugar, defina VITE_AGENT_DOWNLOAD_URL no build.
-const AGENT_DOWNLOAD_URL =
-  import.meta.env.VITE_AGENT_DOWNLOAD_URL || '/downloads/LabelGoAgent-Setup.exe';
-
 export default function AutoPrint() {
   useAuth();
   const navigate = useNavigate();
@@ -408,7 +402,7 @@ export default function AutoPrint() {
               <ol className="space-y-3 text-sm text-muted-foreground mb-5">
                 <li className="flex gap-3">
                   <span className="flex-shrink-0 w-6 h-6 bg-secondary text-secondary-foreground rounded-full flex items-center justify-center text-xs font-bold">1</span>
-                  <span>Baixe e execute o instalador <strong>LabelGoAgent-Setup.exe</strong> no Windows.</span>
+                  <span>Instale o app <strong>Label Go</strong> pela Microsoft Store no Windows.</span>
                 </li>
                 <li className="flex gap-3">
                   <span className="flex-shrink-0 w-6 h-6 bg-secondary text-secondary-foreground rounded-full flex items-center justify-center text-xs font-bold">2</span>
@@ -421,16 +415,7 @@ export default function AutoPrint() {
               </ol>
 
               <div className="flex flex-col sm:flex-row gap-3">
-                <a href="https://apps.microsoft.com/detail/9NJGXJJTR1FP" target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'secondary' })}><Download className="w-4 h-4" /> Baixar na Microsoft Store (recomendado)</a>
-
-                <a
-                  href={AGENT_DOWNLOAD_URL}
-                  download
-                  className={buttonVariants({ variant: 'secondary' })}
-                >
-                  <Download className="w-4 h-4" />
-                  Baixar LabelGo Agent (Windows)
-                </a>
+                <a href="https://apps.microsoft.com/detail/9NJGXJJTR1FP" target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'secondary' })}><Download className="w-4 h-4" /> Baixar na Microsoft Store</a>
                 {!pairingCode && (
                   <Button onClick={handlePairingCode} disabled={pairing}>
                     {pairing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
