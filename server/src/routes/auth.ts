@@ -24,13 +24,15 @@ import {
 import { hashPassword, verifyPassword, PASSWORD_MIN_LENGTH } from '../services/password.js';
 import { authLimiter } from '../middleware/rateLimiter.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/mailer.js';
-import { trackEvent } from '../services/analytics.js';
+import { trackEvent, linkVisitorToUser } from '../services/analytics.js';
 
 declare module 'express-session' {
   interface SessionData {
     /** Internal users.id — provider-agnostic identity. */
     userId?: number;
     newRegistration?: boolean;
+    /** Anonymous analytics visitor key, stashed by POST /api/analytics/utm. */
+    visitorKey?: string;
     adminCredentialVersion?: string;
     /** In-flight OAuth attempt (state + PKCE verifier + intent). */
     oauth?: {
@@ -105,6 +107,9 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
       return res.status(409).json({ error: 'email_in_use', message: 'Este e-mail já possui uma conta' });
     }
 
+    // Read before createSessionForUser: session regeneration wipes the data.
+    const visitorKey = (req.header('x-visitor-key') as string) || req.session?.visitorKey || undefined;
+
     const user = await createUser({
       email,
       nickname: nickname || email.split('@')[0],
@@ -112,9 +117,12 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
       emailVerified: false
     });
 
+    // Link the anonymous UTM attribution + pre-signup events to the account.
+    await linkVisitorToUser(visitorKey || '', user.id);
+
     await createSessionForUser(req, user.id);
     req.session.newRegistration = true;
-    await trackEvent({ event_name: 'user_registered', user_id: user.id, properties: { method: 'password' } });
+    await trackEvent({ event_name: 'user_registered', user_id: user.id, visitor_key: visitorKey, properties: { method: 'password' } });
 
     // Verification email is best-effort — never block signup on mail delivery.
     try {
@@ -309,6 +317,9 @@ router.get('/login', (req: Request, res: Response) => {
 /** Shared OAuth callback logic for /callback (legacy ML) and /oauth/:provider/callback. */
 async function handleOAuthCallback(req: Request, res: Response, providerId: string) {
   const pending = req.session.oauth;
+  // Stashed by POST /api/analytics/utm on landing; read before any session
+  // regeneration so a brand-new OAuth account keeps its UTM attribution.
+  const visitorKey = req.session?.visitorKey || undefined;
 
   try {
     const provider = getProvider(providerId);
@@ -397,6 +408,7 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
         });
         userId = user.id;
         newRegistration = true;
+        await linkVisitorToUser(visitorKey || '', userId);
       }
       await upsertMarketplaceAccount(userId, providerId, identity.externalUserId, {
         nickname: identity.nickname,
