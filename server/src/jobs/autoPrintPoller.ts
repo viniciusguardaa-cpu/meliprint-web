@@ -15,7 +15,7 @@ import { reprocessNotificationRow } from '../routes/notifications.js';
 import { arrangeReadyShipments, ensureDocumentsForArranged, ensureDocumentsForProcessed } from '../services/shopeeArrange.js';
 import { withJobLock } from './withJobLock.js';
 
-const POLL_INTERVAL_MS = 5 * 60_000; // 5 minutes — reconciliation fallback.
+const POLL_INTERVAL_MS = 1 * 60_000; // 1 minute — reconciliation fallback.
 // Real-time printing is driven by ML notifications (POST /api/notifications).
 // This poller catches anything missed by notifications.
 const BATCH_SIZE = 20;
