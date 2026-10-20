@@ -101,6 +101,28 @@ export async function captureUTM(
   }
 }
 
+/**
+ * Link an anonymous visitor's attribution + pre-signup events to the account
+ * they just created. Only fills rows still without a user_id, so a browser
+ * shared by two accounts never reassigns rows already linked to the first.
+ */
+export async function linkVisitorToUser(visitorKey: string, userId: number): Promise<void> {
+  if (!visitorKey) return;
+  try {
+    await pool.query(
+      `UPDATE "utm_attribution" SET "user_id" = $2 WHERE "visitor_key" = $1 AND "user_id" IS NULL`,
+      [visitorKey, userId]
+    );
+    await pool.query(
+      `UPDATE "analytics_events" SET "user_id" = $2 WHERE "visitor_key" = $1 AND "user_id" IS NULL`,
+      [visitorKey, userId]
+    );
+  } catch (err) {
+    // Analytics should never break the request flow
+    console.error('[analytics] Failed to link visitor to user:', err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Referrals
 // ---------------------------------------------------------------------------
