@@ -12,7 +12,7 @@ import { arrangeReadyShipments, ensureDocumentsForProcessed } from '../services/
 import { withJobLock } from '../jobs/withJobLock.js';
 import { startAutoPrintPoller } from '../jobs/autoPrintPoller.js';
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.resetAllMocks(); });
-it('separates Shopee 60s and ML 5min locks; arrange-only never auto-prints', async () => {
+it('separates Shopee 60s and ML 1min locks; arrange-only never auto-prints', async () => {
   vi.useFakeTimers();
   vi.mocked(db.getAutoPrintEnabledConfigs).mockImplementation(async include => include ? [{ user_id: 1, enabled: false }] : [{ user_id: 1, enabled: true }]);
   vi.mocked(db.getUnprocessedMLNotifications).mockResolvedValue([]);
@@ -25,9 +25,9 @@ it('separates Shopee 60s and ML 5min locks; arrange-only never auto-prints', asy
   startAutoPrintPoller(); await vi.advanceTimersByTimeAsync(0);
   expect(ml).toHaveBeenCalledTimes(1); expect(arrangeReadyShipments).toHaveBeenCalledTimes(1); expect(shopee).not.toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(60_000);
-  expect(ml).toHaveBeenCalledTimes(1); expect(arrangeReadyShipments).toHaveBeenCalledTimes(2);
+  expect(ml).toHaveBeenCalledTimes(2); expect(arrangeReadyShipments).toHaveBeenCalledTimes(2);
   expect(new Set(vi.mocked(withJobLock).mock.calls.map(c => c[0])).size).toBe(2);
-  await vi.advanceTimersByTimeAsync(240_000); expect(ml).toHaveBeenCalledTimes(2);
+  await vi.advanceTimersByTimeAsync(240_000); expect(ml).toHaveBeenCalledTimes(6);
 });
 it('calls the one-shot processed-docs hook for Shopee accounts even with auto_arrange off, never for ML', async () => {
   vi.useFakeTimers();
