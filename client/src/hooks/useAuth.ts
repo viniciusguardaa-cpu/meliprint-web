@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { trackMetaEvent } from '../lib/metaPixel';
+import { getVisitorKey } from '../lib/analytics';
 
 export interface ConnectedAccount {
   id: number;
@@ -86,7 +87,7 @@ export function useAuth() {
   const register = async (email: string, password: string, nickname?: string): Promise<string | null> => {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-visitor-key': getVisitorKey() },
       credentials: 'include',
       body: JSON.stringify({ email, password, nickname })
     });
