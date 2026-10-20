@@ -56,7 +56,12 @@ router.post('/utm', async (req: Request, res: Response) => {
       utm_term: req.body?.utm_term,
       referrer: req.body?.referrer,
       landing_path: req.body?.landing_path,
-    });
+    }, req.session?.userId);
+
+    // Remember the visitor key on the session so the OAuth callback (which
+    // receives no x-visitor-key header) can still link a new account to the
+    // attribution captured on landing.
+    if (req.session) req.session.visitorKey = visitorKey;
 
     res.json({ ok: true });
   } catch (error) {
