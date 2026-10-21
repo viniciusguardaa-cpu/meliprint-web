@@ -501,3 +501,49 @@ export async function getInvoiceData(accessToken: string, shipmentId: number): P
 
   return response.json();
 }
+
+export interface ChecklistItem {
+  title: string;
+  quantity: number;
+  sku?: string;
+}
+
+/**
+ * Items of one shipment for the printed conferência page.
+ * Uses GET /shipments/{id}/items (gives order_id), then the order for SKUs.
+ * Falls back to the shipment item descriptions when the order can't be read.
+ */
+export async function getShipmentChecklistItems(
+  accessToken: string,
+  shipmentId: number
+): Promise<{ orderIds: string[]; items: ChecklistItem[] }> {
+  const response = await fetch(`${ML_API_URL}/shipments/${shipmentId}/items`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to get items of shipment ${shipmentId}`);
+  }
+  const shipmentItems: Array<{ description?: string; quantity?: number; order_id?: number }> = await response.json();
+  const orderIds = Array.from(
+    new Set(shipmentItems.map((i) => i.order_id).filter((id): id is number => typeof id === 'number'))
+  );
+
+  const items: ChecklistItem[] = [];
+  let orderFailed = orderIds.length === 0;
+  for (const orderId of orderIds) {
+    try {
+      const order = await getOrder(accessToken, orderId);
+      for (const oi of order.order_items) {
+        items.push({ title: oi.item.title, quantity: oi.quantity, sku: oi.item.seller_sku || undefined });
+      }
+    } catch {
+      orderFailed = true;
+    }
+  }
+  if (orderFailed && items.length === 0) {
+    for (const si of shipmentItems) {
+      items.push({ title: si.description || 'Item', quantity: si.quantity || 1 });
+    }
+  }
+  return { orderIds: orderIds.map(String), items };
+}
