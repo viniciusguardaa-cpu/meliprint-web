@@ -3,6 +3,13 @@ import { getProvider } from '../providers/index.js';
 import type { AccountContext } from '../providers/types.js';
 import { getFreshAccountContext } from '../services/accounts.js';
 import { requireActiveSubscription } from '../middleware/subscription.js';
+import { getPlan } from '../services/pricing.js';
+import {
+  getShipmentLabelsPDF,
+  getShipmentChecklistItems,
+  getInvoiceData
+} from '../services/mercadolivre.js';
+import { renderChecklistPdf, mergePackage, downloadInvoicePdf, type PackagePart } from '../services/printPackage.js';
 import {
   getMarketplaceAccountById,
   getMarketplaceAccountForUser,
@@ -104,6 +111,88 @@ router.post('/zpl', async (req: Request, res: Response) => {
   }
 });
 
+
+function truthy(v: any): boolean {
+  return v === true || v === '1' || v === 'true' || v === 1;
+}
+
+/**
+ * Optional extras for Mercado Livre: per shipment, label -> conferência page
+ * (items/SKU/qty) -> DANFE. Anything that can't be built is skipped and
+ * reported in `notes`; the label itself is never dropped.
+ */
+async function buildPdfWithExtras(
+  ctx: AccountContext,
+  planId: string | undefined,
+  shipmentIds: string[],
+  wantPacking: boolean,
+  wantInvoice: boolean
+): Promise<{ pdf: Buffer; notes: string[] } | null> {
+  const notes: string[] = [];
+  if (!wantPacking && !wantInvoice) return null;
+  if (ctx.provider !== 'mercadolivre') {
+    notes.push('Conferência e NF junto da etiqueta só estão disponíveis para Mercado Livre.');
+    return { pdf: await getProvider(ctx.provider)!.getLabelsPDF(ctx, shipmentIds), notes };
+  }
+  const plan = planId ? await getPlan(planId) : null;
+  if (plan?.packing_check !== true) {
+    notes.push('Conferência e NF junto da etiqueta não estão incluídas no seu plano.');
+    return { pdf: await getProvider(ctx.provider)!.getLabelsPDF(ctx, shipmentIds), notes };
+  }
+
+  const MAX_EXTRAS = 50;
+  if (shipmentIds.length > MAX_EXTRAS) {
+    notes.push(`Conferência e NF só são montadas para até ${MAX_EXTRAS} envios por vez.`);
+    return { pdf: await getProvider(ctx.provider)!.getLabelsPDF(ctx, shipmentIds), notes };
+  }
+
+  const parts: PackagePart[] = [];
+  let invoiceSkipped = 0;
+  let checklistSkipped = 0;
+  for (const id of shipmentIds) {
+    const numericId = Number(id);
+    const label = await getShipmentLabelsPDF(ctx.accessToken, [numericId]);
+    const part: PackagePart = { label };
+    if (wantPacking) {
+      try {
+        const { orderIds, items } = await getShipmentChecklistItems(ctx.accessToken, numericId);
+        if (items.length > 0) {
+          part.checklist = await renderChecklistPdf({ shipmentId: id, orderIds, items });
+        } else {
+          checklistSkipped++;
+        }
+      } catch (err) {
+        console.error(`[labels/pdf] checklist failed for ${id}:`, err);
+        checklistSkipped++;
+      }
+    }
+    if (wantInvoice) {
+      try {
+        const data = await getInvoiceData(ctx.accessToken, numericId);
+        const url = data?.fiscal_document?.pdf_url as string | undefined;
+        const bytes = url ? await downloadInvoicePdf(url, ctx.accessToken) : null;
+        if (bytes) part.invoice = bytes;
+        else invoiceSkipped++;
+      } catch (err) {
+        console.error(`[labels/pdf] invoice failed for ${id}:`, err);
+        invoiceSkipped++;
+      }
+    }
+    parts.push(part);
+  }
+  if (checklistSkipped > 0) notes.push(`Conferência não gerada em ${checklistSkipped} envio(s).`);
+  if (invoiceSkipped > 0) notes.push(`NF não incluída em ${invoiceSkipped} envio(s): use "Abrir NFs".`);
+  return { pdf: await mergePackage(parts), notes };
+}
+
+function sendPdf(res: Response, pdf: Buffer, notes: string[]) {
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'inline; filename="labels.pdf"');
+  res.setHeader('Cache-Control', 'no-store');
+  if (notes.length > 0) res.setHeader('X-Print-Notes', encodeURIComponent(notes.join(' | ')));
+  res.send(pdf);
+}
+
 router.get('/pdf', async (req: Request, res: Response) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
@@ -121,12 +210,13 @@ router.get('/pdf', async (req: Request, res: Response) => {
 
     const provider = getProvider(ctx.provider)!;
     console.log(`[labels/pdf GET] ${ctx.provider} account=${ctx.accountId}: ${shipmentIds.length} shipments`);
-    const pdf = await provider.getLabelsPDF(ctx, shipmentIds);
+    const extras = await buildPdfWithExtras(
+      ctx, (req as any).planId, shipmentIds,
+      truthy(req.query.include_packing), truthy(req.query.include_invoice)
+    );
+    const pdf = extras ? extras.pdf : await provider.getLabelsPDF(ctx, shipmentIds);
     console.log(`[labels/pdf GET] PDF generated successfully, size: ${pdf.length} bytes`);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="labels.pdf"');
-    res.setHeader('Cache-Control', 'no-store');
-    res.send(pdf);
+    sendPdf(res, pdf, extras?.notes ?? []);
   } catch (error) {
     console.error('[labels/pdf GET] Failed to get labels pdf:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -149,10 +239,12 @@ router.post('/pdf', async (req: Request, res: Response) => {
     if (!ctx) return;
 
     const provider = getProvider(ctx.provider)!;
-    const pdf = await provider.getLabelsPDF(ctx, shipmentIds);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="labels.pdf"');
-    res.send(pdf);
+    const extras = await buildPdfWithExtras(
+      ctx, (req as any).planId, shipmentIds,
+      truthy(req.body?.includePacking), truthy(req.body?.includeInvoice)
+    );
+    const pdf = extras ? extras.pdf : await provider.getLabelsPDF(ctx, shipmentIds);
+    sendPdf(res, pdf, extras?.notes ?? []);
   } catch (error) {
     console.error('Failed to get labels pdf:', error);
     res.status(500).json({ error: 'Failed to generate labels' });
