@@ -22,6 +22,7 @@ import type {
   ProviderAuthResult,
   TokenSet
 } from './types.js';
+import { ShipmentListError } from './types.js';
 
 const BATCH_SIZE = 25;
 const BATCH_DELAY_MS = 50;
@@ -77,11 +78,13 @@ async function listReadyShipments(ctx: AccountContext, opts: ListShipmentsOption
 
   // Step 1: Source of truth - all ready_to_ship shipments
   const searchIds = new Set<number>();
+  let searchFailed = false;
   try {
     const readyToShipIds = await searchShipments(accessToken, sellerId, 'ready_to_ship');
     for (const id of readyToShipIds) searchIds.add(id);
     console.log(`[shipments] search API: ready_to_ship total=${searchIds.size}`);
   } catch (error) {
+    searchFailed = true;
     console.error('[shipments] search API failed:', error);
   }
 
@@ -90,6 +93,7 @@ async function listReadyShipments(ctx: AccountContext, opts: ListShipmentsOption
   // responses, so we can no longer get the order_id from a shipment. Instead,
   // we fetch orders (which still contain shipping.id) and match by shipment ID.
   const ordersByShipmentId = new Map<number, Order>();
+  let ordersFailed = false;
   try {
     const orders = await getOrders(accessToken, sellerId, dateFrom, dateTo);
     for (const order of orders) {
@@ -104,6 +108,9 @@ async function listReadyShipments(ctx: AccountContext, opts: ListShipmentsOption
     console.log(`[shipments] orders scan: ${orders.length} orders, ${ordersByShipmentId.size} mapped to shipments`);
   } catch (error) {
     console.error('[shipments] orders scan failed:', error);
+    ordersFailed = true;
+    // Both discovery paths failed: an empty result would incorrectly mean no orders.
+    if (searchFailed) throw new Error('Mercado Livre shipment discovery unavailable');
   }
 
   const allShipmentIds = Array.from(searchIds);
@@ -190,6 +197,9 @@ async function listReadyShipments(ctx: AccountContext, opts: ListShipmentsOption
   }
 
   console.log(`[shipments] ready_to_ship rows=${rows.length} shipments_failed=${failedShipmentIds.length}`);
+  if (ordersFailed || failedShipmentIds.length > 0) {
+    throw new ShipmentListError('Mercado Livre shipment data incomplete', rows);
+  }
   return rows;
 }
 

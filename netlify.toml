@@ -2,6 +2,9 @@
   command = "npm run build --workspace=client"
   publish = "client/dist"
 
+[build.environment]
+  NODE_VERSION = "22"
+
 # Notifica Bing/Yandex/Seznam/Naver via IndexNow a cada deploy de produção.
 [[plugins]]
   package = "/netlify/plugins/indexnow"

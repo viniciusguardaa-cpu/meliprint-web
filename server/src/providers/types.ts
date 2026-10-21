@@ -77,6 +77,13 @@ export interface ListShipmentsOptions {
   includePacking?: boolean;
 }
 
+/** A partial account result is useful, but must never be presented as complete. */
+export class ShipmentListError extends Error {
+  constructor(message: string, public readonly shipments: NormalizedShipment[]) {
+    super(message);
+  }
+}
+
 export type LabelFormat = 'zpl' | 'pdf';
 
 export interface MarketplaceProvider {

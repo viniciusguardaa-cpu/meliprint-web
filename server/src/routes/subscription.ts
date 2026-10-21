@@ -61,7 +61,7 @@ router.get('/status', async (req: Request, res: Response) => {
     const user = await getUserById(req.session.userId!);
 
     // Check if user has free lifetime access
-    const userEmail = user?.email?.toLowerCase();
+    const userEmail = user?.email_verified ? user.email?.toLowerCase() : undefined;
     if (userEmail && await isFreeAccessEmail(userEmail)) {
       return res.json({
         hasSubscription: true,

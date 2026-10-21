@@ -10,6 +10,7 @@ import {
   getUserById,
   getUserByEmail,
   setUserPassword,
+  claimUnverifiedAccount,
   markEmailVerified,
   setUserMlId,
   upsertMarketplaceAccount,
@@ -30,6 +31,8 @@ declare module 'express-session' {
   interface SessionData {
     /** Internal users.id — provider-agnostic identity. */
     userId?: number;
+    /** Authentication instant used to revoke sessions after account recovery. */
+    authAt?: number;
     newRegistration?: boolean;
     /** Anonymous analytics visitor key, stashed by POST /api/analytics/utm. */
     visitorKey?: string;
@@ -77,9 +80,10 @@ function getOAuthRedirectUri(providerId: string): string {
   return `${base}/api/auth/oauth/${providerId}/callback`;
 }
 
-async function createSessionForUser(req: Request, userId: number) {
+async function createSessionForUser(req: Request, userId: number, authAt = Date.now()) {
   await regenerateSession(req);
   req.session.userId = userId;
+  req.session.authAt = authAt;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,7 +96,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
   const nickname = (req.body?.nickname as string | undefined)?.trim()
     || (email ? email.split('@')[0] : '');
 
-  if (!email || !EMAIL_RE.test(email)) {
+  if (!email || !EMAIL_RE.test(email) || email.endsWith('@noemail.labelgo')) {
     return res.status(400).json({ error: 'invalid_email', message: 'E-mail inválido' });
   }
   if (!password || password.length < PASSWORD_MIN_LENGTH) {
@@ -140,6 +144,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 });
 
 router.post('/login', authLimiter, async (req: Request, res: Response) => {
+  const authAt = Date.now();
   const email = (req.body?.email as string | undefined)?.trim().toLowerCase();
   const password = req.body?.password as string | undefined;
 
@@ -153,7 +158,10 @@ router.post('/login', authLimiter, async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'invalid_credentials', message: 'E-mail ou senha incorretos' });
     }
 
-    await createSessionForUser(req, user.id);
+    if (user.blocked_at) {
+      return res.status(403).json({ error: 'account_blocked', message: 'Conta suspensa. Fale com o suporte.' });
+    }
+    await createSessionForUser(req, user.id, authAt);
     res.json({ ok: true, user: { userId: user.id, email: user.email, nickname: user.nickname } });
   } catch (error) {
     console.error('Login error:', error);
@@ -237,8 +245,10 @@ router.post('/reset-password', authLimiter, async (req: Request, res: Response) 
     if (!userId) {
       return res.status(400).json({ error: 'invalid_token', message: 'Link expirado ou já utilizado' });
     }
-    await setUserPassword(userId, hashPassword(password));
-    await createSessionForUser(req, userId);
+    const revokedAt = new Date();
+    await setUserPassword(userId, hashPassword(password), revokedAt);
+    // The recovery session is the only session allowed at the new boundary.
+    await createSessionForUser(req, userId, Math.max(Date.now(), revokedAt.getTime() + 1));
     res.json({ ok: true });
   } catch (error) {
     console.error('Reset password error:', error);
@@ -354,6 +364,8 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
     );
 
     const existing = await getMarketplaceAccountByExternal(providerId, identity.externalUserId);
+    let authAt = Date.now();
+    const trustedEmail = identity.emailVerified === true ? identity.email : undefined;
 
     if (pending.mode === 'connect' && req.session.userId) {
       // Connect flow: attach to the logged-in user — never to someone else.
@@ -385,6 +397,14 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
     let newRegistration = false;
     if (existing) {
       userId = existing.user_id;
+      const owner = await getUserById(userId);
+      if (!owner || owner.blocked_at) return res.redirect(`${frontendUrl()}/login?error=account_blocked`);
+      // Includes legacy stores connected before email verification was introduced.
+      if (!owner.email_verified && trustedEmail && owner.email?.toLowerCase() === trustedEmail.toLowerCase()) {
+        const revokedAt = new Date();
+        await claimUnverifiedAccount(userId, revokedAt);
+        authAt = Math.max(Date.now(), revokedAt.getTime() + 1);
+      }
       await upsertMarketplaceAccount(userId, providerId, identity.externalUserId, {
         nickname: identity.nickname,
         email: identity.email,
@@ -393,18 +413,23 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
         tokenExpiresAt: tokens.expiresAt
       });
     } else {
-      // Email linking: Mercado Livre verifies account emails, so matching on
-      // it is safe. Re-evaluate per provider before trusting theirs.
-      const byEmail = identity.email ? await getUserByEmail(identity.email) : null;
+      // Editable marketplace/company email fields do not prove mailbox ownership.
+      const byEmail = trustedEmail ? await getUserByEmail(trustedEmail) : null;
       if (byEmail) {
+        if (byEmail.blocked_at) return res.redirect(`${frontendUrl()}/login?error=account_blocked`);
+        if (!byEmail.email_verified) {
+          const revokedAt = new Date();
+          await claimUnverifiedAccount(byEmail.id, revokedAt);
+          authAt = Math.max(Date.now(), revokedAt.getTime() + 1);
+        }
         userId = byEmail.id;
       } else {
         const nickname = identity.nickname
           || (identity.email ? identity.email.split('@')[0] : `vendedor_${identity.externalUserId}`);
         const user = await createUser({
-          email: identity.email || `${providerId}_${identity.externalUserId}@noemail.labelgo`,
+          email: trustedEmail || `${providerId}_${identity.externalUserId}@noemail.labelgo`,
           nickname,
-          emailVerified: !!identity.email
+          emailVerified: !!trustedEmail
         });
         userId = user.id;
         newRegistration = true;
@@ -424,7 +449,11 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
       await trackEvent({ event_name: 'account_connected', user_id: userId, properties: { provider: providerId } });
     }
 
-    await createSessionForUser(req, userId);
+    const user = await getUserById(userId);
+    if (!user || user.blocked_at) {
+      return res.redirect(`${frontendUrl()}/login?error=account_blocked`);
+    }
+    await createSessionForUser(req, userId, authAt);
     req.session.newRegistration = newRegistration;
     res.redirect(`${frontendUrl()}${pending.returnTo || "/dashboard"}`);
   } catch (error) {

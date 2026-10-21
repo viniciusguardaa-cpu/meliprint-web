@@ -21,7 +21,7 @@ export async function requireActiveSubscription(req: Request, res: Response, nex
     }
 
     // Check if user has free lifetime access
-    const userEmail = user.email?.toLowerCase();
+    const userEmail = user.email_verified ? user.email?.toLowerCase() : undefined;
     if (userEmail && await isFreeAccessEmail(userEmail)) {
       (req as any).planId = 'pro';
       (req as any).userId = user.id;
@@ -69,7 +69,7 @@ export function requirePlanFeature(feature: PlanFeature) {
         return res.status(403).json({ error: 'account_blocked', message: 'Conta suspensa. Fale com o suporte.' });
       }
 
-      const userEmail = user.email?.toLowerCase();
+      const userEmail = user.email_verified ? user.email?.toLowerCase() : undefined;
       if (userEmail && await isFreeAccessEmail(userEmail)) {
         (req as any).planId = 'pro';
         (req as any).userId = user.id;

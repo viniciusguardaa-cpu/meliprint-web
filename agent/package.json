@@ -74,5 +74,8 @@
   },
   "dependencies": {
     "pdf-to-printer": "5.8.1"
+  },
+  "overrides": {
+    "global-agent": "^4.1.3"
   }
 }
