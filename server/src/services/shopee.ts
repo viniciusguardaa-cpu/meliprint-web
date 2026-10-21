@@ -117,6 +117,8 @@ async function apiGet(
 }
 
 /** Signed shop-level POST (JSON body). Returns raw Response when binary=true. */
+export class ShopeeRequestError extends Error {}
+
 async function apiPost(
   path: string,
   shop: { accessToken: string; shopId: string },
@@ -131,23 +133,28 @@ async function apiPost(
     shop_id: shop.shopId,
     sign: shopSign(path, timestamp, shop.accessToken, shop.shopId)
   });
-  const res = await fetch(`${shopeeHost()}${path}?${qs.toString()}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${shopeeHost()}${path}?${qs.toString()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  } catch {
+    throw new ShopeeRequestError(`Shopee ${path} transport unavailable`);
+  }
   if (binary) {
     // Shipping documents come back as raw file bytes; errors come as JSON.
     const contentType = res.headers.get('content-type') || '';
     const buf = Buffer.from(await res.arrayBuffer());
     if (!res.ok || contentType.includes('json')) {
       const data = JSON.parse(buf.toString('utf8')) as ShopeeResponse;
-      throw new Error(`Shopee ${path} failed: ${data.error || res.status} ${data.message || ''}`.trim());
+      throw new ShopeeRequestError(`Shopee ${path} failed: ${data.error || res.status} ${data.message || ''}`.trim());
     }
     return buf;
   }
-  const data: ShopeeResponse = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`Shopee ${path} HTTP ${res.status}: ${JSON.stringify(data).slice(0, 300)}`);
+  const data: ShopeeResponse = await res.json().catch(() => { throw new ShopeeRequestError(`Shopee ${path} invalid response`); });
+  if (!res.ok) throw new ShopeeRequestError(`Shopee ${path} HTTP ${res.status}: ${JSON.stringify(data).slice(0, 300)}`);
   assertOk(data, path);
   return data.response ?? data;
 }
@@ -253,10 +260,7 @@ export async function getPrintableOrderSns(
 ): Promise<string[]> {
   const [ready, processed] = await Promise.all([
     getShipmentList(shop, maxOrders),
-    getProcessedOrders(shop, maxOrders).catch((err) => {
-      console.warn(`[shopee] get_order_list PROCESSED failed: ${err.message}`);
-      return [] as ShopeeShipmentListEntry[];
-    })
+    getProcessedOrders(shop, maxOrders)
   ]);
   const seen = new Set<string>();
   for (const e of [...ready, ...processed]) seen.add(e.order_sn);
@@ -689,7 +693,8 @@ export function invalidateReadyLabelPdfs(shopId: string, orderSns: string[]) {
 
 export async function getReadyLabelPdfs(
   shop: { accessToken: string; shopId: string },
-  orders: ShopeeOrderDetail[]
+  orders: ShopeeOrderDetail[],
+  onUnavailable?: () => void
 ): Promise<Map<string, Buffer[]>> {
   const ready = new Map<string, Buffer[]>();
   const { PDFDocument } = await import('pdf-lib');
@@ -736,6 +741,7 @@ export async function getReadyLabelPdfs(
         if (bytes > PDF_CACHE_MAX_BYTES || readyPdfCache.size >= 200) readyPdfCache.clear();
         if (pdf.length <= PDF_CACHE_MAX_BYTES) readyPdfCache.set(key, { pdf, expiresAt: Date.now() + PDF_CACHE_TTL_MS });
       } catch (error) {
+        if (error instanceof ShopeeRequestError) onUnavailable?.();
         readyPdfCache.delete(key);
         console.warn(`[shopee] readiness not confirmed for ${orderSn}:`, error instanceof Error ? error.message : 'unknown');
       }
