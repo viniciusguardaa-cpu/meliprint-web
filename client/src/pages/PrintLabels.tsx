@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import { loadLabelPdf } from '../lib/labelPdf';
+import { loadLabelPdfWithNotes } from '../lib/labelPdf';
 
 function friendlyErrorMessage(detail: string): string {
   if (/not yet ready|ainda não está pronta/i.test(detail)) {
@@ -23,6 +23,9 @@ export default function PrintLabels() {
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [printReady, setPrintReady] = useState(false);
+  const [includePacking, setIncludePacking] = useState(searchParams.get('include_packing') === '1');
+  const [includeInvoice, setIncludeInvoice] = useState(searchParams.get('include_invoice') === '1');
+  const [notes, setNotes] = useState<string[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const loggedRef = useRef(false);
 
@@ -51,15 +54,19 @@ export default function PrintLabels() {
       setError(null);
       setPrintReady(false);
       setPdfUrl('');
+      setNotes([]);
       loggedRef.current = false;
 
       try {
         const params = new URLSearchParams({ shipment_ids: shipmentIds.join(',') });
         if (accountId) params.set('account_id', accountId);
         if (provider) params.set('provider', provider);
+        if (includePacking) params.set('include_packing', '1');
+        if (includeInvoice) params.set('include_invoice', '1');
         const url = `/api/labels/pdf?${params.toString()}`;
-        const pdf = await loadLabelPdf(url, controller.signal);
+        const { blob: pdf, notes: pdfNotes } = await loadLabelPdfWithNotes(url, controller.signal);
         if (controller.signal.aborted) return;
+        setNotes(pdfNotes);
         objectUrl = URL.createObjectURL(pdf);
         setPdfUrl(objectUrl);
         setLoading(false);
@@ -92,7 +99,7 @@ export default function PrintLabels() {
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [rawIds, accountId, provider]);
+  }, [rawIds, accountId, provider, includePacking, includeInvoice]);
 
   const printLabels = () => {
     if (!printReady || !iframeRef.current?.contentWindow) return;
@@ -167,6 +174,21 @@ export default function PrintLabels() {
         </div>
       </div>
 
+      {(provider === '' || provider === 'mercadolivre') && (
+        <div className="no-print px-4 py-2 text-sm flex flex-wrap items-center gap-4 border-b border-border">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={includePacking} onChange={(e) => setIncludePacking(e.target.checked)} />
+            Incluir conferência dos itens
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={includeInvoice} onChange={(e) => setIncludeInvoice(e.target.checked)} />
+            Incluir NF
+          </label>
+        </div>
+      )}
+      {notes.length > 0 && (
+        <div className="no-print px-4 py-2 text-sm text-muted-foreground">{notes.join(' ')}</div>
+      )}
       {pdfUrl && (
         <div className="no-print px-4 py-2 text-sm">
           {printReady ? 'PDF carregado. Confira a etiqueta e clique em Imprimir.' : 'Abrindo PDF...'}
