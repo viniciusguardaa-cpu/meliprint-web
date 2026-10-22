@@ -23,6 +23,7 @@ import pool from '../db.js';
 import { isValidWebhookSignature } from '../services/webhookSignature.js';
 import { getPlan, getPriceForPlan, getAssignedVariantPrice, linkAssignmentToUser, getFounderSlotState, FOUNDER_PLAN_ID } from '../services/pricing.js';
 import { trackEvent, markReferralSubscribed } from '../services/analytics.js';
+import { markPartnerReferralPaid } from '../services/partners.js';
 
 import { checkoutMatchesOffer } from '../services/checkoutOffer.js';
 
@@ -456,6 +457,7 @@ async function syncSubscriptionFromPreapproval(preapprovalId: string) {
     });
     await trackEvent({ event_name: 'subscription_activated', user_id: sub.user_id, properties: { plan_id: sub.plan_id } });
     await markReferralSubscribed(sub.user_id).catch(() => {});
+    await markPartnerReferralPaid(sub.user_id).catch(() => {});
     // Trial → paid conversion: close the still-running trial so the user is
     // billed from now on (remaining trial days are forfeited).
     const trialing = await pool.query(

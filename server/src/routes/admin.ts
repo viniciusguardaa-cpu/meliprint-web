@@ -15,6 +15,7 @@ import pool, {
   grantUserTrialDays
 } from '../db.js';
 import { getGrowthMetrics } from '../services/analytics.js';
+import { listPartnersWithMetrics, createPartner, updatePartner, rotatePartnerKey, normalizeRefCode, parseTerms, partnerLink } from '../services/partners.js';
 import { getExperimentResults } from '../services/pricing.js';
 
 const router = Router();
@@ -271,6 +272,69 @@ router.get('/experiments/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching experiment results:', error);
     res.status(500).json({ error: 'Failed to fetch experiment results' });
+  }
+});
+
+router.get('/partners', async (_req: Request, res: Response) => {
+  try {
+    res.json({ partners: await listPartnersWithMetrics() });
+  } catch (error) {
+    console.error('Error fetching partners:', error);
+    res.status(500).json({ error: 'Failed to fetch partners' });
+  }
+});
+
+// The access key is returned ONCE here (and on rotate); only its hash is stored.
+router.post('/partners', async (req: Request, res: Response) => {
+  try {
+    const name = String(req.body?.name ?? '').trim().slice(0, 255);
+    const refCode = normalizeRefCode(req.body?.ref_code);
+    if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
+    if (!refCode) return res.status(400).json({ error: 'Código inválido (3-40 caracteres: a-z, 0-9, - ou _)' });
+    const terms = parseTerms(req.body || {});
+    if (terms.error) return res.status(400).json({ error: terms.error });
+    const email = String(req.body?.contact_email ?? '').trim().slice(0, 255) || null;
+    const { partner, accessKey } = await createPartner({ name, contact_email: email, ref_code: refCode, pct: terms.pct, months: terms.months });
+    res.json({ partner: { id: partner.id, name: partner.name, ref_code: partner.ref_code, link: partnerLink(partner.ref_code) }, access_key: accessKey });
+  } catch (error: any) {
+    if (error?.code === '23505') return res.status(409).json({ error: 'Esse código já existe' });
+    console.error('Error creating partner:', error);
+    res.status(500).json({ error: 'Failed to create partner' });
+  }
+});
+
+router.patch('/partners/:id', async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+    const terms = parseTerms(req.body || {});
+    if (terms.error) return res.status(400).json({ error: terms.error });
+    const b = req.body || {};
+    const updated = await updatePartner(id, {
+      name: b.name !== undefined ? String(b.name).trim().slice(0, 255) || undefined : undefined,
+      contact_email: b.contact_email !== undefined ? (String(b.contact_email ?? '').trim().slice(0, 255) || null) : undefined,
+      pct: terms.pct,
+      months: terms.months,
+      is_active: typeof b.is_active === 'boolean' ? b.is_active : undefined,
+    });
+    if (!updated) return res.status(404).json({ error: 'Partner not found or nothing to update' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error updating partner:', error);
+    res.status(500).json({ error: 'Failed to update partner' });
+  }
+});
+
+router.post('/partners/:id/rotate-key', async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+    const accessKey = await rotatePartnerKey(id);
+    if (!accessKey) return res.status(404).json({ error: 'Partner not found' });
+    res.json({ access_key: accessKey });
+  } catch (error) {
+    console.error('Error rotating partner key:', error);
+    res.status(500).json({ error: 'Failed to rotate key' });
   }
 });
 

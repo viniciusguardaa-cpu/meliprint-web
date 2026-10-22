@@ -25,6 +25,7 @@ import { hashPassword, verifyPassword, PASSWORD_MIN_LENGTH } from '../services/p
 import { authLimiter } from '../middleware/rateLimiter.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/mailer.js';
 import { trackEvent, linkVisitorToUser } from '../services/analytics.js';
+import { attributePartnerSignup } from '../services/partners.js';
 
 declare module 'express-session' {
   interface SessionData {
@@ -119,6 +120,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
 
     // Link the anonymous UTM attribution + pre-signup events to the account.
     await linkVisitorToUser(visitorKey || '', user.id);
+    await attributePartnerSignup(visitorKey || '', user.id);
 
     await createSessionForUser(req, user.id);
     req.session.newRegistration = true;
@@ -409,6 +411,7 @@ async function handleOAuthCallback(req: Request, res: Response, providerId: stri
         userId = user.id;
         newRegistration = true;
         await linkVisitorToUser(visitorKey || '', userId);
+        await attributePartnerSignup(visitorKey || '', userId);
       }
       await upsertMarketplaceAccount(userId, providerId, identity.externalUserId, {
         nickname: identity.nickname,
