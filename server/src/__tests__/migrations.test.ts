@@ -95,3 +95,14 @@ describe('0015_partners.sql', () => {
     expect(sql).toMatch(/UNIQUE\s*\(\s*"user_id"\s*\)/);
   });
 });
+
+describe('0016_partner_passwords.sql', () => {
+  const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, '0016_partner_passwords.sql'), 'utf8');
+  it('is additive and stores only password hashes', () => {
+    expect(sql).toContain('ADD COLUMN IF NOT EXISTS "password_hash"');
+    expect(sql).toContain('ADD COLUMN IF NOT EXISTS "username"');
+    expect(sql).not.toMatch(/DROP /i);
+    expect(sql).not.toMatch(/"password"\s/);
+    expect(sql).toContain('IDX_partners_username');
+  });
+});
