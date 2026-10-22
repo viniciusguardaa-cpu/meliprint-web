@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Share2, Copy, Check, Plus, KeyRound } from 'lucide-react';
+import { Share2, Copy, Check, Plus, KeyRound, Lock } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
@@ -10,10 +10,12 @@ export function AdminPartners() {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [pct, setPct] = useState('20');
   const [months, setMonths] = useState('');
   const [busy, setBusy] = useState(false);
-  const [newKey, setNewKey] = useState<{ partner: string; key: string; link: string } | null>(null);
+  const [newKey, setNewKey] = useState<{ partner: string; key: string; link: string; username?: string | null; password?: string | null } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
   const [editPct, setEditPct] = useState('');
@@ -38,12 +40,12 @@ export function AdminPartners() {
     try {
       const res = await fetch('/api/admin/partners', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, ref_code: code, commission_pct: pct === '' ? null : Number(pct), commission_months: months === '' ? null : Number(months) }),
+        body: JSON.stringify({ name, ref_code: code, username: username || undefined, password: password || undefined, commission_pct: pct === '' ? null : Number(pct), commission_months: months === '' ? null : Number(months) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro ao criar parceiro');
-      setNewKey({ partner: data.partner.name, key: data.access_key, link: data.partner.link });
-      setName(''); setCode(''); setMonths('');
+      setNewKey({ partner: data.partner.name, key: data.access_key, link: data.partner.link, username: data.partner.username, password: data.initial_password });
+      setName(''); setCode(''); setUsername(''); setPassword(''); setMonths('');
       await load();
     } catch (err: any) { setError(err.message); } finally { setBusy(false); }
   };
@@ -63,6 +65,14 @@ export function AdminPartners() {
     else setError(data.error || 'Erro ao gerar chave');
   };
 
+  const resetPassword = async (p: AdminPartner) => {
+    if (!window.confirm(`Gerar nova senha para ${p.name}? A senha antiga deixa de funcionar.`)) return;
+    const res = await fetch(`/api/admin/partners/${p.id}/reset-password`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) setNewKey({ partner: p.name, key: '', link: p.link, username: p.username, password: data.password });
+    else setError(data.error || 'Erro ao gerar senha');
+  };
+
   const saveTerms = async (id: number) => {
     await patch(id, { commission_pct: editPct === '' ? null : Number(editPct), commission_months: editMonths === '' ? null : Number(editMonths) });
     setEditId(null);
@@ -77,7 +87,7 @@ export function AdminPartners() {
         <h2 className="text-lg font-bold text-foreground">Parceiros</h2>
       </div>
       <p className="text-xs text-muted-foreground mb-4">
-        Cada parceiro tem um link de indicação e uma chave de acesso ao painel dele em {portal} (só enxerga as próprias indicações, sem dados pessoais).
+        Cada parceiro entra no painel dele em {portal} com usuário e senha (a chave de acesso serve como recuperação) e só enxerga as próprias indicações, sem dados pessoais.
         Comissão = % do faturamento bruto contratado, estimada a partir das assinaturas ativas.
       </p>
 
@@ -85,24 +95,46 @@ export function AdminPartners() {
 
       {newKey && (
         <div className="rounded-lg border border-border bg-muted p-4 mb-4" data-testid="new-key">
-          <p className="text-sm font-semibold text-foreground mb-1">Chave de acesso de {newKey.partner}</p>
-          <p className="text-xs text-muted-foreground mb-2">Aparece só agora. Envie ao parceiro por um canal seguro; depois não dá para ver de novo (só gerar outra).</p>
+          <p className="text-sm font-semibold text-foreground mb-1">Acesso de {newKey.partner}</p>
+          <p className="text-xs text-muted-foreground mb-2">Aparece só agora. Envie ao parceiro por um canal seguro; depois não dá para ver de novo (só gerar outro). Ele pode trocar a senha no próprio painel.</p>
           <div className="flex flex-wrap items-center gap-2">
-            <code className="text-xs bg-surface border border-border rounded px-2 py-1 break-all">{newKey.key}</code>
-            <Button type="button" size="sm" variant="outline" onClick={() => copy('key', newKey.key)}>
-              {copied === 'key' ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}Copiar chave
-            </Button>
+            {newKey.username && (
+              <>
+                <span className="text-xs text-muted-foreground">Usuário:</span>
+                <code className="text-xs bg-surface border border-border rounded px-2 py-1 break-all">{newKey.username}</code>
+              </>
+            )}
+            {newKey.password && (
+              <>
+                <span className="text-xs text-muted-foreground">Senha:</span>
+                <code className="text-xs bg-surface border border-border rounded px-2 py-1 break-all">{newKey.password}</code>
+                <Button type="button" size="sm" variant="outline" onClick={() => copy('pwd', newKey.password!)}>
+                  {copied === 'pwd' ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}Copiar senha
+                </Button>
+              </>
+            )}
+            {newKey.key && (
+              <>
+                <span className="text-xs text-muted-foreground">Chave (recuperação):</span>
+                <code className="text-xs bg-surface border border-border rounded px-2 py-1 break-all">{newKey.key}</code>
+                <Button type="button" size="sm" variant="outline" onClick={() => copy('key', newKey.key)}>
+                  {copied === 'key' ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}Copiar chave
+                </Button>
+              </>
+            )}
             <Button type="button" size="sm" variant="ghost" onClick={() => setNewKey(null)}>Fechar</Button>
           </div>
         </div>
       )}
 
-      <form onSubmit={create} className="grid grid-cols-1 sm:grid-cols-5 gap-2 mb-6">
+      <form onSubmit={create} className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-6">
         <Input placeholder="Nome (ex.: Ecommerce Free)" value={name} onChange={(e) => setName(e.target.value)} required aria-label="Nome do parceiro" />
         <Input placeholder="Código do link (ex.: ecommercefree)" value={code} onChange={(e) => setCode(e.target.value)} required aria-label="Código do link" />
+        <Input placeholder="Usuário (padrão: código)" value={username} onChange={(e) => setUsername(e.target.value)} aria-label="Usuário de acesso" />
+        <Input placeholder="Senha (vazio gera uma)" type="text" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Senha inicial" />
         <Input placeholder="% comissão" type="number" step="0.5" min="0" max="100" value={pct} onChange={(e) => setPct(e.target.value)} aria-label="Percentual de comissão" />
         <Input placeholder="Meses (opcional)" type="number" min="1" value={months} onChange={(e) => setMonths(e.target.value)} aria-label="Duração em meses" />
-        <Button type="submit" disabled={busy}><Plus className="w-4 h-4 mr-1" />Criar parceiro</Button>
+        <Button type="submit" disabled={busy} className="sm:col-span-2"><Plus className="w-4 h-4 mr-1" />Criar parceiro</Button>
       </form>
 
       {partners && partners.length === 0 && <p className="text-sm text-muted-foreground">Nenhum parceiro ainda.</p>}
@@ -118,11 +150,13 @@ export function AdminPartners() {
                 <Button size="sm" variant="outline" onClick={() => copy(`l${p.id}`, p.link)}>
                   {copied === `l${p.id}` ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}Copiar link
                 </Button>
+                <Button size="sm" variant="outline" onClick={() => resetPassword(p)}><Lock className="w-4 h-4 mr-1" />Nova senha</Button>
                 <Button size="sm" variant="outline" onClick={() => rotate(p)}><KeyRound className="w-4 h-4 mr-1" />Nova chave</Button>
                 <Button size="sm" variant="ghost" onClick={() => patch(p.id, { is_active: !p.is_active })}>{p.is_active ? 'Desativar' : 'Ativar'}</Button>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground break-all mb-3">{p.link}</p>
+            <p className="text-xs text-muted-foreground break-all mb-1">{p.link}</p>
+            <p className="text-xs text-muted-foreground mb-3">Usuário de acesso: <code className="bg-muted border border-border rounded px-1">{p.username ?? 'não definido'}</code></p>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center mb-3">
               {[['Visitantes', p.visitors], ['Cadastros', p.signups], ['Testes', p.trials], ['Assinaturas', p.paid], ['Canceladas', p.cancelled]].map(([l, v]) => (
                 <div key={String(l)} className="bg-muted rounded-lg p-2"><div className="text-lg font-bold">{v}</div><div className="text-xs text-muted-foreground">{l}</div></div>

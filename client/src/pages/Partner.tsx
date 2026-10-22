@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Copy, Check, Link2, Users, Timer, BadgeCheck, Wallet, LogOut, TrendingUp } from 'lucide-react';
+import { Copy, Check, Link2, Users, Timer, BadgeCheck, Wallet, LogOut, TrendingUp, KeyRound } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
@@ -14,10 +14,53 @@ function StatusBadge({ s }: { s: 'paid' | 'trial' | 'cancelled' | 'none' }) {
   return <Badge variant="neutral">Cadastro</Badge>;
 }
 
+function ChangePasswordCard() {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    if (next !== confirm) { setMsg({ kind: 'err', text: 'As senhas novas não coincidem' }); return; }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/partner/password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_password: current, new_password: next }),
+      });
+      if (!res.ok) { setMsg({ kind: 'err', text: (await res.json().catch(() => ({}))).error || 'Não foi possível trocar a senha' }); return; }
+      setMsg({ kind: 'ok', text: 'Senha alterada com sucesso.' });
+      setCurrent(''); setNext(''); setConfirm('');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <section className="bg-surface rounded-xl border border-border shadow-sm p-5">
+      <div className="flex items-center gap-2 mb-2">
+        <KeyRound className="w-4 h-4 text-primary" />
+        <h2 className="text-sm font-semibold text-foreground">Trocar senha</h2>
+      </div>
+      <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-start">
+        <Input type="password" autoComplete="current-password" placeholder="Senha atual" value={current} onChange={(e) => setCurrent(e.target.value)} aria-label="Senha atual" required />
+        <Input type="password" autoComplete="new-password" placeholder="Nova senha (mín. 8)" value={next} onChange={(e) => setNext(e.target.value)} aria-label="Nova senha" minLength={8} required />
+        <Input type="password" autoComplete="new-password" placeholder="Repetir nova senha" value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-label="Repetir nova senha" minLength={8} required />
+        <Button type="submit" disabled={busy}>Salvar senha</Button>
+      </form>
+      {msg && <p role="alert" className={`text-sm mt-2 ${msg.kind === 'ok' ? 'text-success' : 'text-danger'}`}>{msg.text}</p>}
+    </section>
+  );
+}
+
 export default function Partner() {
   const [data, setData] = useState<PartnerDashboardData | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [key, setKey] = useState('');
+  const [useKey, setUseKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -31,9 +74,10 @@ export default function Partner() {
 
   const login = async (e: React.FormEvent) => {
     e.preventDefault(); setError(null);
-    const res = await fetch('/api/partner/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ access_key: key }) });
+    const body = useKey ? { access_key: key } : { username, password };
+    const res = await fetch('/api/partner/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) { setError((await res.json().catch(() => ({}))).error || 'Não foi possível entrar'); return; }
-    setKey(''); await load();
+    setPassword(''); setKey(''); await load();
   };
   const logout = async () => { await fetch('/api/partner/logout', { method: 'POST' }); setAuthed(false); setData(null); };
   const copy = async () => { if (data && await copyText(data.partner.link)) { setCopied(true); setTimeout(() => setCopied(false), 1800); } };
@@ -46,10 +90,29 @@ export default function Partner() {
         <form onSubmit={login} className="bg-surface rounded-2xl border border-border shadow-sm p-8 w-full max-w-sm">
           <img src="/logo-wordmark.png" alt="LabelGo" className="h-8 mb-6" />
           <h1 className="text-xl font-bold text-foreground mb-1">Painel do parceiro</h1>
-          <p className="text-sm text-muted-foreground mb-5">Entre com a chave de acesso que a LabelGo te enviou.</p>
-          <Input type="password" autoComplete="off" placeholder="Chave de acesso" value={key} onChange={(e) => setKey(e.target.value)} aria-label="Chave de acesso" required />
+          {useKey ? (
+            <>
+              <p className="text-sm text-muted-foreground mb-5">Entre com a chave de acesso que a LabelGo te enviou.</p>
+              <Input type="password" autoComplete="off" placeholder="Chave de acesso" value={key} onChange={(e) => setKey(e.target.value)} aria-label="Chave de acesso" required />
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground mb-5">Entre com seu usuário e senha.</p>
+              <div className="space-y-3">
+                <Input type="text" autoComplete="username" placeholder="Usuário" value={username} onChange={(e) => setUsername(e.target.value)} aria-label="Usuário" required />
+                <Input type="password" autoComplete="current-password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Senha" required />
+              </div>
+            </>
+          )}
           {error && <p role="alert" className="text-sm text-danger mt-3">{error}</p>}
           <Button type="submit" className="w-full mt-4">Entrar</Button>
+          <button
+            type="button"
+            className="w-full mt-3 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+            onClick={() => { setUseKey(!useKey); setError(null); }}
+          >
+            {useKey ? 'Entrar com usuário e senha' : 'Entrar com chave de acesso'}
+          </button>
         </form>
       </div>
     );
@@ -144,6 +207,8 @@ export default function Partner() {
             </table>
           )}
         </section>
+
+        <ChangePasswordCard />
       </main>
     </div>
   );

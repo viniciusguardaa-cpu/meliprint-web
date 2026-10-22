@@ -12,6 +12,7 @@ export interface AdminPartner extends PartnerSummary {
   name: string;
   contact_email: string | null;
   ref_code: string;
+  username: string | null;
   link: string;
   is_active: boolean;
   created_at: string;
