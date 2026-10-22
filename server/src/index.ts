@@ -27,6 +27,8 @@ import labelsRoutes from './routes/labels.js';
 import subscriptionRoutes, { subscriptionLookup } from './routes/subscription.js';
 import adminRoutes from './routes/admin.js';
 import { adminSession } from './middleware/adminAuth.js';
+import partnerRoutes from './routes/partner.js';
+import { partnerSession } from './middleware/partnerAuth.js';
 import autoPrintRoutes from './routes/autoPrint.js';
 import healthRoutes from './routes/health.js';
 import notificationsRoutes from './routes/notifications.js';
@@ -62,6 +64,8 @@ app.set('trust proxy', 1);
 // Mount the isolated admin session before the site-wide user session middleware.
 // express-session skips a second middleware once req.session already exists.
 app.use('/api/admin', generalLimiter, adminSession, adminRoutes);
+// Partner portal: own cookie/session, mounted before the site-wide user session.
+app.use('/api/partner', generalLimiter, partnerSession, partnerRoutes);
 
 // Session store: Redis (faster) > PostgreSQL (persistent) > Memory (dev only)
 function getSessionStore() {
@@ -124,7 +128,7 @@ if (process.env.NODE_ENV === 'production') {
   // Public pages are prerendered files (dist/<route>/index.html) served by
   // express.static above. The SPA fallback only covers app routes that need a
   // client session; everything else gets the real 404 page + status.
-  const SPA_PREFIXES = ['/dashboard', '/print', '/auto-print', '/subscription', '/configuracoes', '/admin'];
+  const SPA_PREFIXES = ['/dashboard', '/print', '/auto-print', '/subscription', '/configuracoes', '/admin', '/parceiro'];
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({ error: 'Not found' });
