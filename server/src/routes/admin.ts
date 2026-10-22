@@ -15,7 +15,7 @@ import pool, {
   grantUserTrialDays
 } from '../db.js';
 import { getGrowthMetrics } from '../services/analytics.js';
-import { listPartnersWithMetrics, createPartner, updatePartner, rotatePartnerKey, setPartnerPassword, normalizeRefCode, normalizeUsername, parseTerms, partnerLink, validPassword } from '../services/partners.js';
+import { listPartnersWithMetrics, createPartner, updatePartner, rotatePartnerKey, setPartnerPassword, deletePartner, normalizeRefCode, normalizeUsername, parseTerms, partnerLink, validPassword } from '../services/partners.js';
 import { getExperimentResults } from '../services/pricing.js';
 
 const router = Router();
@@ -355,17 +355,35 @@ router.post('/partners/:id/rotate-key', async (req: Request, res: Response) => {
   }
 });
 
-// The new password is returned ONCE here; only its hash is stored.
+// The new password is returned ONCE here; only its hash is stored. Legacy
+// partners without a username get their ref_code as the username, so the reset
+// actually enables the usuario+senha login for them.
 router.post('/partners/:id/reset-password', async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
-    const password = await setPartnerPassword(id);
-    if (!password) return res.status(404).json({ error: 'Partner not found' });
-    res.json({ password });
-  } catch (error) {
+    const reset = await setPartnerPassword(id);
+    if (!reset) return res.status(404).json({ error: 'Partner not found' });
+    res.json({ password: reset.password, username: reset.username });
+  } catch (error: any) {
+    if (error?.code === '23505') return res.status(409).json({ error: 'O código do link já é o usuário de outro parceiro. Defina um usuário diferente antes.' });
     console.error('Error resetting partner password:', error);
     res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// Hard delete: removes the partner for good. Clicks and referrals cascade
+// (ON DELETE CASCADE), freeing the ref_code and username for reuse.
+router.delete('/partners/:id', async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+    const deleted = await deletePartner(id);
+    if (!deleted) return res.status(404).json({ error: 'Partner not found' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error deleting partner:', error);
+    res.status(500).json({ error: 'Failed to delete partner' });
   }
 });
 
