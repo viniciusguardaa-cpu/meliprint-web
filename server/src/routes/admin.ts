@@ -15,7 +15,7 @@ import pool, {
   grantUserTrialDays
 } from '../db.js';
 import { getGrowthMetrics } from '../services/analytics.js';
-import { listPartnersWithMetrics, createPartner, updatePartner, rotatePartnerKey, normalizeRefCode, parseTerms, partnerLink } from '../services/partners.js';
+import { listPartnersWithMetrics, createPartner, updatePartner, rotatePartnerKey, setPartnerPassword, normalizeRefCode, normalizeUsername, parseTerms, partnerLink, validPassword } from '../services/partners.js';
 import { getExperimentResults } from '../services/pricing.js';
 
 const router = Router();
@@ -284,20 +284,32 @@ router.get('/partners', async (_req: Request, res: Response) => {
   }
 });
 
-// The access key is returned ONCE here (and on rotate); only its hash is stored.
+// The access key and a generated initial password are returned ONCE here (and
+// on rotate/reset); only their hashes are stored. Username defaults to the ref
+// code; an empty password field means "generate one".
 router.post('/partners', async (req: Request, res: Response) => {
   try {
     const name = String(req.body?.name ?? '').trim().slice(0, 255);
     const refCode = normalizeRefCode(req.body?.ref_code);
     if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
     if (!refCode) return res.status(400).json({ error: 'Código inválido (3-40 caracteres: a-z, 0-9, - ou _)' });
+    const username = req.body?.username === undefined || req.body?.username === null || String(req.body.username).trim() === ''
+      ? refCode
+      : normalizeUsername(req.body.username);
+    if (!username) return res.status(400).json({ error: 'Usuário inválido (3-40 caracteres: a-z, 0-9, ., - ou _)' });
+    const password = String(req.body?.password ?? '').trim() || null;
+    if (password && !validPassword(password)) return res.status(400).json({ error: 'A senha precisa de pelo menos 8 caracteres' });
     const terms = parseTerms(req.body || {});
     if (terms.error) return res.status(400).json({ error: terms.error });
     const email = String(req.body?.contact_email ?? '').trim().slice(0, 255) || null;
-    const { partner, accessKey } = await createPartner({ name, contact_email: email, ref_code: refCode, pct: terms.pct, months: terms.months });
-    res.json({ partner: { id: partner.id, name: partner.name, ref_code: partner.ref_code, link: partnerLink(partner.ref_code) }, access_key: accessKey });
+    const { partner, accessKey, generatedPassword } = await createPartner({ name, contact_email: email, ref_code: refCode, pct: terms.pct, months: terms.months, username, password });
+    res.json({
+      partner: { id: partner.id, name: partner.name, ref_code: partner.ref_code, username, link: partnerLink(partner.ref_code) },
+      access_key: accessKey,
+      initial_password: generatedPassword,
+    });
   } catch (error: any) {
-    if (error?.code === '23505') return res.status(409).json({ error: 'Esse código já existe' });
+    if (error?.code === '23505') return res.status(409).json({ error: 'Esse código ou usuário já existe' });
     console.error('Error creating partner:', error);
     res.status(500).json({ error: 'Failed to create partner' });
   }
@@ -310,8 +322,13 @@ router.patch('/partners/:id', async (req: Request, res: Response) => {
     const terms = parseTerms(req.body || {});
     if (terms.error) return res.status(400).json({ error: terms.error });
     const b = req.body || {};
+    const username = b.username === undefined ? undefined : normalizeUsername(b.username);
+    if (b.username !== undefined && b.username !== null && String(b.username).trim() !== '' && !username) {
+      return res.status(400).json({ error: 'Usuário inválido (3-40 caracteres: a-z, 0-9, ., - ou _)' });
+    }
     const updated = await updatePartner(id, {
       name: b.name !== undefined ? String(b.name).trim().slice(0, 255) || undefined : undefined,
+      username,
       contact_email: b.contact_email !== undefined ? (String(b.contact_email ?? '').trim().slice(0, 255) || null) : undefined,
       pct: terms.pct,
       months: terms.months,
@@ -335,6 +352,20 @@ router.post('/partners/:id/rotate-key', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error rotating partner key:', error);
     res.status(500).json({ error: 'Failed to rotate key' });
+  }
+});
+
+// The new password is returned ONCE here; only its hash is stored.
+router.post('/partners/:id/reset-password', async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+    const password = await setPartnerPassword(id);
+    if (!password) return res.status(404).json({ error: 'Partner not found' });
+    res.json({ password });
+  } catch (error) {
+    console.error('Error resetting partner password:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 
