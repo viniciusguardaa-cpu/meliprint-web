@@ -47,10 +47,12 @@ export function isGoogleReferrer(referrer: string): boolean {
  * Safe to call on every page load — no-ops after the first call.
  */
 export function captureUTM(): void {
-  if (sessionStorage.getItem(UTM_SESSION_FLAG)) return;
+  const params = new URLSearchParams(window.location.search);
+  // A partner link (?ref=code) is always reported, even mid-session.
+  const ref = (params.get('ref') || '').trim().toLowerCase().slice(0, 40) || undefined;
+  if (sessionStorage.getItem(UTM_SESSION_FLAG) && !ref) return;
   sessionStorage.setItem(UTM_SESSION_FLAG, '1');
 
-  const params = new URLSearchParams(window.location.search);
   const utm: Record<string, string> = {};
   for (const k of UTM_KEYS) {
     const v = params.get(k);
@@ -82,6 +84,7 @@ export function captureUTM(): void {
     credentials: 'include',
     body: JSON.stringify({
       ...utm,
+      ref,
       referrer,
       landing_path: window.location.pathname.slice(0, 500),
     }),
