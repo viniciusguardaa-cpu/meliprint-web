@@ -7,7 +7,8 @@
     "/auto-print",
     "/subscription", "/subscription/*",
     "/configuracoes",
-    "/admin", "/admin/*"
+    "/admin", "/admin/*",
+    "/parceiro"
   ],
   "exclude": []
 }
