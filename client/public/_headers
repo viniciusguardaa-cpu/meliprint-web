@@ -25,3 +25,5 @@
   X-Robots-Tag: noindex, nofollow
 /admin/*
   X-Robots-Tag: noindex, nofollow
+/parceiro
+  X-Robots-Tag: noindex, nofollow

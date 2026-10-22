@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { trackEvent, captureUTM } from '../services/analytics.js';
+import { normalizeRefCode, recordPartnerClick } from '../services/partners.js';
 
 const router = Router();
 
@@ -62,6 +63,10 @@ router.post('/utm', async (req: Request, res: Response) => {
     // receives no x-visitor-key header) can still link a new account to the
     // attribution captured on landing.
     if (req.session) req.session.visitorKey = visitorKey;
+
+    // Partner link (?ref=code): remember the click for signup attribution.
+    const refCode = normalizeRefCode(req.body?.ref);
+    if (refCode) await recordPartnerClick(visitorKey, refCode);
 
     res.json({ ok: true });
   } catch (error) {

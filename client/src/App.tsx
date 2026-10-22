@@ -26,6 +26,7 @@ const SubscriptionCallback = lazy(() => import('./pages/SubscriptionCallback'));
 const Subscription = lazy(() => import('./pages/Subscription'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Admin = lazy(() => import('./pages/Admin'));
+const Partner = lazy(() => import('./pages/Partner'));
 
 function BlockedScreen() {
   const { logout } = useAuth();
@@ -110,7 +111,7 @@ let lastPageView = { path: '', ts: 0 };
 function RouteTracker() {
   const location = useLocation();
   useEffect(() => {
-    if (location.pathname.startsWith('/admin')) return;
+    if (location.pathname.startsWith('/admin') || location.pathname.startsWith('/parceiro')) return;
     captureUTM();
     const now = Date.now();
     if (lastPageView.path === location.pathname && now - lastPageView.ts < 1500) return;
@@ -132,6 +133,7 @@ function App() {
         <Route path="/redefinir-senha" element={<ResetPassword />} />
         <Route path="/verificar-email" element={<VerifyEmail />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/parceiro" element={<Partner />} />
         <Route path="/termos" element={<Terms />} />
         <Route path="/privacidade" element={<Privacy />} />
         <Route path="/pricing" element={<Pricing />} />

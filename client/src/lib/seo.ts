@@ -290,6 +290,7 @@ const PRIVATE_PREFIXES = [
   '/subscription',
   '/configuracoes',
   '/admin',
+  '/parceiro',
 ];
 
 /** Resolve the SEO meta for any pathname (exact match → private → 404). */
