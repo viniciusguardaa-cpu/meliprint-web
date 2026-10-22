@@ -12,6 +12,7 @@ import type { Subscriber, Stats, Timeseries, UserDetail, FreeAccessEntry, Growth
 import { AdminGrowthPanel } from './AdminGrowthPanel';
 import { MiniBars } from './AdminMiniBars';
 import { AdminMrrGoals } from './AdminMrrGoals';
+import { AdminPartners } from './AdminPartners';
 
 const ACTIVE_STATUSES = ['authorized', 'active'];
 
@@ -493,6 +494,7 @@ export default function Admin() {
         </div>
 
         <AdminMrrGoals mrr={stats?.mrr ?? null} />
+        <AdminPartners />
 
         {/* Timeseries charts */}
         {timeseries && (
