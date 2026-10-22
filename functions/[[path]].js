@@ -7,6 +7,7 @@ const PRIVATE_ROUTES = [
   /^\/auto-print$/,
   /^\/subscription(?:\/|$)/,
   /^\/configuracoes$/,
+  /^\/parceiro$/,
 ];
 
 export async function onRequest({ request, env }) {
