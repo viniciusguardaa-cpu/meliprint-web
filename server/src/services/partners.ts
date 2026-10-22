@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import pool from '../db.js';
+import { hashPassword, verifyPassword, PASSWORD_MIN_LENGTH } from './password.js';
 
 /** A partner click only counts for the signup if it happened in this window. */
 export const ATTRIBUTION_WINDOW_DAYS = 30;
@@ -18,6 +19,31 @@ export function hashAccessKey(key: string): string {
 
 export function generateAccessKey(): string {
   return `lgp_${crypto.randomBytes(24).toString('hex')}`;
+}
+
+const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,39}$/;
+
+export function normalizeUsername(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const u = raw.trim().toLowerCase();
+  return USERNAME_RE.test(u) ? u : null;
+}
+
+/** Initial/reset password: 72 bits of entropy, URL-safe, shown once. */
+export function generatePassword(): string {
+  return crypto.randomBytes(9).toString('base64url');
+}
+
+export function validPassword(raw: unknown): raw is string {
+  return typeof raw === 'string' && raw.length >= PASSWORD_MIN_LENGTH && raw.length <= 200;
+}
+
+// Computed once so a login with an unknown username costs the same scrypt as a
+// real one (no user enumeration via timing).
+let dummyHash: string | null = null;
+function getDummyHash(): string {
+  if (!dummyHash) dummyHash = hashPassword(crypto.randomBytes(16).toString('hex'));
+  return dummyHash;
 }
 
 export function partnerLink(code: string): string {
@@ -212,6 +238,7 @@ export async function listPartnersWithMetrics() {
       name: p.name,
       contact_email: p.contact_email,
       ref_code: p.ref_code,
+      username: p.username ?? null,
       link: partnerLink(p.ref_code),
       is_active: p.is_active,
       created_at: p.created_at,
@@ -285,17 +312,21 @@ export function parseTerms(input: PartnerInput): { error?: string; pct?: number 
 
 export const DEFAULT_COMMISSION_PCT = 20;
 
-export async function createPartner(input: { name: string; contact_email?: string | null; ref_code: string; pct?: number | null; months?: number | null }) {
+export async function createPartner(input: { name: string; contact_email?: string | null; ref_code: string; pct?: number | null; months?: number | null; username?: string | null; password?: string | null }) {
   const accessKey = generateAccessKey();
+  const username = input.username ?? input.ref_code;
+  const initialPassword = input.password || generatePassword();
   const result = await pool.query(
-    `INSERT INTO "partners" ("name", "contact_email", "ref_code", "commission_pct", "commission_months", "access_key_hash")
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [input.name, input.contact_email ?? null, input.ref_code, input.pct === undefined ? DEFAULT_COMMISSION_PCT : input.pct, input.months ?? null, hashAccessKey(accessKey)]
+    `INSERT INTO "partners" ("name", "contact_email", "ref_code", "commission_pct", "commission_months", "access_key_hash", "username", "password_hash")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [input.name, input.contact_email ?? null, input.ref_code, input.pct === undefined ? DEFAULT_COMMISSION_PCT : input.pct, input.months ?? null, hashAccessKey(accessKey), username, hashPassword(initialPassword)]
   );
-  return { partner: result.rows[0], accessKey };
+  // The plaintext password is returned only when we generated it; an
+  // admin-chosen one is already known to the admin.
+  return { partner: result.rows[0], accessKey, username, generatedPassword: input.password ? null : initialPassword };
 }
 
-export async function updatePartner(id: number, fields: { name?: string; contact_email?: string | null; pct?: number | null; months?: number | null; is_active?: boolean }) {
+export async function updatePartner(id: number, fields: { name?: string; contact_email?: string | null; pct?: number | null; months?: number | null; is_active?: boolean; username?: string | null }) {
   const sets: string[] = [];
   const params: unknown[] = [];
   const add = (col: string, v: unknown) => { params.push(v); sets.push(`"${col}" = $${params.length}`); };
@@ -304,6 +335,10 @@ export async function updatePartner(id: number, fields: { name?: string; contact
   if (fields.pct !== undefined) add('commission_pct', fields.pct);
   if (fields.months !== undefined) add('commission_months', fields.months);
   if (fields.is_active !== undefined) add('is_active', fields.is_active);
+  if (fields.username !== undefined) {
+    add('username', fields.username);
+    if (fields.username === null) add('password_hash', null); // clearing the user disables password login
+  }
   if (!sets.length) return null;
   params.push(id);
   const result = await pool.query(`UPDATE "partners" SET ${sets.join(', ')} WHERE "id" = $${params.length} RETURNING *`, params);
@@ -314,6 +349,41 @@ export async function rotatePartnerKey(id: number): Promise<string | null> {
   const accessKey = generateAccessKey();
   const result = await pool.query(`UPDATE "partners" SET "access_key_hash" = $2 WHERE "id" = $1 RETURNING "id"`, [id, hashAccessKey(accessKey)]);
   return result.rows[0] ? accessKey : null;
+}
+
+/** Admin reset: stores a new hash and returns the plaintext once. */
+export async function setPartnerPassword(id: number, password?: string): Promise<string | null> {
+  const plain = password || generatePassword();
+  const result = await pool.query(
+    `UPDATE "partners" SET "password_hash" = $2 WHERE "id" = $1 RETURNING "id"`,
+    [id, hashPassword(plain)]
+  );
+  return result.rows[0] ? plain : null;
+}
+
+/** Partner self-service: requires the current password. */
+export async function changePartnerPassword(id: number, current: string, next: string): Promise<{ ok: boolean; error?: string }> {
+  const result = await pool.query(`SELECT "password_hash" FROM "partners" WHERE "id" = $1 AND "is_active" = true`, [id]);
+  const row = result.rows[0];
+  if (!row || !row.password_hash || !verifyPassword(current, row.password_hash)) {
+    return { ok: false, error: 'Senha atual incorreta' };
+  }
+  await pool.query(`UPDATE "partners" SET "password_hash" = $2 WHERE "id" = $1`, [id, hashPassword(next)]);
+  return { ok: true };
+}
+
+/** Username + password login. Constant-time-ish: unknown users still pay a scrypt. */
+export async function findPartnerByCredentials(username: string, password: string) {
+  const u = normalizeUsername(username);
+  if (!u || typeof password !== 'string' || password.length > 200) return null;
+  const result = await pool.query(
+    `SELECT "id", "name", "password_hash" FROM "partners" WHERE LOWER("username") = $1 AND "is_active" = true`,
+    [u]
+  );
+  const row = result.rows[0];
+  const ok = verifyPassword(password, row?.password_hash || getDummyHash());
+  if (!row || !ok) return null;
+  return { id: Number(row.id), name: row.name };
 }
 
 export async function findPartnerByAccessKey(key: string) {

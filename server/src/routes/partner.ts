@@ -2,15 +2,25 @@ import { Router, Request, Response } from 'express';
 import { validBrowserOrigin } from '../middleware/adminAuth.js';
 import { requirePartner } from '../middleware/partnerAuth.js';
 import { authLimiter } from '../middleware/rateLimiter.js';
-import { findPartnerByAccessKey, getPartnerDashboard } from '../services/partners.js';
+import { findPartnerByAccessKey, findPartnerByCredentials, changePartnerPassword, getPartnerDashboard, validPassword } from '../services/partners.js';
 
 const router = Router();
 
+// Login accepts either username + password (default) or the access key
+// (recovery path). Same session either way.
 router.post('/login', authLimiter, async (req: Request, res: Response) => {
   if (!validBrowserOrigin(req)) return res.status(403).json({ error: 'Invalid origin' });
   try {
-    const partner = await findPartnerByAccessKey(String(req.body?.access_key ?? '').trim());
-    if (!partner) return res.status(401).json({ error: 'Chave de acesso inválida' });
+    const body = req.body || {};
+    const accessKey = String(body.access_key ?? '').trim();
+    let partner: { id: number } | null = null;
+    if (accessKey) {
+      partner = await findPartnerByAccessKey(accessKey);
+      if (!partner) return res.status(401).json({ error: 'Chave de acesso inválida' });
+    } else {
+      partner = await findPartnerByCredentials(String(body.username ?? ''), String(body.password ?? ''));
+      if (!partner) return res.status(401).json({ error: 'Usuário ou senha inválidos' });
+    }
     req.session.regenerate((err) => {
       if (err) return res.status(500).json({ error: 'Erro ao iniciar sessão' });
       (req.session as any).partnerId = partner.id;
@@ -32,6 +42,21 @@ router.post('/logout', (req: Request, res: Response) => {
     res.clearCookie('labelgo.partner.sid', { path: '/api/partner', secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
     res.json({ ok: true });
   });
+});
+
+// The partner changes its own password; the current password is required.
+router.post('/password', requirePartner, authLimiter, async (req: Request, res: Response) => {
+  if (!validBrowserOrigin(req)) return res.status(403).json({ error: 'Invalid origin' });
+  try {
+    const next = req.body?.new_password;
+    if (!validPassword(next)) return res.status(400).json({ error: 'A nova senha precisa de pelo menos 8 caracteres' });
+    const result = await changePartnerPassword((req.session as any).partnerId, String(req.body?.current_password ?? ''), next);
+    if (!result.ok) return res.status(401).json({ error: result.error });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Partner password change error:', error);
+    res.status(500).json({ error: 'Erro ao trocar a senha' });
+  }
 });
 
 router.use(requirePartner);

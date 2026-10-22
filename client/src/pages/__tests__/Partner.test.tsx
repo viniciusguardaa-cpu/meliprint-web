@@ -14,10 +14,37 @@ const dash = {
   ],
 };
 
-it('shows the login form when there is no session', async () => {
+it('shows the username+password login form when there is no session', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 401, ok: false, json: async () => ({}) }));
   render(<Partner />);
-  expect(await screen.findByLabelText('Chave de acesso')).toBeTruthy();
+  expect(await screen.findByLabelText('Usuário')).toBeTruthy();
+  expect(screen.getByLabelText('Senha')).toBeTruthy();
+});
+
+it('can switch to the access-key login', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 401, ok: false, json: async () => ({}) }));
+  render(<Partner />);
+  fireEvent.click(await screen.findByRole('button', { name: /Entrar com chave de acesso/ }));
+  expect(screen.getByLabelText('Chave de acesso')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /Entrar com usuário e senha/ }));
+  expect(screen.getByLabelText('Usuário')).toBeTruthy();
+});
+
+it('logs in with username and password', async () => {
+  const f = vi.fn()
+    .mockResolvedValueOnce({ status: 401, ok: false, json: async () => ({}) }) // initial dashboard check
+    .mockResolvedValueOnce({ status: 200, ok: true, json: async () => ({ ok: true }) }) // login
+    .mockResolvedValueOnce({ status: 200, ok: true, json: async () => dash }); // dashboard after login
+  vi.stubGlobal('fetch', f);
+  render(<Partner />);
+  fireEvent.change(await screen.findByLabelText('Usuário'), { target: { value: 'ecommercefree' } });
+  fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'senha-secreta-1' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+  await waitFor(() => expect(f).toHaveBeenCalledTimes(3));
+  const [url, init] = f.mock.calls[1];
+  expect(url).toBe('/api/partner/login');
+  expect(JSON.parse(init.body)).toEqual({ username: 'ecommercefree', password: 'senha-secreta-1' });
+  expect(await screen.findByText('Olá, Ecommerce Free')).toBeTruthy();
 });
 
 it('shows only anonymous referrals, the link and copies it', async () => {
@@ -31,4 +58,26 @@ it('shows only anonymous referrals, the link and copies it', async () => {
   expect(screen.getByText('20% do faturamento bruto · prazo a definir', { exact: false })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: /Copiar link/ }));
   await waitFor(() => expect(writeText).toHaveBeenCalledWith(dash.partner.link));
+});
+
+it('lets the partner change the password and blocks mismatched confirmation', async () => {
+  const f = vi.fn()
+    .mockResolvedValueOnce({ status: 200, ok: true, json: async () => dash }) // dashboard
+    .mockResolvedValueOnce({ status: 200, ok: true, json: async () => ({ ok: true }) }); // password change
+  vi.stubGlobal('fetch', f);
+  render(<Partner />);
+  expect(await screen.findByText('Trocar senha')).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Senha atual'), { target: { value: 'atual-12345' } });
+  fireEvent.change(screen.getByLabelText('Nova senha'), { target: { value: 'nova-12345' } });
+  fireEvent.change(screen.getByLabelText('Repetir nova senha'), { target: { value: 'diferente-1' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar senha' }));
+  expect(await screen.findByText('As senhas novas não coincidem')).toBeTruthy();
+  expect(f).toHaveBeenCalledTimes(1);
+  fireEvent.change(screen.getByLabelText('Repetir nova senha'), { target: { value: 'nova-12345' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar senha' }));
+  await waitFor(() => expect(f).toHaveBeenCalledTimes(2));
+  const [url, init] = f.mock.calls[1];
+  expect(url).toBe('/api/partner/password');
+  expect(JSON.parse(init.body)).toEqual({ current_password: 'atual-12345', new_password: 'nova-12345' });
+  expect(await screen.findByText('Senha alterada com sucesso.')).toBeTruthy();
 });

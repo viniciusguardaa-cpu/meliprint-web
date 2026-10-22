@@ -4,9 +4,11 @@ vi.mock('../db.js', () => ({ default: { query: vi.fn() } }));
 
 import pool from '../db.js';
 import {
-  normalizeRefCode, estimateCommission, cyclesSince, parseTerms, summarize,
+  normalizeRefCode, normalizeUsername, estimateCommission, cyclesSince, parseTerms, summarize,
   attributePartnerSignup, recordPartnerClick, getPartnerDashboard, generateAccessKey, hashAccessKey,
+  generatePassword, validPassword, createPartner, setPartnerPassword, changePartnerPassword, findPartnerByCredentials,
 } from '../services/partners.js';
+import { hashPassword } from '../services/password.js';
 
 const query = pool.query as unknown as ReturnType<typeof vi.fn>;
 
@@ -127,5 +129,88 @@ describe('partner dashboard privacy', () => {
     expect(d!.referrals.map((r) => r.label)).toEqual(['Cliente #2', 'Cliente #1']);
     expect(JSON.stringify(d)).not.toMatch(/email|nickname|user_id/);
     expect(d!.summary).toMatchObject({ visitors: 4, signups: 2, trials: 1, paid: 1 });
+  });
+});
+
+describe('usernames and passwords', () => {
+  beforeEach(() => query.mockReset());
+
+  it('normalizes usernames like ref codes and rejects junk', () => {
+    expect(normalizeUsername('EcommerceFree')).toBe('ecommercefree');
+    expect(normalizeUsername(' loja.exemplo_1 ')).toBe('loja.exemplo_1');
+    for (const bad of ['', 'ab', '.abc', 'a b', 'x'.repeat(41), 5, null, undefined]) {
+      expect(normalizeUsername(bad as any)).toBeNull();
+    }
+  });
+
+  it('generates url-safe passwords and validates the minimum length', () => {
+    const a = generatePassword(); const b = generatePassword();
+    expect(a).not.toBe(b);
+    expect(a).toMatch(/^[A-Za-z0-9_-]{12}$/);
+    expect(validPassword(a)).toBe(true);
+    expect(validPassword('curta')).toBe(false);
+    expect(validPassword('')).toBe(false);
+    expect(validPassword(null)).toBe(false);
+  });
+
+  it('createPartner stores only a scrypt hash and returns a generated password', async () => {
+    query.mockResolvedValueOnce({ rows: [{ id: 1, name: 'P', ref_code: 'p' }] });
+    const { accessKey, generatedPassword, username } = await createPartner({ name: 'P', ref_code: 'p' });
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toContain('"password_hash"');
+    expect(params[6]).toBe('p'); // username defaults to the ref code
+    expect(params[7]).toMatch(/^scrypt\$/);
+    expect(params[7]).not.toBe(generatedPassword);
+    expect(generatedPassword).toBeTruthy();
+    expect(accessKey.startsWith('lgp_')).toBe(true);
+    expect(username).toBe('p');
+  });
+
+  it('createPartner never returns an admin-chosen password back', async () => {
+    query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+    const { generatedPassword } = await createPartner({ name: 'P', ref_code: 'p', username: 'loja', password: 'senha-do-parceiro' });
+    const [, params] = query.mock.calls[0];
+    expect(params[6]).toBe('loja');
+    expect(params[7]).not.toContain('senha-do-parceiro');
+    expect(generatedPassword).toBeNull();
+  });
+
+  it('findPartnerByCredentials accepts the right password and rejects the wrong one', async () => {
+    const stored = hashPassword('senha-certa-123');
+    query.mockResolvedValue({ rows: [{ id: 3, name: 'P', password_hash: stored }] });
+    expect(await findPartnerByCredentials('Loja', 'senha-certa-123')).toEqual({ id: 3, name: 'P' });
+    expect(await findPartnerByCredentials('loja', 'errada-errada')).toBeNull();
+    const [, params] = query.mock.calls[0];
+    expect(params[0]).toBe('loja'); // case-insensitive lookup
+  });
+
+  it('findPartnerByCredentials returns null for unknown users and bad input without leaking', async () => {
+    query.mockResolvedValue({ rows: [] });
+    expect(await findPartnerByCredentials('ninguem', 'qualquer-coisa')).toBeNull();
+    expect(await findPartnerByCredentials('!!', 'qualquer-coisa')).toBeNull();
+    expect(query).toHaveBeenCalledTimes(1); // invalid usernames never hit the DB
+  });
+
+  it('setPartnerPassword stores only the hash and returns the plaintext once', async () => {
+    query.mockResolvedValueOnce({ rows: [{ id: 5 }] });
+    const plain = await setPartnerPassword(5);
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toContain('UPDATE "partners" SET "password_hash"');
+    expect(params[1]).toMatch(/^scrypt\$/);
+    expect(params[1]).not.toBe(plain);
+    expect(plain).toBeTruthy();
+  });
+
+  it('changePartnerPassword requires the current password', async () => {
+    const stored = hashPassword('atual-12345');
+    query.mockResolvedValueOnce({ rows: [{ password_hash: stored }] }).mockResolvedValueOnce({ rows: [] });
+    const ok = await changePartnerPassword(7, 'atual-12345', 'nova-senha-987');
+    expect(ok.ok).toBe(true);
+    expect(query.mock.calls[1][1][1]).toMatch(/^scrypt\$/);
+    query.mockReset();
+    query.mockResolvedValueOnce({ rows: [{ password_hash: stored }] });
+    const bad = await changePartnerPassword(7, 'errada', 'nova-senha-987');
+    expect(bad.ok).toBe(false);
+    expect(query).toHaveBeenCalledTimes(1); // no UPDATE on failure
   });
 });
