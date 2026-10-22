@@ -86,3 +86,12 @@ runDb('migrations against disposable Postgres', () => {
     }
   }, 60_000);
 });
+
+describe('0015_partners.sql', () => {
+  const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, '0015_partners.sql'), 'utf8');
+  it('stores only a hash of the access key and one partner per account', () => {
+    expect(sql).toContain('"access_key_hash"');
+    expect(sql).not.toMatch(/"access_key"\s/);
+    expect(sql).toMatch(/UNIQUE\s*\(\s*"user_id"\s*\)/);
+  });
+});
