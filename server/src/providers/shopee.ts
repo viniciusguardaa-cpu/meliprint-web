@@ -8,8 +8,7 @@ import {
   getPrintableOrderSns,
   getOrderDetail,
   getReadyLabelPdfs,
-  invalidateReadyLabelPdfs,
-  ShopeeOrderDetail
+  invalidateReadyLabelPdfs
 } from '../services/shopee.js';
 import type {
   AccountContext,
@@ -19,6 +18,7 @@ import type {
   ProviderAuthResult,
   TokenSet
 } from './types.js';
+import { ShipmentListError } from './types.js';
 
 /**
  * Shopee Open Platform v2.
@@ -44,11 +44,9 @@ async function listReadyShipments(ctx: AccountContext, opts: ListShipmentsOption
   const orderSns = await getPrintableOrderSns(shop);
   if (orderSns.length === 0) return [];
   const entries = orderSns.map((order_sn) => ({ order_sn }));
-  const details = await getOrderDetail(shop, orderSns).catch((err) => {
-    console.error('[shopee] get_order_detail failed:', err);
-    return [] as ShopeeOrderDetail[];
-  });
-  const readyPdfs = await getReadyLabelPdfs(shop, details);
+  const details = await getOrderDetail(shop, orderSns);
+  let unavailable = false;
+  const readyPdfs = await getReadyLabelPdfs(shop, details, () => { unavailable = true; });
   const bySn = new Map(details.map((d) => [d.order_sn, d]));
 
   const rows: NormalizedShipment[] = [];
@@ -89,6 +87,9 @@ async function listReadyShipments(ctx: AccountContext, opts: ListShipmentsOption
     rows.push(row);
   }
 
+  if (unavailable || details.length < orderSns.length) {
+    throw new ShipmentListError('Shopee shipment data incomplete', rows);
+  }
   return rows;
 }
 

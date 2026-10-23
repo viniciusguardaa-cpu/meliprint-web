@@ -1,4 +1,5 @@
 import './loadEnv.js';
+import 'express-async-errors';
 import * as Sentry from '@sentry/node';
 import express from 'express';
 import cors from 'cors';
@@ -40,12 +41,17 @@ import { startAutoPrintPoller } from './jobs/autoPrintPoller.js';
 import { startBillingReconciler } from './jobs/billingReconciler.js';
 import { generalLimiter, authLimiter, labelsLimiter, checkoutLimiter, webhookLimiter } from './middleware/rateLimiter.js';
 import { correlationId, requestLogger } from './middleware/logger.js';
+import { rejectCrossSiteRequests } from './middleware/csrf.js';
+import { sessionGuard } from './middleware/sessionGuard.js';
+import { errorHandler } from './middleware/errors.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+app.disable('x-powered-by');
 
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -95,10 +101,13 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    // Frontend requests use the same-origin /api proxy. OAuth returns via GET.
+    sameSite: 'lax',
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days (session is refreshed on every /api/auth/me call)
   }
 }));
+
+app.use('/api', rejectCrossSiteRequests, sessionGuard);
 
 // Apply rate limiters per route
 app.use('/api/health', healthRoutes);
@@ -146,6 +155,7 @@ if (process.env.NODE_ENV === 'production') {
 
 // Global error handler - must be after routes
 Sentry.setupExpressErrorHandler(app);
+app.use(errorHandler);
 
 async function start() {
   // Fail-closed: refuse to boot in production if required secrets are missing.

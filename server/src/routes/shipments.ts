@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getProvider } from '../providers/index.js';
 import type { NormalizedShipment } from '../providers/types.js';
+import { ShipmentListError } from '../providers/types.js';
 import { getFreshAccountContext } from '../services/accounts.js';
 import { requireActiveSubscription } from '../middleware/subscription.js';
 import { getPlan } from '../services/pricing.js';
@@ -45,18 +46,21 @@ router.get('/', async (req: Request, res: Response) => {
     // Fetch each account's shipments through its provider; failures in one
     // marketplace don't take down the others.
     const rows: NormalizedShipment[] = [];
+    const failedAccounts: Array<{ accountId: number; provider: string; nickname?: string }> = [];
     await Promise.all(fetchable.map(async (account: any) => {
+      const failure = () => failedAccounts.push({ accountId: account.id, provider: account.provider, nickname: account.nickname });
       const provider = getProvider(account.provider);
       if (!provider) {
         console.error(`[shipments] Unknown provider: ${account.provider}`);
-        return;
-      }
-      const ctx = await getFreshAccountContext(account);
-      if (!ctx) {
-        console.error(`[shipments] Could not get access credentials for account ${account.id} (${account.provider})`);
+        failure();
         return;
       }
       try {
+        const ctx = await getFreshAccountContext(account);
+        if (!ctx) {
+          failure();
+          return;
+        }
         const accountRows = await provider.listReadyShipments(ctx, {
           dateFrom,
           dateTo,
@@ -65,7 +69,9 @@ router.get('/', async (req: Request, res: Response) => {
         });
         rows.push(...accountRows);
       } catch (error) {
+        if (error instanceof ShipmentListError) rows.push(...error.shipments);
         console.error(`[shipments] ${account.provider} account ${account.id} failed:`, error);
+        failure();
       }
     }));
 
@@ -86,7 +92,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     console.log(`[shipments] accounts=${fetchable.length} reauth=${needsReauth.length} ready=${ready.length} reprint=${reprint.length}`);
-    res.json({ ready, reprint, needsReauth });
+    res.json({ ready, reprint, needsReauth, failedAccounts });
   } catch (error) {
     console.error('Failed to get shipments:', error);
     res.status(500).json({ error: 'Failed to get shipments' });

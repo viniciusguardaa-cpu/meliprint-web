@@ -1,6 +1,21 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@config '../tailwind.config.js';
+
+/* Preserve the v3 utility dimensions while moving to the maintained compiler. */
+@theme {
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --radius-sm: 0.125rem;
+  --radius: 0.25rem;
+  --blur-sm: 4px;
+  --default-ring-width: 3px;
+  --default-ring-color: rgb(59 130 246 / 0.5);
+}
+
+@layer base {
+  *, ::before, ::after { border-color: #e5e7eb; }
+  button:not(:disabled), [role='button']:not(:disabled) { cursor: pointer; }
+}
 
 /* Inter auto-hospedada (variável, subconjunto latin — cobre pt-BR).
    Evita o round-trip render-blocking a fonts.googleapis.com. */

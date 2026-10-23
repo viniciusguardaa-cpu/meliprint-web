@@ -17,7 +17,7 @@ vi.mock('pg', () => {
     connect: vi.fn(),
     on: vi.fn(),
   };
-  return { default: { Pool: vi.fn(() => mPool) }, Pool: vi.fn(() => mPool) };
+  return { default: { Pool: vi.fn(function () { return mPool; }) }, Pool: vi.fn(function () { return mPool; }) };
 });
 
 // Mock crypto to avoid ENCRYPTION_KEY requirement in dev

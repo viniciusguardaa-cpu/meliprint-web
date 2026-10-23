@@ -107,6 +107,8 @@ export default function Dashboard() {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [needsReauth, setNeedsReauth] = useState<ReauthAccount[]>([]);
+  const [failedAccounts, setFailedAccounts] = useState<ReauthAccount[]>([]);
+  const [loadError, setLoadError] = useState(false);
 
   const accounts = user?.accounts || [];
 
@@ -147,6 +149,8 @@ export default function Dashboard() {
 
   const fetchShipments = async () => {
     setLoading(true);
+    setSelected(new Set());
+    setLoadError(false);
     try {
       const params = new URLSearchParams();
       if (dateFrom) params.set('date_from', formatDateParam(dateFrom));
@@ -164,7 +168,9 @@ export default function Dashboard() {
       setReady(data.ready || []);
       setReprint(data.reprint || []);
       setNeedsReauth(data.needsReauth || []);
+      setFailedAccounts(data.failedAccounts || []);
     } catch (err) {
+      setLoadError(true);
       toast.error('Erro ao carregar envios. Tente novamente.');
       console.error(err);
     } finally {
@@ -414,6 +420,14 @@ export default function Dashboard() {
         </div>
 
         {/* Reconnect banner — the OAuth grant died, no labels can sync until reconnect */}
+        {!loading && (loadError || failedAccounts.length > 0) && (
+          <div role="alert" className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6 text-sm text-amber-800">
+            <p className="font-semibold">
+              {loadError ? 'Não foi possível atualizar os envios.' : `Não foi possível consultar ${failedAccounts.map((a) => `${marketplaceLabel(a.provider)}${a.nickname ? ` (${a.nickname})` : ''}`).join(', ')}.`}
+            </p>
+            <p>A lista pode estar incompleta ou desatualizada. Clique em Atualizar para tentar novamente.</p>
+          </div>
+        )}
         {reauthAccounts.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm px-4 py-3 mb-6 flex items-center gap-3 flex-wrap">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
@@ -538,10 +552,12 @@ export default function Dashboard() {
           <div className="bg-surface rounded-xl border border-border shadow-sm p-16 text-center animate-fade-in">
             <Package className="w-16 h-16 text-border mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-muted-foreground mb-2">
-              Nenhum envio encontrado
+              {loadError || failedAccounts.length > 0 ? 'Consulta de envios incompleta' : 'Nenhum envio encontrado'}
             </h3>
             <p className="text-muted-foreground/70">
-              {tab === 'ready'
+              {loadError || failedAccounts.length > 0
+                ? 'Não foi possível confirmar se há etiquetas disponíveis. Tente atualizar a lista.'
+                : tab === 'ready'
                 ? 'Não há etiquetas prontas para impressão no momento.'
                 : 'Não há etiquetas disponíveis para reimpressão no momento.'}
             </p>

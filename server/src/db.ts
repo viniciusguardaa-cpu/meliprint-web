@@ -83,12 +83,35 @@ export async function createUser(fields: {
   return result.rows[0];
 }
 
-export async function setUserPassword(userId: number, passwordHash: string) {
-  await pool.query(
-    `UPDATE "users" SET "password_hash" = $2, "email_verified" = true, "updated_at" = CURRENT_TIMESTAMP
-     WHERE "id" = $1`,
-    [userId, passwordHash]
-  );
+async function revokeRecoveryAccess(client: pg.PoolClient, userId: number) {
+  await client.query('UPDATE "auth_tokens" SET "used_at" = CURRENT_TIMESTAMP WHERE "user_id" = $1 AND "used_at" IS NULL', [userId]);
+  await client.query('DELETE FROM "agent_pairing_codes" WHERE "user_id" = $1', [userId]);
+  await client.query(`UPDATE "auto_print_config" SET "enabled" = false,
+    "agent_token" = NULL, "agent_token_hash" = NULL WHERE "user_id" = $1`, [userId]);
+  await client.query(`UPDATE "print_queue" SET "status" = 'needs_review',
+    "error" = 'account_recovery_review_required' WHERE "user_id" = $1 AND "status" IN ('pending', 'processing')`, [userId]);
+}
+
+export async function setUserPassword(userId: number, passwordHash: string, revokedAt = new Date()) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const previous = await client.query('SELECT "email_verified" FROM "users" WHERE "id" = $1 FOR UPDATE', [userId]);
+    await client.query(
+      `UPDATE "users" SET "password_hash" = $2, "email_verified" = true,
+       "sessions_revoked_at" = $3, "updated_at" = CURRENT_TIMESTAMP WHERE "id" = $1`,
+      [userId, passwordHash, revokedAt]
+    );
+    if (previous.rows[0]?.email_verified === false) {
+      await client.query('DELETE FROM "marketplace_accounts" WHERE "user_id" = $1', [userId]);
+      await client.query('UPDATE "users" SET "ml_user_id" = NULL WHERE "id" = $1', [userId]);
+    }
+    await revokeRecoveryAccess(client, userId);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally { client.release(); }
 }
 
 export async function markEmailVerified(userId: number) {
@@ -112,12 +135,25 @@ export async function revokeUserSessions(userId: number, at: Date) {
  * attacker-set) password and kill existing sessions before linking.
  */
 export async function claimUnverifiedAccount(userId: number, at: Date) {
-  await pool.query(
-    `UPDATE "users" SET "password_hash" = NULL, "email_verified" = true,
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const claimed = await client.query(
+      `UPDATE "users" SET "password_hash" = NULL, "email_verified" = true, "ml_user_id" = NULL,
        "sessions_revoked_at" = $2, "updated_at" = CURRENT_TIMESTAMP
-     WHERE "id" = $1`,
-    [userId, at]
-  );
+       WHERE "id" = $1 AND "email_verified" = false RETURNING "id"`, [userId, at]
+    );
+    if (claimed.rowCount) {
+      // A pre-registrant could have added their own OAuth login or paired an agent.
+      // Remove every old login path before attaching the proven owner's store.
+      await client.query('DELETE FROM "marketplace_accounts" WHERE "user_id" = $1', [userId]);
+      await revokeRecoveryAccess(client, userId);
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally { client.release(); }
 }
 
 export async function getUserSessionState(userId: number) {
@@ -365,7 +401,7 @@ export async function hasProAccess(userId: number): Promise<boolean> {
      ) OR EXISTS(
        SELECT 1 FROM "free_access" f
        JOIN "users" u ON LOWER(u."email") = LOWER(f."email")
-       WHERE u."id" = $1
+       WHERE u."id" = $1 AND u."email_verified" = true AND u."blocked_at" IS NULL
      ) AS "has_access"`,
     [userId]
   );
@@ -705,7 +741,7 @@ export async function getAutoPrintEnabledConfigs(includeShopeeArrange = false) {
          )
        )
        OR EXISTS (
-         SELECT 1 FROM "free_access" f WHERE LOWER(f."email") = LOWER(u."email") AND u."email" IS NOT NULL
+         SELECT 1 FROM "free_access" f WHERE LOWER(f."email") = LOWER(u."email") AND u."email_verified" = true
        )
      )`, [includeShopeeArrange]
   );

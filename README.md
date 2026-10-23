@@ -14,7 +14,7 @@ Aplicação web para impressão rápida de etiquetas do Mercado Livre em formato
 
 ## Requisitos
 
-- Node.js 18+
+- Node.js 22.12+ (Node 22 em desenvolvimento, CI e deploy)
 - App registrado no [Mercado Livre Developers](https://developers.mercadolivre.com.br/)
 
 ## Configuração
@@ -54,6 +54,27 @@ npm run dev
 ```bash
 npm run build
 ```
+
+## Verificações antes de publicar
+
+```bash
+npm ci
+npm test                       # servidor e interface
+npm run build
+npm audit
+cd agent && npm ci && npm test && npm audit
+```
+
+O CI também executa migrations e testes de recuperação de conta com PostgreSQL
+descartável. `TEST_DATABASE_URL` deve apontar exclusivamente para um banco de teste.
+Os testes de impressão simulam o spooler: a homologação com lojas e impressora
+reais continua necessária antes de disponibilizar uma integração nova.
+
+Recuperação de conta encerra sessões e despareia o agente; a fila pendente fica
+em revisão para evitar reimpressão acidental. Quando um login por e-mail de
+marketplace verificado recupera um cadastro que nunca confirmou esse e-mail,
+as conexões antigas desse cadastro são removidas antes de vincular a loja do
+dono comprovado. Contas já verificadas preservam suas conexões e senha.
 
 ## Deploy no Railway
 
