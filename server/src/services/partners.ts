@@ -351,14 +351,23 @@ export async function rotatePartnerKey(id: number): Promise<string | null> {
   return result.rows[0] ? accessKey : null;
 }
 
-/** Admin reset: stores a new hash and returns the plaintext once. */
-export async function setPartnerPassword(id: number, password?: string): Promise<string | null> {
+/** Admin reset: stores a new hash and returns the plaintext once. Legacy partners
+ * without a username get their ref_code as the username, so the reset actually
+ * enables password login for them (ref codes satisfy the username rules). */
+export async function setPartnerPassword(id: number, password?: string): Promise<{ password: string; username: string } | null> {
   const plain = password || generatePassword();
   const result = await pool.query(
-    `UPDATE "partners" SET "password_hash" = $2 WHERE "id" = $1 RETURNING "id"`,
+    `UPDATE "partners" SET "password_hash" = $2, "username" = COALESCE("username", "ref_code") WHERE "id" = $1 RETURNING "username"`,
     [id, hashPassword(plain)]
   );
-  return result.rows[0] ? plain : null;
+  return result.rows[0] ? { password: plain, username: result.rows[0].username } : null;
+}
+
+/** Admin delete: removes the partner for good; clicks and referrals cascade
+ * (ON DELETE CASCADE), freeing the ref_code and username for reuse. */
+export async function deletePartner(id: number): Promise<boolean> {
+  const result = await pool.query(`DELETE FROM "partners" WHERE "id" = $1 RETURNING "id"`, [id]);
+  return result.rows.length > 0;
 }
 
 /** Partner self-service: requires the current password. */

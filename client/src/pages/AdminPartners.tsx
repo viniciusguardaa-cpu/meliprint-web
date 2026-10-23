@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Share2, Copy, Check, Plus, KeyRound, Lock } from 'lucide-react';
+import { Share2, Copy, Check, Plus, KeyRound, Lock, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
@@ -69,8 +69,16 @@ export function AdminPartners() {
     if (!window.confirm(`Gerar nova senha para ${p.name}? A senha antiga deixa de funcionar.`)) return;
     const res = await fetch(`/api/admin/partners/${p.id}/reset-password`, { method: 'POST' });
     const data = await res.json();
-    if (res.ok) setNewKey({ partner: p.name, key: '', link: p.link, username: p.username, password: data.password });
+    if (res.ok) setNewKey({ partner: p.name, key: '', link: p.link, username: data.username ?? p.username, password: data.password });
     else setError(data.error || 'Erro ao gerar senha');
+  };
+
+  const remove = async (p: AdminPartner) => {
+    if (!window.confirm(`Apagar o parceiro ${p.name}? Isso remove também o histórico de visitas e indicações e libera o código do link. Não tem volta.`)) return;
+    setError(null);
+    const res = await fetch(`/api/admin/partners/${p.id}`, { method: 'DELETE' });
+    if (!res.ok) setError((await res.json()).error || 'Erro ao apagar parceiro');
+    await load();
   };
 
   const saveTerms = async (id: number) => {
@@ -153,6 +161,7 @@ export function AdminPartners() {
                 <Button size="sm" variant="outline" onClick={() => resetPassword(p)}><Lock className="w-4 h-4 mr-1" />Nova senha</Button>
                 <Button size="sm" variant="outline" onClick={() => rotate(p)}><KeyRound className="w-4 h-4 mr-1" />Nova chave</Button>
                 <Button size="sm" variant="ghost" onClick={() => patch(p.id, { is_active: !p.is_active })}>{p.is_active ? 'Desativar' : 'Ativar'}</Button>
+                <Button size="sm" variant="ghost" onClick={() => remove(p)}><Trash2 className="w-4 h-4 mr-1" />Apagar</Button>
               </div>
             </div>
             <p className="text-xs text-muted-foreground break-all mb-1">{p.link}</p>

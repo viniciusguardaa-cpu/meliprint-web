@@ -6,7 +6,7 @@ import pool from '../db.js';
 import {
   normalizeRefCode, normalizeUsername, estimateCommission, cyclesSince, parseTerms, summarize,
   attributePartnerSignup, recordPartnerClick, getPartnerDashboard, generateAccessKey, hashAccessKey,
-  generatePassword, validPassword, createPartner, setPartnerPassword, changePartnerPassword, findPartnerByCredentials,
+  generatePassword, validPassword, createPartner, setPartnerPassword, deletePartner, changePartnerPassword, findPartnerByCredentials,
 } from '../services/partners.js';
 import { hashPassword } from '../services/password.js';
 
@@ -192,13 +192,32 @@ describe('usernames and passwords', () => {
   });
 
   it('setPartnerPassword stores only the hash and returns the plaintext once', async () => {
-    query.mockResolvedValueOnce({ rows: [{ id: 5 }] });
-    const plain = await setPartnerPassword(5);
+    query.mockResolvedValueOnce({ rows: [{ username: 'loja' }] });
+    const reset = await setPartnerPassword(5);
     const [sql, params] = query.mock.calls[0];
     expect(sql).toContain('UPDATE "partners" SET "password_hash"');
     expect(params[1]).toMatch(/^scrypt\$/);
-    expect(params[1]).not.toBe(plain);
-    expect(plain).toBeTruthy();
+    expect(params[1]).not.toBe(reset!.password);
+    expect(reset!.password).toBeTruthy();
+    expect(reset!.username).toBe('loja');
+  });
+
+  it('setPartnerPassword backfills the username from the ref code for legacy partners', async () => {
+    query.mockResolvedValueOnce({ rows: [{ username: 'ecommercefree' }] });
+    await setPartnerPassword(9);
+    const [sql] = query.mock.calls[0];
+    expect(sql).toContain('"username" = COALESCE("username", "ref_code")');
+  });
+
+  it('deletePartner removes the row (clicks and referrals cascade) and reports misses', async () => {
+    query.mockResolvedValueOnce({ rows: [{ id: 4 }] });
+    expect(await deletePartner(4)).toBe(true);
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toContain('DELETE FROM "partners"');
+    expect(params[0]).toBe(4);
+    query.mockReset();
+    query.mockResolvedValueOnce({ rows: [] });
+    expect(await deletePartner(99)).toBe(false);
   });
 
   it('changePartnerPassword requires the current password', async () => {
