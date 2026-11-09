@@ -51,12 +51,16 @@ const NOINDEX = 'noindex,follow';
 
 const ORGANIZATION_ID = `${SITE_ORIGIN}/#organization`;
 const WEBSITE_ID = `${SITE_ORIGIN}/#website`;
+const FOUNDER_ID = `${SITE_ORIGIN}/#founder`;
 
 const ORGANIZATION_LD = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   '@id': ORGANIZATION_ID,
   name: SITE_NAME,
+  legalName: 'Guarda & Guarda Ltda',
+  alternateName: 'Companhia do Papel',
+  taxID: '00.397.452/0001-59',
   url: `${SITE_ORIGIN}/`,
   logo: {
     '@type': 'ImageObject',
@@ -66,6 +70,16 @@ const ORGANIZATION_LD = {
   },
   email: SUPPORT_EMAIL,
   sameAs: ['https://www.instagram.com/labelgo_print/'],
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: 'Rua Humaitá, 895, Sala 05/06/07',
+    addressLocality: 'Londrina',
+    addressRegion: 'PR',
+    postalCode: '86060-060',
+    addressCountry: 'BR',
+  },
+  foundingDate: '2026',
+  founder: { '@id': FOUNDER_ID },
   contactPoint: {
     '@type': 'ContactPoint',
     contactType: 'customer support',
@@ -73,6 +87,28 @@ const ORGANIZATION_LD = {
     availableLanguage: ['Portuguese'],
     areaServed: 'BR',
   },
+};
+
+const FOUNDER_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  '@id': FOUNDER_ID,
+  name: 'Vinicius Guarda',
+  jobTitle: 'Fundador do LabelGo',
+  worksFor: { '@id': ORGANIZATION_ID },
+  url: `${SITE_ORIGIN}/sobre/`,
+};
+
+const ABOUT_PAGE_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'AboutPage',
+  name: 'Sobre o LabelGo',
+  url: `${SITE_ORIGIN}/sobre/`,
+  description:
+    'Conheça o LabelGo, SaaS brasileiro para imprimir etiquetas do Mercado Livre em lote. Produto da Guarda & Guarda Ltda, feito para vendedores.',
+  inLanguage: SITE_LANG,
+  mainEntity: { '@id': ORGANIZATION_ID },
+  about: { '@id': ORGANIZATION_ID },
 };
 
 const WEBSITE_LD = {
@@ -210,7 +246,7 @@ function articleLd(pathname: string): Record<string, unknown> | null {
 function guideLd(pathname: string): Record<string, unknown>[] {
   const page = SEO_PAGES[pathname];
   if (!page) return [];
-  const blocks = [breadcrumbLd(pathname, page.crumb)];
+  const blocks = [ORGANIZATION_LD, breadcrumbLd(pathname, page.crumb)];
   // O conversor é uma ferramenta (WebApplication), não um artigo editorial.
   const article = pathname === '/converter-zpl-pdf' ? null : articleLd(pathname);
   if (article) blocks.push(article);
@@ -229,7 +265,7 @@ export const PAGE_SEO: Record<string, RouteSeo> = {
     title: 'Planos e preços do LabelGo — etiquetas do Mercado Livre',
     description:
       'Compare os planos do LabelGo e imprima etiquetas do Mercado Livre em segundos. Teste grátis por 7 dias, sem cartão de crédito. Cancele quando quiser.',
-    jsonLd: [breadcrumbLd('/pricing', 'Planos'), PRICING_PRODUCT_LD],
+    jsonLd: [ORGANIZATION_LD, breadcrumbLd('/pricing', 'Planos'), PRICING_PRODUCT_LD],
   },
   '/converter-zpl-pdf': {
     title: 'Conversor de ZPL para PDF grátis — LabelGo',
@@ -278,6 +314,12 @@ export const PAGE_SEO: Record<string, RouteSeo> = {
     description:
       'Selecione vários envios e imprima todas as etiquetas do Mercado Livre de uma vez em um único PDF, direto do navegador. Teste grátis.',
     jsonLd: guideLd('/imprimir-etiquetas-em-lote'),
+  },
+  '/sobre': {
+    title: 'Sobre o LabelGo — quem faz e por que existe',
+    description:
+      'Conheça o LabelGo, SaaS brasileiro para imprimir etiquetas do Mercado Livre em lote. Produto da Guarda & Guarda Ltda, feito para vendedores.',
+    jsonLd: [ORGANIZATION_LD, ABOUT_PAGE_LD, FOUNDER_LD],
   },
   '/termos': {
     title: 'Termos de Uso — LabelGo',
