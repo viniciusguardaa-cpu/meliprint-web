@@ -17,7 +17,12 @@ export default function SeoPage({ h1, lead, crumb, sections, faqs = [], related 
         </nav>
 
         <h1 className="text-3xl font-bold text-foreground mb-4">{h1}</h1>
-        <p className="text-xl text-muted-foreground mb-8">{lead}</p>
+        <p className="text-xl text-muted-foreground mb-3">{lead}</p>
+        <p className="text-sm text-muted-foreground mb-8">
+          Por <Link to="/sobre/" className="text-primary font-medium hover:underline">Vinicius Guarda</Link>
+          <span aria-hidden="true"> · </span>
+          Atualizado em 9 de novembro de 2026
+        </p>
 
         {sections.map((section, i) => (
           <section key={i} className="mb-8">
@@ -32,13 +37,51 @@ export default function SeoPage({ h1, lead, crumb, sections, faqs = [], related 
                 ))}
               </ul>
             )}
+            {section.table && (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b border-border">
+                      {section.table.headers.map((h) => (
+                        <th key={h} className="text-left font-semibold text-foreground py-2 pr-4 align-bottom">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {section.table.rows.map((row, r) => (
+                      <tr key={r} className="border-b border-border/60 last:border-0">
+                        {row.map((cell, c) => (
+                          <td key={c} className="py-2 pr-4 align-top text-muted-foreground">
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             {section.links && (
               <p className="mt-3 text-sm">
-                {section.links.map((l) => (
-                  <Link key={l.href} to={l.href} className="text-primary font-medium hover:underline mr-4">
-                    {l.label}
-                  </Link>
-                ))}
+                {section.links.map((l) =>
+                  l.external ? (
+                    <a
+                      key={l.href}
+                      href={l.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary font-medium hover:underline mr-4"
+                    >
+                      {l.label}
+                    </a>
+                  ) : (
+                    <Link key={l.href} to={l.href} className="text-primary font-medium hover:underline mr-4">
+                      {l.label}
+                    </Link>
+                  )
+                )}
               </p>
             )}
           </section>
