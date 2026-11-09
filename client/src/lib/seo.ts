@@ -149,7 +149,7 @@ const SOFTWARE_APPLICATION_LD = {
  * Data da última atualização editorial dos guias. Atualize junto com o
  * conteúdo (o sitemap usa a data do último commit que toca src/content).
  */
-const CONTENT_UPDATED = '2026-10-23';
+const CONTENT_UPDATED = '2026-11-09';
 
 /**
  * Produto/preço do plano Completo. A faixa cobre a promoção de fundador
@@ -237,7 +237,7 @@ function articleLd(pathname: string): Record<string, unknown> | null {
     mainEntityOfPage: canonicalFor(pathname),
     datePublished: CONTENT_UPDATED,
     dateModified: CONTENT_UPDATED,
-    author: { '@type': 'Organization', name: SITE_NAME, url: `${SITE_ORIGIN}/` },
+    author: { '@type': 'Person', name: 'Vinicius Guarda', url: `${SITE_ORIGIN}/sobre/` },
     publisher: { '@id': ORGANIZATION_ID },
   };
 }
