@@ -446,7 +446,11 @@ export function headTagsFor(pathname: string, meta: RouteSeo = seoForPath(pathna
       attrs: {
         rel: 'preload',
         as: 'image',
-        href: '/2-labelgo-demo-poster.jpg',
+        href: '/2-labelgo-demo-poster-960.webp',
+        imagesrcset:
+          '/2-labelgo-demo-poster-640.webp 640w, /2-labelgo-demo-poster-960.webp 960w, /2-labelgo-demo-poster-1280.webp 1280w',
+        imagesizes: '(max-width: 767px) calc(100vw - 32px), 768px',
+        type: 'image/webp',
         fetchpriority: 'high',
       },
     });

@@ -55,14 +55,21 @@ export default function BatchDemo({ variant = 'section' }: { variant?: 'section'
               className="group relative block w-full overflow-hidden rounded-2xl border border-border bg-background shadow-sm"
               aria-label="Reproduzir demonstração"
             >
-              <img
-                {...{ fetchpriority: 'high' }}
-                src="/2-labelgo-demo-poster.jpg"
-                alt="Demonstração: selecionar os pedidos, clicar em Imprimir e gerar um PDF com todas as etiquetas."
-                width={1280}
-                height={720}
-                className="block aspect-video w-full object-cover"
-              />
+              <picture>
+                <source
+                  type="image/webp"
+                  srcSet="/2-labelgo-demo-poster-640.webp 640w, /2-labelgo-demo-poster-960.webp 960w, /2-labelgo-demo-poster-1280.webp 1280w"
+                  sizes="(max-width: 767px) calc(100vw - 32px), 768px"
+                />
+                <img
+                  {...{ fetchpriority: 'high' }}
+                  src="/2-labelgo-demo-poster.jpg"
+                  alt="Demonstração: selecionar os pedidos, clicar em Imprimir e gerar um PDF com todas as etiquetas."
+                  width={1280}
+                  height={720}
+                  className="block aspect-video w-full object-cover"
+                />
+              </picture>
               <span className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/30">
                 <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 shadow-lg">
                   <Play className="h-6 w-6 text-foreground" fill="currentColor" />
