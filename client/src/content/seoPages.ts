@@ -452,24 +452,41 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
     sections: [
       {
         heading: 'O que é a etiqueta 10x15?',
-        body: 'É a etiqueta de envio de 100x150 mm (cerca de 4x6 polegadas) usada nos envios do Mercado Livre no Brasil. Concentra endereço do destinatário, código de rastreio e código de barras em uma única etiqueta adesiva que cabe em pacotes pequenos e médios.',
-      },
-      {
-        heading: 'Materiais para imprimir',
-        bullets: [
-          'Impressora térmica: bobina ou refil de etiquetas de 100 mm de largura (10x15 cm).',
-          'Impressora comum: folhas A4 adesivas ou sulfite comum + fita adesiva para fixar.',
-          'Evite papel fotográfico ou muito fino — o código de barras precisa ficar nítido.',
+        body: [
+          'É a etiqueta de envio de 100x150 mm (cerca de 4x6 polegadas) usada nos envios do Mercado Livre no Brasil. Concentra endereço do destinatário, código de rastreio e código de barras ou QR code em uma única etiqueta adesiva que cabe em pacotes pequenos e médios.',
+          'O nome "10x15" vem das medidas em centímetros: 10 cm de largura por 15 cm de altura. É o mesmo formato que a transportadora espera encontrar no pacote na coleta — por isso a etiqueta não deve ser reduzida, ampliada ou cortada.',
         ],
       },
       {
+        heading: 'Por que o formato 10x15 é o padrão',
+        body: 'O formato foi desenhado para ser lido por leitores de código de barras e para caber em uma etiqueta adesiva de rolo. Manter o tamanho original garante que o código tenha a densidade certa para a leitura e que os dados do destinatário fiquem legíveis. Cada envio tem a sua própria etiqueta, mesmo que o produto seja o mesmo.',
+      },
+      {
+        heading: 'Materiais para imprimir',
+        table: {
+          headers: ['Material', 'Como usar', 'Vantagem', 'Atenção'],
+          rows: [
+            ['Térmica direta (100 mm)', 'Rolo/refil 10x15, sem ribbon', 'Rápida, sem tinta, código nítido', 'Papel térmico pode escurecer com calor/sol'],
+            ['Térmica com ribbon', 'Rolo 10x15 + ribbon', 'Mais durável', 'Custo por etiqueta maior'],
+            ['A4 adesivo', 'Folha adesiva na impressora comum', 'Cola direto no pacote', 'Confira o tamanho e a escala'],
+            ['A4 comum + fita', 'Sulfite e fita adesiva', 'Funciona em qualquer impressora', 'Não cubra o código com fita'],
+          ],
+        },
+      },
+      {
         heading: 'Imprimir 10x15 em impressora térmica',
-        body: 'Térmicas de etiquetas trabalham com mídia de 100 mm de largura. Para receber ZPL direto — como faz o agente do LabelGo Completo — a impressora precisa entender ZPL2. Com o driver instalado no computador, qualquer térmica também imprime o PDF gerado pelo navegador.',
+        body: [
+          'Térmicas de etiquetas trabalham com mídia de 100 mm de largura. Para receber ZPL direto — como faz o agente do LabelGo Completo — a impressora precisa entender ZPL2. Com o driver instalado no computador, qualquer térmica também imprime o PDF gerado pelo navegador.',
+          'Antes do primeiro lote, cadastre a etiqueta como 100x150 mm no driver, selecione a mídia correta e calibre a impressora. Faça um teste com uma etiqueta real e confira o código de barras com um leitor.',
+        ],
         links: [{ href: '/impressora-termica-mercado-livre/', label: 'Como escolher a impressora térmica' }],
       },
       {
         heading: 'Imprimir 10x15 em impressora comum',
-        body: 'Sem térmica, imprima o PDF em folha A4 comum ou adesiva — jato de tinta e laser funcionam. Mantenha a escala em 100% e, se usar sulfite, recorte nas bordas da etiqueta. Tem um arquivo ZPL em mãos? Converta para PDF antes.',
+        body: [
+          'Sem térmica, imprima o PDF em folha A4 comum ou adesiva — jato de tinta e laser funcionam. Mantenha a escala em 100% e, se usar sulfite, recorte nas bordas da etiqueta. Tem um arquivo ZPL em mãos? Converta para PDF antes.',
+          'Na impressora comum, a qualidade do código de barras depende da tinta e do papel. Evite papel fotográfico ou muito fino: o código precisa ficar nítido e sem brilho excessivo.',
+        ],
         links: [{ href: '/converter-zpl-pdf/', label: 'Converter ZPL para PDF grátis' }],
       },
       {
@@ -478,6 +495,46 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
           'Escala 100% / tamanho real — nunca "ajustar à página".',
           'Margens no mínimo ou zero nas preferências de impressão.',
           'Qualidade de impressão normal ou alta para o código de barras ficar legível.',
+          'Orientação retrato, sem girar a etiqueta.',
+          'Imprima uma via de teste antes de rodar o lote do dia.',
+          'Guarde a etiqueta em local seco e longe do sol até colar no pacote.',
+        ],
+      },
+      {
+        heading: 'Erros comuns com a etiqueta 10x15',
+        table: {
+          headers: ['Problema', 'Causa provável', 'Solução'],
+          rows: [
+            ['Etiqueta cortada', 'Mídia ou papel no tamanho errado', 'Use 100x150 mm e recalibre a térmica'],
+            ['Código de barras borrado', 'Pouca tinta, densidade baixa ou cabeçote sujo', 'Aumente a qualidade, ajuste a densidade e limpe o cabeçote'],
+            ['Etiqueta descolando', 'Adesivo fraco ou superfície suja', 'Use mídia de qualidade e limpe o pacote antes de colar'],
+            ['Impressão reduzida', 'Opção "ajustar à página" ativa', 'Selecione escala 100% / tamanho real'],
+            ['Térmica de 80 mm não imprime', 'Largura menor que a etiqueta', 'Use uma térmica de 100 mm ou imprima o PDF em impressora comum'],
+          ],
+        },
+        links: [
+          { href: 'https://vendedores.mercadolivre.com.br/nota/como-imprimir-as-etiquetas-de-envios', label: 'Fonte: como imprimir as etiquetas (Mercado Livre)', external: true },
+        ],
+      },
+      {
+        heading: 'Quanto custa a etiqueta 10x15?',
+        body: 'O custo varia com o material e o volume. A térmica direta costuma ter o menor custo por etiqueta em volume; o A4 adesivo é mais caro por folha, mas resolve para quem imprime pouco. Compare sempre o preço por etiqueta — e não o preço do rolo ou do pacote de folhas — para saber o custo real do seu despacho.',
+      },
+      {
+        heading: 'Checklist antes de imprimir',
+        bullets: [
+          'Papel/mídia no tamanho 10x15 cm (100x150 mm).',
+          'Escala 100% e orientação retrato.',
+          'Impressora com tinta ou mídia térmica suficiente.',
+          'Uma etiqueta para cada envio.',
+          'Código de barras e QR code visíveis, sem fita por cima.',
+        ],
+      },
+      {
+        heading: 'Fontes oficiais',
+        links: [
+          { href: 'https://vendedores.mercadolivre.com.br/nota/como-imprimir-as-etiquetas-de-envios', label: 'Mercado Livre: como imprimir as etiquetas', external: true },
+          { href: 'https://vendedores.mercadolivre.com.br/nota/como-etiquetar-pacotes-para-nao-serem-recusados', label: 'Mercado Livre: como etiquetar pacotes', external: true },
         ],
       },
     ],
@@ -493,6 +550,18 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       {
         q: 'O formato 10x15 serve para outros marketplaces?',
         a: '10x15 é o padrão de etiqueta de envio de vários marketplaces e transportadoras no Brasil — mas este guia trata especificamente da etiqueta do Mercado Livre.',
+      },
+      {
+        q: 'Posso aumentar ou reduzir a etiqueta para caber no pacote?',
+        a: 'Não. O tamanho faz parte do padrão de leitura da transportadora. Se o pacote é pequeno, dobre a etiqueta apenas nas bordas, sem cobrir o código de barras ou o QR code.',
+      },
+      {
+        q: 'Qual a diferença entre 10x15 e 4x6 polegadas?',
+        a: 'São o mesmo formato: 10x15 cm equivale a aproximadamente 4x6 polegadas. O nome em centímetros é o mais usado no Brasil; o em polegadas aparece em drivers e impressoras importadas.',
+      },
+      {
+        q: 'A etiqueta 10x15 precisa ser adesiva?',
+        a: 'O ideal é usar mídia adesiva para colar direto no pacote. Se usar sulfite, fixe com fita adesiva sem cobrir o código de barras ou o QR code.',
       },
     ],
     related: [
@@ -643,16 +712,66 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
     sections: [
       {
         heading: 'Quando é possível reimprimir',
-        body: 'Enquanto o envio estiver dentro do prazo de despacho e a etiqueta já tiver sido emitida, você pode imprimi-la de novo quantas vezes precisar. Depois que o pacote é postado, a etiqueta já cumpriu seu papel — reimprimir não é mais necessário.',
+        body: [
+          'Enquanto o envio estiver dentro do prazo de despacho e a etiqueta já tiver sido emitida, você pode imprimi-la de novo quantas vezes precisar. A etiqueta tem data de validade; se o prazo passou, ela pode não estar mais disponível.',
+          'Depois que o pacote é postado, a etiqueta já cumpriu seu papel — reimprimir não é mais necessário para aquele envio. Se você precisa de um comprovante, use o histórico do envio.',
+        ],
+      },
+      {
+        heading: 'Por que a etiqueta precisa ser reimpressa',
+        bullets: [
+          'A etiqueta rasgou, dobrou ou colou torto no pacote.',
+          'A impressão saiu borrada, cortada ou sem o código de barras.',
+          'A impressora falhou no meio do lote.',
+          'O comprador corrigiu o endereço ou o CEP.',
+          'A transportadora recusou o pacote por causa da etiqueta.',
+          'A etiqueta venceu antes do despacho.',
+        ],
       },
       {
         heading: 'Pelo painel do Mercado Livre',
-        body: 'Na seção de envios do painel do vendedor, abra o envio correspondente e use a opção de visualizar/imprimir a etiqueta novamente. Ela sai idêntica: mesmo código de rastreio, mesmos dados.',
+        body: 'O caminho oficial é: abra a venda em Minhas vendas, clique nos três pontinhos, escolha "Preciso de ajuda" e selecione a opção correspondente (etiqueta com erros, recusada pela transportadora ou alteração de endereço). Depois clique em "Gerar minha etiqueta novamente". A etiqueta volta idêntica — mesmo código de rastreio e mesmos dados.',
+        links: [
+          { href: 'https://vendedores.mercadolivre.com.br/aprender/nota/como-gerar-as-etiquetas-dos-pacotes-corretamente', label: 'Fonte: erros mais comuns (Mercado Livre)', external: true },
+        ],
       },
       {
         heading: 'Pelo LabelGo',
-        body: 'Os envios já impressos ficam separados na aba "Reimpressão" do painel — sem misturar com os envios novos. Selecione e imprima de novo em PDF pelo navegador, sem precisar procurar o pedido no histórico do Mercado Livre.',
+        body: [
+          'Os envios já impressos ficam separados na aba "Reimpressão" do painel — sem misturar com os envios novos. Selecione e imprima de novo em PDF pelo navegador, sem precisar procurar o pedido no histórico do Mercado Livre.',
+          'Se você imprime em lote, a reimpressão também pode ser feita em lote: selecione os envios que precisam de segunda via e gere um único PDF.',
+        ],
         links: [{ href: '/imprimir-etiqueta-mercado-livre/', label: 'Ver o passo a passo de impressão' }],
+      },
+      {
+        heading: 'Reimpressão no LabelGo: passo a passo',
+        bullets: [
+          'Abra o painel e vá até a aba "Reimpressão".',
+          'Localize o envio pelo código de rastreio ou pelo nome do comprador.',
+          'Selecione uma ou várias etiquetas que precisam de segunda via.',
+          'Clique em imprimir e confira o PDF antes de enviar para a impressora.',
+          'Descarte a via antiga e cole a nova no pacote correto.',
+        ],
+      },
+      {
+        heading: 'O que fazer se a reimpressão não resolver',
+        body: [
+          'Se a etiqueta venceu, o envio foi cancelado ou a transportadora recusou o pacote, a reimpressão pode não ser suficiente. Nesse caso, abra o atendimento no Mercado Livre e descreva o problema: em alguns cenários é preciso cancelar o envio e gerar uma nova etiqueta, com novo prazo.',
+          'Não tente reaproveitar a etiqueta de outro pedido nem criar uma etiqueta por fora do Mercado Livre: o código de rastreio precisa estar vinculado ao envio original para a transportadora aceitar o pacote.',
+        ],
+      },
+      {
+        heading: 'Reimpressão x nova etiqueta',
+        table: {
+          headers: ['Situação', 'Reimpressão resolve?', 'O que fazer'],
+          rows: [
+            ['Etiqueta rasgou/colou torto', 'Sim', 'Reimprima a mesma etiqueta'],
+            ['Impressão borrada', 'Sim', 'Reimprima com qualidade maior'],
+            ['Endereço/CEP corrigido', 'Sim', 'Reimprima após a correção'],
+            ['Etiqueta vencida', 'Depende', 'Use o fluxo do ML; pode ser preciso novo envio'],
+            ['Pacote já postado', 'Não', 'Use o histórico/comprovante'],
+          ],
+        },
       },
       {
         heading: 'Cuidados ao reimprimir',
@@ -660,6 +779,38 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
           'Use sempre a via mais recente e descarte a etiqueta danificada.',
           'Não cole uma etiqueta por cima da outra — o código de barras pode falhar na leitura.',
           'Confira se o código de rastreio da nova etiqueta é o mesmo do envio.',
+          'Não reaproveite a etiqueta de um envio em outro pacote.',
+          'Se a etiqueta sair errada de novo, verifique a calibração da impressora antes de colar.',
+        ],
+      },
+      {
+        heading: 'Erros comuns na reimpressão',
+        table: {
+          headers: ['Problema', 'Causa provável', 'Solução'],
+          rows: [
+            ['Não encontro a opção', 'O envio não está no status certo', 'Confira Minhas vendas > Envios e o prazo de despacho'],
+            ['Etiqueta vencida', 'Prazo passou', 'Use o fluxo de ajuda do ML; pode ser preciso novo envio'],
+            ['Endereço mudou', 'Dados do comprador', 'Peça a atualização em "Meus dados" e reimprima'],
+            ['Transportadora recusou', 'Etiqueta danificada/coberta', 'Reimprima e cole sem fita sobre o código'],
+            ['Etiqueta não aparece', 'Envio ainda não está pronto', 'Aguarde o status "pronto para envio"'],
+          ],
+        },
+      },
+      {
+        heading: 'Checklist antes de reimprimir',
+        bullets: [
+          'O envio está dentro do prazo de despacho?',
+          'A etiqueta antiga será descartada?',
+          'A impressora está calibrada e com mídia suficiente?',
+          'O código de rastreio confere com o pedido?',
+          'A etiqueta nova será colada sem fita sobre o código?',
+        ],
+      },
+      {
+        heading: 'Fontes oficiais',
+        links: [
+          { href: 'https://vendedores.mercadolivre.com.br/aprender/nota/como-gerar-as-etiquetas-dos-pacotes-corretamente', label: 'Mercado Livre: erros mais comuns ao imprimir', external: true },
+          { href: 'https://vendedores.mercadolivre.com.br/nota/como-etiquetar-pacotes-para-nao-serem-recusados', label: 'Mercado Livre: como etiquetar pacotes', external: true },
         ],
       },
     ],
@@ -676,6 +827,22 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
         q: 'E se o prazo de despacho venceu?',
         a: 'A etiqueta pode não estar mais disponível. Nesse caso, fale com o suporte do Mercado Livre — pode ser preciso cancelar o envio e gerar nova etiqueta.',
       },
+      {
+        q: 'Posso reimprimir depois de postar o pacote?',
+        a: 'A reimpressão serve para o despacho. Depois de postado, a etiqueta já cumpriu o papel; se precisar de comprovante, use o histórico do envio.',
+      },
+      {
+        q: 'A reimpressão mantém o mesmo endereço?',
+        a: 'Sim, a etiqueta é a mesma. Se o comprador corrigiu o endereço, o Mercado Livre gera uma nova versão com os dados atualizados antes da reimpressão.',
+      },
+      {
+        q: 'Posso reimprimir várias etiquetas de uma vez?',
+        a: 'Sim. No LabelGo, a aba "Reimpressão" permite selecionar vários envios e gerar um único PDF; no Mercado Livre, o fluxo é por venda.',
+      },
+      {
+        q: 'A reimpressão pode ser feita pelo celular?',
+        a: 'O painel do LabelGo funciona no navegador do celular e a reimpressão em PDF depende da impressão do sistema. Para imprimir em térmica, o computador com o driver instalado é o caminho mais simples.',
+      },
     ],
     related: [
       { href: '/etiqueta-mercado-livre/', title: 'Etiqueta Mercado Livre', desc: 'Onde gerar e formatos' },
@@ -690,27 +857,110 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
     crumb: 'Impressão em lote',
     sections: [
       {
-        heading: 'Como funciona a impressão em lote',
-        body: 'Em vez de abrir pedido por pedido no painel do Mercado Livre, a impressão em lote reúne todos os envios prontos em uma única lista. Você marca os que quer despachar e imprime tudo junto.',
-      },
-      {
-        heading: 'Passo a passo no LabelGo',
-        bullets: [
-          'Conecte sua conta do Mercado Livre via OAuth (a senha não passa pelo LabelGo).',
-          'Abra a lista de envios prontos para imprimir — ela sincroniza automaticamente.',
-          'Marque "selecionar todos" ou escolha só os envios do dia.',
-          'Clique em imprimir: o LabelGo gera um único PDF com todas as etiquetas.',
-          'Imprima pelo navegador em impressora comum ou térmica com driver.',
+        heading: 'O que é impressão em lote',
+        body: [
+          'Impressão em lote é reunir vários envios prontos em uma única seleção e gerar todas as etiquetas em um só arquivo. Em vez de abrir pedido por pedido, baixar cada PDF e imprimir um por um, você faz um único trabalho de impressão.',
+          'No Mercado Livre, cada envio tem a sua etiqueta. O lote não junta etiquetas de pedidos diferentes em uma só: ele organiza várias etiquetas no mesmo PDF, na ordem dos envios selecionados.',
         ],
       },
       {
-        heading: 'Quando a impressão em lote vale a pena',
-        body: 'Quanto mais envios por dia, maior o ganho: uma única impressão substitui o ciclo de abrir pedido, gerar etiqueta e imprimir dezenas de vezes. Também facilita dividir a operação — uma pessoa confere os pacotes enquanto outra imprime tudo de uma vez.',
+        heading: 'Quando vale a pena',
+        body: 'O ganho cresce com o volume. Em um dia de 20 etiquetas, o lote substitui 20 ciclos de abrir pedido, baixar arquivo e imprimir por um único trabalho. Em um dia de 2 etiquetas, a diferença é pequena — mas o lote ainda ajuda a não esquecer nenhum pedido na fila.',
+        bullets: [
+          'Dias de pico, com muitas vendas para despachar no mesmo dia.',
+          'Operação com mais de uma transportadora ou marketplace.',
+          'Reimpressão de várias etiquetas de uma vez.',
+          'Quem separa os pacotes por lote e imprime tudo antes de despachar.',
+          'Quem quer reduzir o risco de esquecer um pedido na fila.',
+        ],
+      },
+      {
+        heading: 'Como funciona no LabelGo',
+        body: [
+          'Depois de conectar a conta via OAuth, os envios prontos aparecem em uma lista única. Você marca os que quer despachar e o LabelGo gera um PDF com todas as etiquetas — ou envia o ZPL para a térmica, no plano Completo.',
+          'A lista separa envios novos de reimpressões e permite selecionar todos os que estão prontos. Se um pedido ainda não estiver liberado, ele não entra na seleção.',
+        ],
+        links: [{ href: '/pricing/', label: 'Conhecer os planos' }],
+      },
+      {
+        heading: 'Passo a passo',
+        bullets: [
+          'Conecte sua conta do Mercado Livre via OAuth (a senha não passa pelo LabelGo).',
+          'Abra a lista de envios prontos — ela sincroniza automaticamente.',
+          'Marque "selecionar todos" ou escolha só os envios do dia.',
+          'Clique em imprimir: o LabelGo gera um único PDF com todas as etiquetas.',
+          'Imprima pelo navegador em impressora comum ou térmica com driver.',
+          'Confira o código de barras de cada etiqueta antes de colar nos pacotes.',
+        ],
+      },
+      {
+        heading: 'Lote x impressão individual',
+        table: {
+          headers: ['Critério', 'Individual', 'Em lote'],
+          rows: [
+            ['Cliques por etiqueta', 'Vários (abrir, baixar, imprimir)', 'Um para o lote inteiro'],
+            ['Risco de esquecer pedido', 'Maior', 'Menor'],
+            ['Uso de papel', 'Mesmo', 'Mesmo'],
+            ['Organização', 'Depende do vendedor', 'Lista única e ordenada'],
+            ['Melhor para', 'Poucas etiquetas', 'Volume e dias de pico'],
+          ],
+        },
+      },
+      {
+        heading: 'Boas práticas',
+        bullets: [
+          'Imprima o lote perto do horário de despacho, para não misturar pedidos de dias diferentes.',
+          'Separe novos envios de reimpressões antes de selecionar.',
+          'Confira a quantidade de etiquetas no PDF antes de imprimir.',
+          'Use sempre 10x15 cm e escala 100%.',
+          'Uma etiqueta por pacote — nunca reaproveite a etiqueta de outro envio.',
+          'Se a impressora falhar no meio do lote, reimprima só as etiquetas que faltaram.',
+        ],
+      },
+      {
+        heading: 'Como organizar os pacotes depois de imprimir',
+        body: 'O PDF sai na ordem dos envios selecionados. Separe os pacotes na mesma ordem, confira o código de rastreio de cada etiqueta e deixe os pedidos da mesma transportadora juntos. Se você imprime para outra pessoa despachar, numere os pacotes ou use a ordem do PDF como referência para evitar troca de etiqueta.',
+        bullets: [
+          'Mantenha o PDF aberto ou impresso como conferência.',
+          'Separe por transportadora antes de colar as etiquetas.',
+          'Confira o código de rastreio antes de fechar cada pacote.',
+          'Não misture etiquetas de lotes diferentes na mesma pilha.',
+        ],
+      },
+      {
+        heading: 'Erros comuns no lote',
+        table: {
+          headers: ['Problema', 'Causa provável', 'Solução'],
+          rows: [
+            ['Faltou uma etiqueta', 'Envio não estava pronto na seleção', 'Atualize a lista e selecione de novo'],
+            ['PDF com tamanho errado', 'Escala ou papel fora de 10x15', 'Ajuste a impressora para 100x150 mm e 100%'],
+            ['Etiquetas fora de ordem', 'Seleção manual', 'Use a ordem da lista ou separe por transportadora'],
+            ['Impressora travou', 'Mídia ou cabeçote', 'Recalibre/limpe e reimprima só o que faltou'],
+            ['Etiqueta repetida', 'Mesmo envio selecionado duas vezes', 'Confira o código de rastreio antes de colar'],
+          ],
+        },
       },
       {
         heading: 'E se você quiser zero cliques',
         body: 'No plano Completo, o agente para Windows imprime cada etiqueta automaticamente na térmica assim que a venda é confirmada — sem nem abrir o painel. É o mesmo fluxo do lote, mas contínuo e sem seleção manual.',
         links: [{ href: '/pricing/', label: 'Conhecer o LabelGo Completo' }],
+      },
+      {
+        heading: 'Checklist do lote',
+        bullets: [
+          'Todos os envios selecionados estão prontos para impressão?',
+          'A lista separa novos envios de reimpressões?',
+          'O PDF tem a mesma quantidade de etiquetas da seleção?',
+          'A impressora está em 10x15 cm e escala 100%?',
+          'Cada pacote recebeu a etiqueta do seu próprio envio?',
+        ],
+      },
+      {
+        heading: 'Fontes oficiais',
+        links: [
+          { href: 'https://vendedores.mercadolivre.com.br/nota/como-imprimir-as-etiquetas-de-envios', label: 'Mercado Livre: como imprimir as etiquetas', external: true },
+          { href: 'https://vendedores.mercadolivre.com.br/nota/como-etiquetar-pacotes-para-nao-serem-recusados', label: 'Mercado Livre: como etiquetar pacotes', external: true },
+        ],
       },
     ],
     faqs: [
@@ -725,6 +975,18 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       {
         q: 'Funciona em impressora comum?',
         a: 'Sim — o PDF gerado vai para qualquer impressora instalada no sistema, comum ou térmica com driver.',
+      },
+      {
+        q: 'O lote muda o código de rastreio?',
+        a: 'Não. Cada etiqueta mantém o rastreio do seu envio; o lote só reúne os arquivos em um PDF.',
+      },
+      {
+        q: 'Posso imprimir só parte do lote?',
+        a: 'Sim. Selecione apenas os envios que quer despachar; o PDF sai só com os selecionados.',
+      },
+      {
+        q: 'Dá para imprimir em lote no celular?',
+        a: 'O painel funciona no navegador do celular; a impressão depende de a impressora estar acessível pelo aparelho. Para volume alto, o computador com térmica é mais prático.',
       },
     ],
     related: [
