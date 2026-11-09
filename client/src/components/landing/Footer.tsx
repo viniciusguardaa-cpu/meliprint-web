@@ -23,6 +23,7 @@ const COLUMNS = [
   {
     title: 'Empresa',
     links: [
+      { label: 'Sobre o LabelGo', href: '/sobre/', anchor: false },
       { label: 'Suporte', href: 'mailto:suporte@labelgo.com.br', anchor: false },
       { label: 'Termos', href: '/termos/', anchor: false },
       { label: 'Privacidade', href: '/privacidade/', anchor: false },

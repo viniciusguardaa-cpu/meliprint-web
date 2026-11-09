@@ -18,8 +18,9 @@ export default function Terms() {
             <p>
               O LabelGo ("nós", "nosso" ou "serviço") é uma plataforma que permite a impressão
               rápida de etiquetas de envio do Mercado Livre em formato ZPL/PDF, oferecida por{' '}
-              <strong>[RAZÃO SOCIAL DA EMPRESA]</strong>, inscrita no CNPJ sob o nº{' '}
-              <strong>[CNPJ]</strong>, com sede em <strong>[ENDEREÇO]</strong>.
+              <strong>Guarda &amp; Guarda Ltda (Companhia do Papel)</strong>, inscrita no CNPJ sob o nº{' '}
+              <strong>00.397.452/0001-59</strong>, com sede na Rua Humaitá, 895, Sala 05/06/07 —
+              Kennedy, Londrina/PR, CEP 86060-060.
             </p>
           </section>
 

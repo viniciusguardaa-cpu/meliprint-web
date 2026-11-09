@@ -10,6 +10,7 @@ import Pricing from './pages/Pricing';
 import Landing from './pages/Landing';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import About from './pages/About';
 import ZplToPdf from './pages/ZplToPdf';
 import SeoPage from './pages/SeoPage';
 import { SEO_PAGES } from './content/seoPages';
@@ -134,6 +135,7 @@ function App() {
         <Route path="/verificar-email" element={<VerifyEmail />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/parceiro" element={<Partner />} />
+        <Route path="/sobre" element={<About />} />
         <Route path="/termos" element={<Terms />} />
         <Route path="/privacidade" element={<Privacy />} />
         <Route path="/pricing" element={<Pricing />} />

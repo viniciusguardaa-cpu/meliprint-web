@@ -10,6 +10,7 @@ const MANAGED_SELECTOR = [
   'meta[property^="og:"]',
   'link[rel="canonical"]',
   'link[rel="alternate"][hreflang]',
+  'link[rel="preload"][as="image"]',
   'script[type="application/ld+json"]',
 ].join(',');
 

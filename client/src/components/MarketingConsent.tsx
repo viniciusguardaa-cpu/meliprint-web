@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getMarketingConsent, setMarketingConsent, trackMetaPageView, flushConfirmedMetaSubscription } from '../lib/metaPixel';
+import { updateGoogleConsent } from '../lib/googleConsent';
 
 export default function MarketingConsent() {
   const { pathname, search, hash } = useLocation();
@@ -8,14 +9,22 @@ export default function MarketingConsent() {
   const [editing, setEditing] = useState(false);
   const [details, setDetails] = useState(false);
   useEffect(() => {
-    const sync = () => setConsent(getMarketingConsent());
+    const sync = () => {
+      const value = getMarketingConsent();
+      setConsent(value);
+      if (value) updateGoogleConsent(value);
+    };
     sync(); window.addEventListener('labelgo:marketing-consent', sync);
     return () => window.removeEventListener('labelgo:marketing-consent', sync);
   }, []);
   useEffect(() => {
     if (consent === 'granted') { trackMetaPageView(pathname); flushConfirmedMetaSubscription(); }
   }, [consent, pathname, search, hash]);
-  const choose = (value: 'granted' | 'denied') => { setMarketingConsent(value); setEditing(false); };
+  const choose = (value: 'granted' | 'denied') => {
+    setMarketingConsent(value);
+    updateGoogleConsent(value);
+    setEditing(false);
+  };
   if (consent && !editing) return <button className="fixed bottom-3 left-3 z-50 rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-sm" onClick={() => setEditing(true)}>Cookies de publicidade</button>;
   return <section aria-label="Preferências de cookies de publicidade" className="relative z-50 border-b border-border bg-surface px-4 py-3 text-sm">
     <div className="mx-auto max-w-5xl">

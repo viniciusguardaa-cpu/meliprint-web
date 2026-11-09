@@ -47,6 +47,31 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.disable('x-powered-by');
+
+// Canonical host: www → apex (301) antes de qualquer rota/estático. Sem isso
+// https://www.labelgo.com.br responde 200 e cria uma duplicata do site.
+app.use((req, res, next) => {
+  const host = req.headers.host ?? '';
+  if (process.env.NODE_ENV === 'production' && host.startsWith('www.')) {
+    return res.redirect(301, `https://${host.slice(4)}${req.originalUrl}`);
+  }
+  next();
+});
+
+// Headers de segurança. O CSP fica no edge/proxy (exige hashes dos scripts
+// inline do app); os demais são seguros para todas as rotas.
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true
