@@ -519,6 +519,7 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
       {
         heading: 'Quanto custa a etiqueta 10x15?',
         body: 'O custo varia com o material e o volume. A térmica direta costuma ter o menor custo por etiqueta em volume; o A4 adesivo é mais caro por folha, mas resolve para quem imprime pouco. Compare sempre o preço por etiqueta — e não o preço do rolo ou do pacote de folhas — para saber o custo real do seu despacho.',
+        links: [{ href: '/calculadora-custo-etiqueta/', label: 'Calcular o custo por etiqueta' }],
       },
       {
         heading: 'Checklist antes de imprimir',
@@ -583,6 +584,7 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
           'Não. A etiqueta do Mercado Livre pode ser impressa em PDF em qualquer impressora comum — jato de tinta, laser ou até uma térmica com driver. A térmica não é uma exigência do Mercado Livre; ela é uma escolha de operação.',
           'A vantagem aparece no volume: uma térmica de etiquetas imprime mais rápido, não usa tinta e produz um código de barras mais nítido. Para quem despacha poucas etiquetas por semana, a impressora comum que já está na mesa resolve.',
         ],
+        links: [{ href: '/calculadora-custo-etiqueta/', label: 'Calcular o custo por etiqueta' }],
       },
       {
         heading: 'Checklist antes de comprar',
