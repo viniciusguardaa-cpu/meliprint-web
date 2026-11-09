@@ -96,8 +96,8 @@ export default function Hero({ pricesReady = true, priceLabel, founderPriceLabel
     const target = document.querySelector(mobile ? '#demo-hero' : '#como-funciona');
     target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (mobile) {
-      const video = target?.querySelector('video');
-      if (video && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) void video.play().catch(() => {});
+      const playButton = target?.querySelector<HTMLButtonElement>('button[aria-label="Reproduzir demonstração"]');
+      if (playButton && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) playButton.click();
     }
   };
 
@@ -139,7 +139,7 @@ export default function Hero({ pricesReady = true, priceLabel, founderPriceLabel
                 id="hero-title"
                 className="mt-5 text-[34px] sm:text-6xl lg:text-[64px] xl:text-[76px] font-extrabold text-foreground leading-[0.98] tracking-tight"
               >
-                {motionAlternative ? (<>O dia de etiquetas, <span className="text-primary">numa impressão só.</span></>) : (<>Etiquetas do <span className="text-primary">Mercado&nbsp;Livre</span> em lote, sem abrir cada pedido.</>)}
+                {motionAlternative ? (<>O dia de etiquetas do Mercado Livre, <span className="text-primary">numa impressão só.</span></>) : (<>Etiquetas do <span className="text-primary">Mercado&nbsp;Livre</span> em lote, sem abrir cada pedido.</>)}
               </h1>
             </Reveal>
 

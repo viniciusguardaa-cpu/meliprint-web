@@ -2,6 +2,12 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import Root from './Root';
 import './index.css';
+import { getMarketingConsent } from './lib/metaPixel';
+import { updateGoogleConsent } from './lib/googleConsent';
+
+// Reaplica a escolha de consentimento salva antes de qualquer evento do gtag.
+const savedConsent = getMarketingConsent();
+if (savedConsent) updateGoogleConsent(savedConsent);
 
 const container = document.getElementById('root')!;
 const tree = (

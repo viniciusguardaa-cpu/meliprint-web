@@ -1,6 +1,6 @@
 import { trackMetaEvent } from '../lib/metaPixel';
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { rememberTrialIntent, clearTrialIntent } from '../lib/trialIntent';
 import { useAuth } from '../hooks/useAuth';
 import { Check, Zap, Shield, Loader2 } from 'lucide-react';
@@ -317,9 +317,109 @@ export default function Pricing() {
             Pagamento seguro
           </div>
           <div className="flex items-center gap-2">
-            <img src="/mercado-pago.svg" alt="Mercado Pago" className="h-8 w-auto" />
+            <img src="/mercado-pago.svg" alt="Mercado Pago" width={79} height={32} className="h-8 w-auto" />
           </div>
         </div>
+
+        {/* Conteúdo estático de apoio: garante texto indexável na pricing
+            mesmo quando /api/plans não responde (antes o SSR só tinha o
+            spinner). Sem preço — o card dinâmico e o Product schema cuidam
+            disso quando a API responde. */}
+        <section className="mt-14 max-w-2xl mx-auto" aria-labelledby="pricing-includes-title">
+          <h2 id="pricing-includes-title" className="text-2xl font-bold text-foreground mb-4 text-center">
+            O que está incluído no LabelGo Completo
+          </h2>
+          <p className="text-muted-foreground leading-relaxed mb-6">
+            O plano Completo reúne as ferramentas de expedição para quem vende no Mercado Livre:
+            impressão em lote pelo navegador, etiquetas em PDF e formato para impressora térmica,
+            fila por prazo de despacho, conferência antes de imprimir, impressão automática com
+            agente opcional, monitoramento, histórico e nova tentativa se a impressão falhar.
+          </p>
+          <ul className="grid sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
+            {[
+              'Impressão em lote pelo navegador',
+              'Etiquetas em PDF e formato 10x15',
+              'Envio de ZPL para impressora térmica',
+              'Fila por prazo de despacho',
+              'Conferência antes de imprimir',
+              'Impressão automática com agente opcional',
+              'Monitoramento e histórico',
+              'Nova tentativa se a impressão falhar',
+            ].map((feature) => (
+              <li key={feature} className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                <span>{feature}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-8 text-center">
+            <Link
+              to="/cadastro"
+              className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-semibold px-6 py-3 rounded-xl hover:bg-primary-hover transition-all duration-150 hover:-translate-y-px"
+            >
+              Testar grátis por 7 dias
+            </Link>
+          </div>
+        </section>
+
+        {/* FAQ: dúvidas de cobrança/uso, com links para os guias. */}
+        <section className="mt-14 max-w-2xl mx-auto" aria-labelledby="pricing-faq-title">
+          <h2 id="pricing-faq-title" className="text-2xl font-bold text-foreground mb-6 text-center">
+            Perguntas frequentes sobre os planos
+          </h2>
+          <div className="space-y-5">
+            <div>
+              <h3 className="font-semibold text-foreground">O teste grátis pede cartão de crédito?</h3>
+              <p className="mt-1 text-muted-foreground leading-relaxed">
+                Não. Você testa o LabelGo por 7 dias sem cartão. Se decidir continuar, assina o plano
+                Completo e cancela quando quiser, sem fidelidade.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Preciso de impressora térmica para usar o LabelGo?</h3>
+              <p className="mt-1 text-muted-foreground leading-relaxed">
+                Não. As etiquetas saem em PDF e imprimem em qualquer impressora comum. A térmica é
+                opcional — o plano também gera o arquivo no formato 10x15 para quem usa ZPL. Veja o{' '}
+                <Link to="/impressora-termica-mercado-livre/" className="text-primary font-medium hover:underline">
+                  checklist de impressora térmica
+                </Link>.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Posso imprimir várias etiquetas de uma vez?</h3>
+              <p className="mt-1 text-muted-foreground leading-relaxed">
+                Sim. Você seleciona os envios prontos e o LabelGo reúne todas as etiquetas em um único
+                PDF. Veja{' '}
+                <Link to="/imprimir-etiquetas-em-lote/" className="text-primary font-medium hover:underline">
+                  como funciona a impressão em lote
+                </Link>.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Como funciona o cancelamento?</h3>
+              <p className="mt-1 text-muted-foreground leading-relaxed">
+                Sem fidelidade: cancele direto no painel quando quiser. O acesso continua até o fim do
+                período já pago.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">O LabelGo é afiliado ao Mercado Livre?</h3>
+              <p className="mt-1 text-muted-foreground leading-relaxed">
+                Não. A conexão usa o acesso oficial do Mercado Livre via OAuth: você autoriza no site
+                deles e o LabelGo nunca vê nem armazena sua senha. Entenda{' '}
+                <Link to="/etiqueta-mercado-livre/" className="text-primary font-medium hover:underline">
+                  como gerar e imprimir a etiqueta
+                </Link>.
+              </p>
+            </div>
+          </div>
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            Ainda tem dúvidas? Fale com a gente em{' '}
+            <a href="mailto:suporte@labelgo.com.br" className="text-primary font-medium hover:underline">
+              suporte@labelgo.com.br
+            </a>.
+          </p>
+        </section>
       </main>
     </div>
   );

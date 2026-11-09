@@ -12,6 +12,15 @@
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
+    // LGPD / Consent Mode v2: nenhum cookie de anúncio antes do aceite.
+    // O banner (MarketingConsent) atualiza para "granted" ao aceitar.
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+      analytics_storage: 'denied',
+      wait_for_update: 500
+    });
     gtag('js', new Date());
     gtag('config', 'AW-18467947989');
   </script>

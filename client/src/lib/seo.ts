@@ -109,6 +109,35 @@ const SOFTWARE_APPLICATION_LD = {
   // de pricing — um valor fixo aqui ficaria dessincronizado da oferta vigente.
 };
 
+/**
+ * Data da última atualização editorial dos guias. Atualize junto com o
+ * conteúdo (o sitemap usa a data do último commit que toca src/content).
+ */
+const CONTENT_UPDATED = '2026-10-23';
+
+/**
+ * Produto/preço do plano Completo. A faixa cobre a promoção de fundador
+ * (R$ 7,90) e o preço regular (R$ 19,90); o checkout sempre confirma o valor
+ * vigente em /api/plans antes de cobrar.
+ */
+const PRICING_PRODUCT_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'LabelGo Completo',
+  description:
+    'Plano do LabelGo para imprimir etiquetas do Mercado Livre em lote, em PDF pelo navegador ou em ZPL na impressora térmica.',
+  brand: { '@id': ORGANIZATION_ID },
+  url: `${SITE_ORIGIN}/pricing/`,
+  offers: {
+    '@type': 'AggregateOffer',
+    lowPrice: '7.90',
+    highPrice: '19.90',
+    priceCurrency: 'BRL',
+    availability: 'https://schema.org/InStock',
+    url: `${SITE_ORIGIN}/pricing/`,
+  },
+};
+
 /** O conversor é gratuito de verdade, então o preço 0 é estável e correto. */
 const ZPL_CONVERTER_LD = {
   '@context': 'https://schema.org',
@@ -159,11 +188,32 @@ function faqLd(faqs: { q: string; a: string }[]): Record<string, unknown> {
   };
 }
 
-/** JSON-LD blocks for a guide page: breadcrumb + FAQ (when it has one). */
+/** Article for a guide page — author, dates and publisher for E-E-A-T. */
+function articleLd(pathname: string): Record<string, unknown> | null {
+  const page = SEO_PAGES[pathname];
+  if (!page) return null;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: page.h1,
+    description: page.lead,
+    inLanguage: SITE_LANG,
+    mainEntityOfPage: canonicalFor(pathname),
+    datePublished: CONTENT_UPDATED,
+    dateModified: CONTENT_UPDATED,
+    author: { '@type': 'Organization', name: SITE_NAME, url: `${SITE_ORIGIN}/` },
+    publisher: { '@id': ORGANIZATION_ID },
+  };
+}
+
+/** JSON-LD blocks for a guide page: breadcrumb + Article + FAQ (when it has one). */
 function guideLd(pathname: string): Record<string, unknown>[] {
   const page = SEO_PAGES[pathname];
   if (!page) return [];
   const blocks = [breadcrumbLd(pathname, page.crumb)];
+  // O conversor é uma ferramenta (WebApplication), não um artigo editorial.
+  const article = pathname === '/converter-zpl-pdf' ? null : articleLd(pathname);
+  if (article) blocks.push(article);
   if (page.faqs?.length) blocks.push(faqLd(page.faqs));
   return blocks;
 }
@@ -176,10 +226,10 @@ export const PAGE_SEO: Record<string, RouteSeo> = {
     jsonLd: [ORGANIZATION_LD, WEBSITE_LD, SOFTWARE_APPLICATION_LD, faqLd(LANDING_FAQS)],
   },
   '/pricing': {
-    title: 'Planos e preços — LabelGo',
+    title: 'Planos e preços do LabelGo — etiquetas do Mercado Livre',
     description:
       'Compare os planos do LabelGo e imprima etiquetas do Mercado Livre em segundos. Teste grátis por 7 dias, sem cartão de crédito. Cancele quando quiser.',
-    jsonLd: [breadcrumbLd('/pricing', 'Planos')],
+    jsonLd: [breadcrumbLd('/pricing', 'Planos'), PRICING_PRODUCT_LD],
   },
   '/converter-zpl-pdf': {
     title: 'Conversor de ZPL para PDF grátis — LabelGo',
@@ -206,19 +256,19 @@ export const PAGE_SEO: Record<string, RouteSeo> = {
     jsonLd: guideLd('/imprimir-etiqueta-mercado-livre'),
   },
   '/etiqueta-10x15': {
-    title: 'Etiqueta 10x15 do Mercado Livre: formato e impressão — LabelGo',
+    title: 'Etiqueta 10x15: formato e impressão — LabelGo',
     description:
       'A etiqueta 10x15 cm (100x150 mm) é o formato padrão de envio do Mercado Livre. Veja como imprimir em impressora térmica ou comum.',
     jsonLd: guideLd('/etiqueta-10x15'),
   },
   '/impressora-termica-mercado-livre': {
-    title: 'Impressora térmica para Mercado Livre: o que verificar — LabelGo',
+    title: 'Impressora térmica Mercado Livre: checklist — LabelGo',
     description:
       'Como escolher uma impressora térmica para etiquetas 10x15 do Mercado Livre: largura de bobina, compatibilidade com ZPL e alternativa em PDF.',
     jsonLd: guideLd('/impressora-termica-mercado-livre'),
   },
   '/reimprimir-etiqueta-mercado-livre': {
-    title: 'Reimprimir etiqueta do Mercado Livre: quando e como — LabelGo',
+    title: 'Reimprimir etiqueta do Mercado Livre — LabelGo',
     description:
       'Etiqueta rasgou ou colou errado? Veja como reimprimir a mesma etiqueta do Mercado Livre sem custo adicional, pelo painel ou pelo LabelGo.',
     jsonLd: guideLd('/reimprimir-etiqueta-mercado-livre'),
@@ -325,6 +375,7 @@ export interface HeadTag {
  * e para o SeoManager (navegação SPA), garantindo que os dois nunca divirjam.
  */
 export function headTagsFor(pathname: string, meta: RouteSeo = seoForPath(pathname)): HeadTag[] {
+  const normalizedPath = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
   const indexable = isIndexable(meta);
   const canonical = indexable ? canonicalFor(pathname) : null;
   const ogUrl = canonical ?? `${SITE_ORIGIN}/`;
@@ -344,6 +395,19 @@ export function headTagsFor(pathname: string, meta: RouteSeo = seoForPath(pathna
       { tag: 'link', attrs: { rel: 'alternate', hreflang: SITE_LANG, href: canonical } },
       { tag: 'link', attrs: { rel: 'alternate', hreflang: 'x-default', href: canonical } },
     );
+  }
+  // O poster do vídeo demo é o elemento LCP da home no mobile. Sem preload
+  // ele só é descoberto depois da hidratação e atrasa o LCP em ~1,5 s.
+  if (normalizedPath === '/') {
+    tags.push({
+      tag: 'link',
+      attrs: {
+        rel: 'preload',
+        as: 'image',
+        href: '/2-labelgo-demo-poster.jpg',
+        fetchpriority: 'high',
+      },
+    });
   }
   tags.push(
     m('property', 'og:title', meta.title),
