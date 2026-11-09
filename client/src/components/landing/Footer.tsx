@@ -7,6 +7,7 @@ const COLUMNS = [
     links: [
       { label: 'Recursos', href: '#recursos', anchor: true },
       { label: 'Planos', href: '/pricing/', anchor: false },
+      { label: 'Calculadora de custo', href: '/calculadora-custo-etiqueta/', anchor: false },
       { label: 'Como funciona', href: '#como-funciona', anchor: true },
     ],
   },
@@ -24,6 +25,7 @@ const COLUMNS = [
     title: 'Empresa',
     links: [
       { label: 'Sobre o LabelGo', href: '/sobre/', anchor: false },
+      { label: 'Imprensa', href: '/imprensa/', anchor: false },
       { label: 'Suporte', href: 'mailto:suporte@labelgo.com.br', anchor: false },
       { label: 'Termos', href: '/termos/', anchor: false },
       { label: 'Privacidade', href: '/privacidade/', anchor: false },

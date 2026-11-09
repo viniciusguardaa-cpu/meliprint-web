@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
 import MarketingConsent from './components/MarketingConsent';
@@ -10,10 +11,13 @@ import SeoManager from './components/SeoManager';
  * StaticRouter) — keeping them identical is what makes hydration clean.
  */
 export default function Root() {
+  const { pathname } = useLocation();
+  const isEmbed = pathname.startsWith('/embed/');
+
   return (
     <React.StrictMode>
       <SeoManager />
-      <MarketingConsent />
+      {!isEmbed && <MarketingConsent />}
       <App />
       <Toaster
         position="top-right"
