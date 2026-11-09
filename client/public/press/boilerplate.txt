@@ -1,0 +1,9 @@
+LabelGo — boilerplate curto
+LabelGo é um SaaS brasileiro que ajuda vendedores do Mercado Livre a imprimir etiquetas de envio em lote, em PDF pelo navegador ou em ZPL na impressora térmica.
+
+Boilerplate longo
+O LabelGo conecta a conta do vendedor ao Mercado Livre via OAuth oficial, lista os envios prontos e permite selecionar vários pedidos para gerar um único PDF com todas as etiquetas. Também gera ZPL para impressoras térmicas e, no plano Completo, imprime automaticamente com um agente para Windows. O LabelGo é um produto da Guarda & Guarda Ltda (Companhia do Papel), com sede em Londrina/PR, e não é afiliado ao Mercado Livre.
+
+Fundador: Vinicius Guarda
+Contato: suporte@labelgo.com.br
+Site: https://labelgo.com.br

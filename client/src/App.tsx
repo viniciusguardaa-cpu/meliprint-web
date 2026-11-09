@@ -11,7 +11,9 @@ import Landing from './pages/Landing';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import About from './pages/About';
+import Press from './pages/Press';
 import ZplToPdf from './pages/ZplToPdf';
+import LabelCostCalculator from './pages/LabelCostCalculator';
 import SeoPage from './pages/SeoPage';
 import { SEO_PAGES } from './content/seoPages';
 import NotFound from './pages/NotFound';
@@ -136,12 +138,15 @@ function App() {
         <Route path="/admin" element={<Admin />} />
         <Route path="/parceiro" element={<Partner />} />
         <Route path="/sobre" element={<About />} />
+        <Route path="/imprensa" element={<Press />} />
         <Route path="/termos" element={<Terms />} />
         <Route path="/privacidade" element={<Privacy />} />
         <Route path="/pricing" element={<Pricing />} />
 
         {/* SEO pages — conteúdo em src/content/seoPages.ts (também usado nos meta/JSON-LD) */}
         <Route path="/converter-zpl-pdf" element={<ZplToPdf />} />
+        <Route path="/embed/converter-zpl-pdf" element={<ZplToPdf embed />} />
+        <Route path="/calculadora-custo-etiqueta" element={<LabelCostCalculator />} />
         <Route path="/imprimir-zpl" element={<SeoPage {...SEO_PAGES['/imprimir-zpl']} />} />
         <Route path="/etiqueta-mercado-livre" element={<SeoPage {...SEO_PAGES['/etiqueta-mercado-livre']} />} />
         <Route path="/imprimir-etiqueta-mercado-livre" element={<SeoPage {...SEO_PAGES['/imprimir-etiqueta-mercado-livre']} />} />

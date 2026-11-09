@@ -16,6 +16,7 @@
 
 import { SEO_PAGES } from '../content/seoPages';
 import { LANDING_FAQS } from '../content/landingFaq';
+import { CALCULATOR_FAQS } from '../content/calculatorFaq';
 
 export const SITE_ORIGIN = 'https://labelgo.com.br';
 export const SITE_NAME = 'LabelGo';
@@ -111,6 +112,18 @@ const ABOUT_PAGE_LD = {
   about: { '@id': ORGANIZATION_ID },
 };
 
+const PRESS_PAGE_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: 'Imprensa — LabelGo',
+  url: `${SITE_ORIGIN}/imprensa/`,
+  description:
+    'Kit de imprensa do LabelGo: boilerplate, dados da empresa, logos, screenshots e contato para jornalistas e criadores.',
+  inLanguage: SITE_LANG,
+  about: { '@id': ORGANIZATION_ID },
+  publisher: { '@id': ORGANIZATION_ID },
+};
+
 const WEBSITE_LD = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
@@ -183,6 +196,20 @@ const ZPL_CONVERTER_LD = {
   applicationCategory: 'UtilitiesApplication',
   operatingSystem: 'Web',
   browserRequirements: 'Requer JavaScript',
+  inLanguage: SITE_LANG,
+  isAccessibleForFree: true,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'BRL' },
+  publisher: { '@id': ORGANIZATION_ID },
+};
+
+/** Calculadora de custo — ferramenta gratuita, sem login. */
+const CALCULATOR_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Calculadora de custo por etiqueta — LabelGo',
+  url: `${SITE_ORIGIN}/calculadora-custo-etiqueta/`,
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
   inLanguage: SITE_LANG,
   isAccessibleForFree: true,
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'BRL' },
@@ -273,6 +300,23 @@ export const PAGE_SEO: Record<string, RouteSeo> = {
       'Cole o código ZPL da sua etiqueta e baixe o PDF em segundos. Ferramenta online gratuita, sem login e sem cadastro — ideal para etiquetas do Mercado Livre.',
     jsonLd: [ZPL_CONVERTER_LD, ...guideLd('/converter-zpl-pdf')],
   },
+  // Versão compacta do conversor para iframe (widget de link building).
+  '/embed/converter-zpl-pdf': {
+    title: 'Conversor de ZPL para PDF — LabelGo',
+    description: 'Cole o código ZPL e baixe o PDF da etiqueta. Conversor gratuito do LabelGo.',
+    robots: 'noindex,follow',
+  },
+  '/calculadora-custo-etiqueta': {
+    title: 'Calculadora de custo por etiqueta — LabelGo',
+    description:
+      'Compare o custo por etiqueta na térmica e na impressora comum. Informe mídia, papel e tinta e veja o custo mensal do seu despacho.',
+    jsonLd: [
+      ORGANIZATION_LD,
+      breadcrumbLd('/calculadora-custo-etiqueta', 'Calculadora de custo'),
+      CALCULATOR_LD,
+      faqLd(CALCULATOR_FAQS),
+    ],
+  },
   '/imprimir-zpl': {
     title: 'Como imprimir ZPL: guia completo para vendedores — LabelGo',
     description:
@@ -320,6 +364,12 @@ export const PAGE_SEO: Record<string, RouteSeo> = {
     description:
       'Conheça o LabelGo, SaaS brasileiro para imprimir etiquetas do Mercado Livre em lote. Produto da Guarda & Guarda Ltda, feito para vendedores.',
     jsonLd: [ORGANIZATION_LD, ABOUT_PAGE_LD, FOUNDER_LD],
+  },
+  '/imprensa': {
+    title: 'Imprensa — LabelGo: kit de mídia e contato',
+    description:
+      'Kit de imprensa do LabelGo: boilerplate, dados da empresa, logos, screenshots e contato para jornalistas e criadores.',
+    jsonLd: [ORGANIZATION_LD, PRESS_PAGE_LD, FOUNDER_LD],
   },
   '/termos': {
     title: 'Termos de Uso — LabelGo',
