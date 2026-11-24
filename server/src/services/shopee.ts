@@ -220,11 +220,14 @@ export interface ShopeeShipmentListEntry {
  */
 export async function getProcessedOrders(
   shop: { accessToken: string; shopId: string },
-  maxOrders = 500
+  maxOrders = 500,
+  requireComplete = false
 ): Promise<ShopeeShipmentListEntry[]> {
   const out: ShopeeShipmentListEntry[] = [];
   const now = Math.floor(Date.now() / 1000);
   let cursor = '';
+  let complete = false;
+  const cursors = new Set<string>();
   for (let page = 0; page < 20; page++) {
     const resp = await apiGet('/api/v2/order/get_order_list', shop, {
       time_range_field: 'update_time',
@@ -234,12 +237,18 @@ export async function getProcessedOrders(
       order_status: 'PROCESSED',
       cursor
     });
+    if (requireComplete && (!Array.isArray(resp?.order_list) || typeof resp?.more !== 'boolean' || resp.order_list.some((o: any) => typeof o?.order_sn !== 'string' || !o.order_sn.trim()))) {
+      throw new Error('Incomplete Shopee baseline response');
+    }
     const list: ShopeeShipmentListEntry[] = resp?.order_list || [];
     out.push(...list);
-    if (!resp?.more || out.length >= maxOrders) break;
+    if (!resp?.more) { complete = true; break; }
+    if (out.length >= maxOrders) break;
     cursor = resp.next_cursor || '';
-    if (!cursor) break;
+    if (!cursor || cursors.has(cursor)) break;
+    cursors.add(cursor);
   }
+  if (requireComplete && (!complete || out.length > maxOrders)) throw new Error('Shopee baseline exceeded discovery limit; automatic printing remains paused');
   return out.slice(0, maxOrders);
 }
 
@@ -266,26 +275,36 @@ export async function getPrintableOrderSns(
 /** READY_TO_SHIP orders (v2.order.get_shipment_list), all pages. */
 export async function getShipmentList(
   shop: { accessToken: string; shopId: string },
-  maxOrders = 500
+  maxOrders = 500,
+  requireComplete = false
 ): Promise<ShopeeShipmentListEntry[]> {
   const out: ShopeeShipmentListEntry[] = [];
   let cursor = '';
+  let complete = false;
+  const cursors = new Set<string>();
   for (let page = 0; page < 20; page++) {
     const resp = await apiGet('/api/v2/order/get_shipment_list', shop, {
       page_size: '100',
       cursor
     });
+    if (requireComplete && (!Array.isArray(resp?.order_list) || typeof resp?.more !== 'boolean' || resp.order_list.some((o: any) => typeof o?.order_sn !== 'string' || !o.order_sn.trim()))) {
+      throw new Error('Incomplete Shopee baseline response');
+    }
     const list: ShopeeShipmentListEntry[] = resp?.order_list || [];
     out.push(...list);
-    if (!resp?.more || out.length >= maxOrders) break;
+    if (!resp?.more) { complete = true; break; }
+    if (out.length >= maxOrders) break;
     cursor = resp.next_cursor || '';
-    if (!cursor) break;
+    if (!cursor || cursors.has(cursor)) break;
+    cursors.add(cursor);
   }
+  if (requireComplete && (!complete || out.length > maxOrders)) throw new Error('Shopee baseline exceeded discovery limit; automatic printing remains paused');
   return out.slice(0, maxOrders);
 }
 
 export interface ShopeeOrderDetail {
   order_sn: string;
+  create_time?: number;
   status?: string;
   order_status?: string;
   invoice_data?: { status?: string; number?: string; access_key?: string; issue_date?: number; pending_reason?: string } | null;
