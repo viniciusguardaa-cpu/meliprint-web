@@ -29,7 +29,8 @@ import type {
  *   providers.
  * - shipmentId is the order_sn (the id sellers recognize).
  * - Labels are PDF-only; the document type is whatever Shopee allows for the
- *   order. Automatic printing uses the updated PDF-capable local agent.
+ *   order. Automatic printing uses native PDF when advertised, otherwise the backend
+ *   renders ZPL for existing agents.
  * - LabelGo never arranges shipment (pickup/dropoff/time slot) for the
  *   seller: it lists READY_TO_SHIP and already arranged (PROCESSED) orders,
  *   and prints labels only for what the seller arranged in Shopee.
@@ -154,11 +155,26 @@ export const shopeeProvider: MarketplaceProvider = {
     return ids.filter(id => ready.has(id));
   },
 
-  async listAutoPrintableShipmentIds(ctx: AccountContext): Promise<string[]> {
+  async listAutoPrintBaselineShipmentIds(ctx: AccountContext): Promise<string[]> {
+    const shop = shopOf(ctx);
+    // Include unarranged orders and documents still pending. No partial snapshot:
+    // an old order becoming printable later must not be mistaken for a new one.
+    const [pending, processed] = await Promise.all([
+      getShipmentList(shop, 2000, true), getProcessedOrders(shop, 2000, true)
+    ]);
+    return [...new Set([...pending, ...processed].map(o => o.order_sn))];
+  },
+
+  async listAutoPrintableShipmentIds(ctx: AccountContext, options?: { createdAfter: number }): Promise<string[]> {
     // Never auto-arrange shipping or request labels for unarranged orders.
     const shop = shopOf(ctx);
     const ids = [...new Set((await getProcessedOrders(shop)).map(o => o.order_sn))];
-    const ready = await getReadyLabelPdfs(shop, await getOrderDetail(shop, ids));
+    const details = await getOrderDetail(shop, ids);
+    // Even an order outside the initial API window cannot later enter the
+    // automatic queue merely because Shopee updated its status/document.
+    const candidates = options ? details.filter(order =>
+      Number.isSafeInteger(order.create_time) && order.create_time! >= options.createdAfter) : details;
+    const ready = await getReadyLabelPdfs(shop, candidates);
     return ids.filter(id => ready.has(id));
   },
 
