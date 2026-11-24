@@ -2,7 +2,7 @@
 
 Branch: `feat/shopee-auto-print`.
 Base local: `f1632c5` (checkout isolado das alterações pré-existentes).
-Data: 24/11/2026. Não houve deploy, push, alteração de banco real ou impressão física.
+Data: 24/11/2026. Estado inicial da implementação local: sem deploy, push, alteração de banco real ou impressão física. A publicação autorizada é registrada ao final deste relatório.
 
 ## Diagnóstico e arquitetura
 
@@ -42,7 +42,8 @@ O ciclo Shopee de 60 segundos permanece separado do ciclo de reconciliação ML.
 
 | Verificação | Resultado |
 |---|---|
-| Servidor (Vitest) | 208 passaram; 7 ficaram condicionados a PostgreSQL descartável |
+| Servidor local (Vitest) | 208 passaram; 7 ficaram condicionados a PostgreSQL descartável |
+| Servidor no CI com PostgreSQL | 215 passaram, sem testes pulados; migrations fresh/upgrade/idempotência passaram |
 | Integração com mocks | Poller → endpoints reais → renderização real quando necessária → agente original → spooler simulado → confirmação; PDF e legado passaram |
 | Rede após confirmação | Resposta perdida após commit simulado; confirmação retentada e um único envio ao spooler |
 | Regressão ML | Webhook/reprocessamento, ZPL original, elegibilidade e falhas transitórias passaram |
@@ -55,7 +56,7 @@ O ciclo Shopee de 60 segundos permanece separado do ciclo de reconciliação ML.
 
 Os fixtures são PDFs sintéticos; nenhuma etiqueta real de cliente foi baixada para os testes. Não houve acesso a banco/Redis de produção nem envio a uma impressora real.
 
-**Limite da validação:** o PostgreSQL descartável não iniciou neste ambiente: `could not create shared memory segment: Operation not permitted (shmget)`. Por isso os seis novos testes SQL de concorrência/isolamento e o teste de migrations já existente não foram executados localmente. Os testes foram adicionados ao conjunto executado pelo CI quando `TEST_DATABASE_URL` está definido. É necessário obter essa validação antes de liberar produção; o CI remoto não foi acionado nesta tarefa.
+**Limite da validação:** o PostgreSQL descartável não iniciou neste ambiente: `could not create shared memory segment: Operation not permitted (shmget)`. Por isso os seis novos testes SQL de concorrência/isolamento e o teste de migrations já existente não foram executados localmente. Os testes foram adicionados ao conjunto executado pelo CI quando `TEST_DATABASE_URL` está definido. Essa limitação foi resolvida na etapa de publicação: o CI remoto executou e aprovou todos os 215 testes com PostgreSQL e os cenários de migrations ([run 45423214783](https://github.com/viniciusguardaa-cpu/meliprint-web/actions/runs/45423214783)). O banco real detectou ambiguidade de tipos no INSERT; foram adicionados casts explícitos antes da aprovação.
 
 Comandos usados, a partir da raiz do checkout:
 
@@ -85,7 +86,7 @@ A compatibilidade legada tem limites explícitos: PDF de até 10 MiB, até 10 p�
 
 O backend requer Node 22 e as dependências `pdfjs-dist`/`@napi-rs/canvas`, fixadas no lockfile. O arquivo `server/workers/pdfToZpl.mjs` deve acompanhar o backend. CI e Nixpacks foram alinhados para Node 22. É necessária a migration `0017_shopee_auto_print.sql`.
 
-A migration substitui o índice de unicidade da fila; o release deverá coordenar a atualização dos processos de backend, pois código antigo usa um alvo de `ON CONFLICT` diferente. Não aplicar isoladamente em produção mantendo processos antigos ativos. A validação de migrations/concorrência em PostgreSQL e a homologação controlada de uma etiqueta física continuam pendentes. O usuário autorizou a publicação em 24/11/2026. A liberação é feita em duas etapas: primeiro os INSERTs da versão anterior passam a usar `ON CONFLICT DO NOTHING`, compatível com ambos os esquemas; somente após esse backend estar ativo é liberada a migration e a funcionalidade completa.
+A migration substitui o índice de unicidade da fila; o release deverá coordenar a atualização dos processos de backend, pois código antigo usa um alvo de `ON CONFLICT` diferente. Não aplicar isoladamente em produção mantendo processos antigos ativos. A validação de migrations/concorrência em PostgreSQL passou no CI. A homologação física não foi realizada, pois nenhum teste deve acionar impressoras reais. O usuário autorizou a publicação em 24/11/2026. A liberação é feita em duas etapas: primeiro os INSERTs da versão anterior passam a usar `ON CONFLICT DO NOTHING`, compatível com ambos os esquemas; somente após esse backend estar ativo é liberada a migration e a funcionalidade completa.
 
 ## Arquivos alterados e adicionados
 - `README.md`
@@ -118,4 +119,12 @@ A migration substitui o índice de unicidade da fila; o release deverá coordena
 
 ## Tentativa de publicação — 24/11/2026
 
-Publicação autorizada pelo usuário. O acesso GitHub conectado recusou a criação de árvore Git com HTTP 403 (`Resource not accessible by integration`); Git/Railway via terminal não conseguiram acessar a rede. O navegador abriu o repositório, mas a sessão GitHub está desconectada. Nenhuma alteração foi publicada e nenhum deploy foi iniciado nessa tentativa; continuação depende de uma sessão com acesso de escrita ao repositório.
+Publicação autorizada pelo usuário. O acesso GitHub conectado recusou a criação de árvore Git com HTTP 403 (`Resource not accessible by integration`); Git/Railway via terminal não conseguiram acessar a rede. O navegador abriu o repositório, mas a sessão GitHub está desconectada. Nenhuma alteração foi publicada nessa primeira tentativa. Após o login do usuário, o envio foi concluído pelo navegador na branch `feat/shopee-agent-release-20261124`.
+
+## Publicação autorizada — 24/11/2026
+
+- Release completo: [PR #61](https://github.com/viniciusguardaa-cpu/meliprint-web/pull/61).
+- Compatibilidade prévia da fila: [PR #62](https://github.com/viniciusguardaa-cpu/meliprint-web/pull/62), integrado como `999e798a1d7b1f7b44eb5bdb5304198b2adf3bdd`. A versão anterior continua usando os mesmos INSERTs e deduplicação com alvo de conflito genérico.
+- Os 27 arquivos enviados foram comparados por hash com os arquivos locais; todos coincidiram antes desta atualização documental.
+- CI completo aprovado: 215 testes de servidor, 11 de agente, migrations, typechecks e build. Os 33 testes do client também haviam passado localmente.
+- A segunda etapa só será integrada após o Railway confirmar a primeira versão ativa. Nenhum agente local foi alterado.
