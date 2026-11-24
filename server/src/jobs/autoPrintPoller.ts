@@ -4,6 +4,8 @@ import {
   addPrintQueueJob,
   addPdfPrintQueueJob,
   getQueuedShipmentIds,
+  getShopeeAutoPrintState,
+  initializeShopeeAutoPrint,
   releaseStaleJobs,
   markStaleAgentsOffline,
   getUnprocessedMLNotifications,
@@ -43,8 +45,8 @@ async function pollUser(config: any, shopeeOnly = false) {
     if ((account.provider === 'shopee') !== shopeeOnly) continue;
     // Reconnect-needed accounts can't refresh — skip quietly (UI shows the
     // reconnect banner; no point hammering the provider every cycle).
-    if (account.status === 'reauth_required') {
-      console.warn(`[autoPrintPoller] Account ${account.id} (${account.provider}) needs reauth — skipping`);
+    if (account.provider === 'shopee' ? account.status !== 'active' : account.status === 'reauth_required') {
+      console.warn(`[autoPrintPoller] Account ${account.id} (${account.provider}) is not available for printing — skipping`);
       continue;
     }
     const provider = getProvider(account.provider);
@@ -92,11 +94,27 @@ async function pollUser(config: any, shopeeOnly = false) {
     if (!config.enabled) continue; // Arrange-only opt-in does not enable printing.
 
     try {
-      const known = await getQueuedShipmentIds(config.user_id, account.provider);
+      const scope = account.provider === 'shopee'
+        ? { accountId: account.id, generation: config.shopee_generation } : undefined;
+      let excluded = new Set<string>();
+      let createdAfter: number | undefined;
+      if (scope) {
+        const state = await getShopeeAutoPrintState(config.user_id, scope);
+        if (!state) {
+          if (!provider.listAutoPrintBaselineShipmentIds) throw new Error('Missing safe auto-print baseline capability');
+          const baseline = await provider.listAutoPrintBaselineShipmentIds(ctx);
+          await initializeShopeeAutoPrint(config.user_id, scope, baseline);
+          console.log(`[autoPrintPoller] Shopee account ${account.id}: activation snapshot saved; ${baseline.length} existing orders excluded`);
+          continue;
+        }
+        excluded = new Set(state.excluded_ids);
+        createdAfter = state.created_after;
+      }
+      const known = await getQueuedShipmentIds(config.user_id, account.provider, scope?.accountId);
       const discovered = pdfAutoPrint
-        ? await provider.listAutoPrintableShipmentIds!(ctx)
+        ? await provider.listAutoPrintableShipmentIds!(ctx, createdAfter === undefined ? undefined : { createdAfter })
         : await provider.listPrintableShipmentIds(ctx);
-      const shipmentIds = discovered.filter(id => !known.has(id));
+      const shipmentIds = [...new Set(discovered)].filter(id => !known.has(id) && !excluded.has(id));
       console.log(`[autoPrintPoller] User ${config.user_id} ${account.provider}#${account.id}: ${shipmentIds.length} ready_to_print shipments`);
 
       if (shipmentIds.length === 0) continue;
@@ -112,7 +130,7 @@ async function pollUser(config: any, shopeeOnly = false) {
             if (pdfAutoPrint) {
               const pdf = await provider.getLabelsPDF(ctx, [shipmentId]);
               if (!pdf.length || pdf.subarray(0, 5).toString() !== '%PDF-') throw new Error('Invalid PDF label');
-              job = await addPdfPrintQueueJob(config.user_id, shipmentId, pdf, account.provider);
+              job = await addPdfPrintQueueJob(config.user_id, shipmentId, pdf, account.provider, scope!);
             } else {
               const zpl = await provider.getLabelsZPL!(ctx, [shipmentId]);
               if (!zpl || !zpl.trim()) continue;
@@ -141,7 +159,7 @@ async function pollUser(config: any, shopeeOnly = false) {
 }
 
 export function startAutoPrintPoller() {
-  console.log('🔄 Auto-print poller started (ML 5min reconciliation, Shopee 60s discovery)');
+  console.log('🔄 Auto-print poller started (ML 60s reconciliation, Shopee 60s discovery)');
 
   const run = async () => {
     try {
