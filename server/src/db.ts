@@ -736,7 +736,7 @@ export async function addPrintQueueJob(userId: number, shipmentId: number | stri
   const result = await pool.query(
     `INSERT INTO "print_queue" ("user_id", "provider", "shipment_id", "zpl", "status")
      VALUES ($1, $2, $3, $4, 'pending')
-     ON CONFLICT ("user_id", "provider", "shipment_id") DO NOTHING
+     ON CONFLICT DO NOTHING
      RETURNING *`,
     [userId, provider, String(shipmentId), zpl]
   );
@@ -749,7 +749,7 @@ export async function addPdfPrintQueueJob(userId: number, shipmentId: string, pd
   const result = await pool.query(
     `INSERT INTO "print_queue" ("user_id", "provider", "shipment_id", "zpl", "content_type", "status")
      VALUES ($1, $2, $3, $4, 'pdf', 'pending')
-     ON CONFLICT ("user_id", "provider", "shipment_id") DO NOTHING RETURNING *`,
+     ON CONFLICT DO NOTHING RETURNING *`,
     [userId, provider, shipmentId, pdf.toString('base64')]
   );
   return result.rows[0] || null;
