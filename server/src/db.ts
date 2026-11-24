@@ -623,14 +623,18 @@ export async function upsertAutoPrintConfig(
     mlSellerId?: number;
     agentToken?: string;
     printerName?: string;
+    labelDpi?: 203 | 300;
   }
 ) {
   const encAccess = fields.mlAccessToken !== undefined ? encrypt(fields.mlAccessToken) : undefined;
   const encRefresh = fields.mlRefreshToken !== undefined ? encrypt(fields.mlRefreshToken) : undefined;
   const result = await pool.query(
-    `INSERT INTO "auto_print_config" ("user_id", "enabled", "ml_access_token", "ml_refresh_token", "ml_token_expires_at", "ml_seller_id", "agent_token", "agent_token_hash", "printer_name", "updated_at")
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $9, $8, CURRENT_TIMESTAMP)
+    `INSERT INTO "auto_print_config" ("user_id", "enabled", "ml_access_token", "ml_refresh_token", "ml_token_expires_at", "ml_seller_id", "agent_token", "agent_token_hash", "printer_name", "label_dpi", "updated_at")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $9, $8, COALESCE($10, 203), CURRENT_TIMESTAMP)
      ON CONFLICT ("user_id") DO UPDATE SET
+       "shopee_generation" = CASE WHEN $2 = true AND "auto_print_config"."enabled" = false
+         THEN gen_random_uuid() ELSE "auto_print_config"."shopee_generation" END,
+       "label_dpi" = COALESCE($10, "auto_print_config"."label_dpi"),
        "enabled" = COALESCE($2, "auto_print_config"."enabled"),
        "ml_access_token" = COALESCE($3, "auto_print_config"."ml_access_token"),
        "ml_refresh_token" = COALESCE($4, "auto_print_config"."ml_refresh_token"),
@@ -650,7 +654,8 @@ export async function upsertAutoPrintConfig(
       fields.mlSellerId ?? null,
       fields.agentToken !== undefined ? encrypt(fields.agentToken) : null,
       fields.printerName ?? null,
-      fields.agentToken !== undefined ? hashAgentToken(fields.agentToken) : null
+      fields.agentToken !== undefined ? hashAgentToken(fields.agentToken) : null,
+      fields.labelDpi ?? null
     ]
   );
   const row = result.rows[0];
@@ -736,7 +741,7 @@ export async function addPrintQueueJob(userId: number, shipmentId: number | stri
   const result = await pool.query(
     `INSERT INTO "print_queue" ("user_id", "provider", "shipment_id", "zpl", "status")
      VALUES ($1, $2, $3, $4, 'pending')
-     ON CONFLICT ("user_id", "provider", "shipment_id") DO NOTHING
+     ON CONFLICT DO NOTHING
      RETURNING *`,
     [userId, provider, String(shipmentId), zpl]
   );
@@ -744,21 +749,62 @@ export async function addPrintQueueJob(userId: number, shipmentId: number | stri
 }
 
 // PDF bytes are stored as base64 in the existing payload column. Old agents
-// only claim ZPL, so they can never send PDF bytes as raw printer commands.
-export async function addPdfPrintQueueJob(userId: number, shipmentId: string, pdf: Buffer, provider: string) {
+// receive rendered ZPL from agentPrintJobs; PDF bytes never reach RAW printing.
+export interface AutoPrintScope { accountId: number; generation: string }
+
+export async function addPdfPrintQueueJob(userId: number, shipmentId: string, pdf: Buffer, provider: string, scope: AutoPrintScope) {
+  // Ownership, enabled flag and activation generation are checked AT INSERT,
+  // not just before the potentially slow marketplace request.
   const result = await pool.query(
-    `INSERT INTO "print_queue" ("user_id", "provider", "shipment_id", "zpl", "content_type", "status")
-     VALUES ($1, $2, $3, $4, 'pdf', 'pending')
-     ON CONFLICT ("user_id", "provider", "shipment_id") DO NOTHING RETURNING *`,
-    [userId, provider, shipmentId, pdf.toString('base64')]
+    `INSERT INTO "print_queue" ("user_id", "provider", "shipment_id", "zpl", "content_type", "status", "account_id", "auto_print_generation")
+     SELECT $1, $2, $3, $4, 'pdf', 'pending', a."id", c."shopee_generation"
+     FROM "marketplace_accounts" a JOIN "auto_print_config" c ON c."user_id" = a."user_id"
+     JOIN "shopee_auto_print_state" s ON s."account_id" = a."id" AND s."user_id" = a."user_id" AND s."generation" = c."shopee_generation"
+     WHERE a."id" = $5 AND a."user_id" = $1 AND a."provider" = $2 AND a."status" = 'active'
+       AND c."enabled" = true AND c."shopee_generation" = $6::uuid AND NOT ($3 = ANY(s."excluded_ids"))
+     ON CONFLICT DO NOTHING RETURNING *`,
+    [userId, provider, shipmentId, pdf.toString('base64'), scope.accountId, scope.generation]
   );
   return result.rows[0] || null;
 }
 
-export async function getQueuedShipmentIds(userId: number, provider: string): Promise<Set<string>> {
+export async function getShopeeAutoPrintState(userId: number, scope: AutoPrintScope): Promise<{ excluded_ids: string[]; created_after: number } | null> {
   const result = await pool.query(
-    `SELECT "shipment_id" FROM "print_queue" WHERE "user_id" = $1 AND "provider" = $2`,
-    [userId, provider]
+    `SELECT s."excluded_ids", FLOOR(EXTRACT(EPOCH FROM s."initialized_at"))::double precision AS "created_after" FROM "shopee_auto_print_state" s
+     JOIN "marketplace_accounts" a ON a."id" = s."account_id" AND a."user_id" = s."user_id"
+     JOIN "auto_print_config" c ON c."user_id" = s."user_id" AND c."shopee_generation" = s."generation"
+     WHERE s."account_id" = $1 AND s."user_id" = $2 AND s."generation" = $3::uuid
+       AND a."provider" = 'shopee' AND a."status" = 'active' AND c."enabled" = true`,
+    [scope.accountId, userId, scope.generation]
+  );
+  return result.rows[0] || null;
+}
+
+export async function initializeShopeeAutoPrint(userId: number, scope: AutoPrintScope, excludedIds: string[]) {
+  await pool.query(
+    `WITH initialized AS (
+       INSERT INTO "shopee_auto_print_state" ("account_id", "user_id", "generation", "excluded_ids")
+       SELECT a."id", a."user_id", c."shopee_generation", $4::text[]
+       FROM "marketplace_accounts" a JOIN "auto_print_config" c ON c."user_id" = a."user_id"
+       WHERE a."id" = $1 AND a."user_id" = $2 AND a."provider" = 'shopee' AND a."status" = 'active'
+         AND c."enabled" = true AND c."shopee_generation" = $3::uuid
+       ON CONFLICT ("account_id") DO UPDATE SET "user_id" = EXCLUDED."user_id", "generation" = EXCLUDED."generation",
+         "excluded_ids" = EXCLUDED."excluded_ids", "initialized_at" = CURRENT_TIMESTAMP
+       WHERE "shopee_auto_print_state"."generation" <> EXCLUDED."generation"
+          OR "shopee_auto_print_state"."user_id" <> EXCLUDED."user_id"
+       RETURNING "account_id"
+     ) UPDATE "print_queue" SET "status" = 'needs_review', "last_error" = 'shopee_previous_activation'
+       WHERE "user_id" = $2 AND "account_id" IN (SELECT "account_id" FROM initialized)
+         AND "provider" = 'shopee' AND "status" = 'pending' AND "auto_print_generation" IS DISTINCT FROM $3::uuid`,
+    [scope.accountId, userId, scope.generation, [...new Set(excludedIds)]]
+  );
+}
+
+export async function getQueuedShipmentIds(userId: number, provider: string, accountId?: number): Promise<Set<string>> {
+  const result = await pool.query(
+    `SELECT "shipment_id" FROM "print_queue" WHERE "user_id" = $1 AND "provider" = $2` +
+      (accountId === undefined ? '' : ' AND "account_id" = $3'),
+    accountId === undefined ? [userId, provider] : [userId, provider, accountId]
   );
   return new Set(result.rows.map((r: any) => String(r.shipment_id)));
 }
@@ -787,7 +833,15 @@ export async function claimPrintJobs(userId: number, agentId: string, limit = 5,
        "updated_at" = CURRENT_TIMESTAMP
      WHERE "id" IN (
        SELECT "id" FROM "print_queue"
-       WHERE "user_id" = $1 AND "status" = 'pending' AND "content_type" = ANY($4::text[])
+       WHERE "user_id" = $1 AND "status" = 'pending' AND ("content_type" = ANY($4::text[]) OR ("provider" = 'shopee' AND "content_type" = 'pdf'))
+         AND ("provider" <> 'shopee' OR (
+           "next_attempt_at" <= CURRENT_TIMESTAMP AND EXISTS (
+             SELECT 1 FROM "marketplace_accounts" a JOIN "auto_print_config" c ON c."user_id" = a."user_id"
+             JOIN "shopee_auto_print_state" s ON s."account_id" = a."id" AND s."user_id" = a."user_id" AND s."generation" = c."shopee_generation"
+             WHERE a."id" = "print_queue"."account_id" AND a."user_id" = $1 AND a."provider" = 'shopee'
+               AND a."status" = 'active' AND c."enabled" = true AND c."shopee_generation" = "print_queue"."auto_print_generation"
+           )
+         ))
        ORDER BY "created_at" ASC
        LIMIT $2
        FOR UPDATE SKIP LOCKED
@@ -839,6 +893,9 @@ export async function resolveJobReview(userId: number, jobId: number, action: 'r
   const sql = action === 'requeue'
     ? `UPDATE "print_queue" SET
          "status" = 'pending',
+         "next_attempt_at" = CURRENT_TIMESTAMP,
+         "auto_print_generation" = CASE WHEN "provider" = 'shopee'
+           THEN (SELECT "shopee_generation" FROM "auto_print_config" WHERE "user_id" = $2) ELSE "auto_print_generation" END,
          "claimed_at" = NULL, "claimed_by" = NULL,
          "error" = NULL,
          "updated_at" = CURRENT_TIMESTAMP
@@ -860,6 +917,9 @@ export async function retryFailedJob(userId: number, jobId: number) {
   const result = await pool.query(
     `UPDATE "print_queue" SET
        "status" = 'pending',
+       "next_attempt_at" = CURRENT_TIMESTAMP,
+       "auto_print_generation" = CASE WHEN "provider" = 'shopee'
+         THEN (SELECT "shopee_generation" FROM "auto_print_config" WHERE "user_id" = $2) ELSE "auto_print_generation" END,
        "error" = NULL,
        "claimed_at" = NULL,
        "claimed_by" = NULL,
@@ -906,17 +966,32 @@ export async function markPrintJobPrinted(userId: number, jobId: number, sentToP
 export async function markPrintJobFailed(userId: number, jobId: number, error: string) {
   const result = await pool.query(
     `UPDATE "print_queue" SET
-       "status" = CASE WHEN "attempts" + 1 >= 3 THEN 'failed' ELSE 'pending' END,
+       "status" = CASE WHEN "provider" = 'shopee' THEN 'needs_review' WHEN "attempts" + 1 >= 3 THEN 'failed' ELSE 'pending' END,
        "attempts" = "attempts" + 1,
+       "next_attempt_at" = CASE WHEN "provider" = 'shopee'
+         THEN CURRENT_TIMESTAMP + (INTERVAL '15 seconds' * POWER(2, LEAST("attempts", 2))) ELSE CURRENT_TIMESTAMP END,
        "error" = $3,
        "last_error" = $3,
        "claimed_at" = NULL,
        "claimed_by" = NULL,
        "updated_at" = CURRENT_TIMESTAMP
-     WHERE "id" = $1 AND "user_id" = $2`,
+     WHERE "id" = $1 AND "user_id" = $2 AND ("provider" <> 'shopee' OR "status" = 'processing')`,
     [jobId, userId, error]
   );
   return (result.rowCount ?? 0) > 0;
+}
+
+/** Only the server renderer calls this: no bytes reached a printer, so retry is safe. */
+export async function markShopeeConversionFailed(userId: number, jobId: number, error: string) {
+  await pool.query(
+    `UPDATE "print_queue" SET
+       "status" = CASE WHEN "attempts" + 1 >= 3 THEN 'failed' ELSE 'pending' END,
+       "attempts" = "attempts" + 1, "error" = $3, "last_error" = $3,
+       "next_attempt_at" = CURRENT_TIMESTAMP + (INTERVAL '15 seconds' * POWER(2, LEAST("attempts", 2))),
+       "claimed_at" = NULL, "claimed_by" = NULL, "updated_at" = CURRENT_TIMESTAMP
+     WHERE "id" = $1 AND "user_id" = $2 AND "provider" = 'shopee' AND "status" = 'processing'`,
+    [jobId, userId, error.slice(0, 500)]
+  );
 }
 
 export async function getPrintQueueStats(userId: number) {
