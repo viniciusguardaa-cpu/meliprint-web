@@ -14,7 +14,7 @@ Aplicação web para impressão rápida de etiquetas do Mercado Livre em formato
 
 ## Requisitos
 
-- Node.js 18+
+- Node.js 22.12+
 - App registrado no [Mercado Livre Developers](https://developers.mercadolivre.com.br/)
 
 ## Configuração
@@ -175,12 +175,12 @@ labelgo-web/
 MIT
 
 
-### Impressão automática Shopee (agente 1.2.0)
+### Impressão automática Shopee (compatibilidade com agentes existentes)
 
 - Requer Pro, loja Shopee conectada e `SHOPEE_PARTNER_ID` / `SHOPEE_PARTNER_KEY` live configurados no servidor. Nunca coloque as chaves no repositório.
 - Organize o envio na Shopee primeiro. O LabelGo não escolhe endereço, coleta nem horário e não chama `ship_order`.
-- A varredura de 5 minutos inclui pedidos `PROCESSED` atualizados nos últimos 14 dias. A primeira ativação pode imprimir etiquetas desses pedidos antigos que ainda não estão na fila do LabelGo. Não há webhook Shopee nesta versão.
-- Atualize/recompile o aplicativo local para 1.2.0 (não basta atualizar o servidor). Agentes antigos continuam pegando apenas ZPL; PDFs ficam pendentes até a atualização.
+- A varredura de 60 segundos inclui pedidos `PROCESSED` atualizados nos últimos 14 dias. A primeira descoberta completa salva um marco por loja e exclui os pedidos existentes; etiquetas antigas continuam disponíveis para impressão manual. Não há webhook Shopee nesta versão.
+- Agentes que anunciam PDF recebem o original. Para agentes antigos, o backend converte PDF para ZPL raster, sem trocar o protocolo ou a impressora. Não é necessário atualizar o agente quando a impressora aceita `^GFA/:Z64` e o documento fica dentro dos limites de conversão. Detalhes e limites em [docs/shopee-auto-print.md](docs/shopee-auto-print.md).
 - No Windows, o instalador inclui o renderizador do `pdf-to-printer`. macOS/Linux exigem CUPS (`lp`) e o driver da impressora. Configure papel 4x6/100x150 mm no driver e teste escala/orientação antes de uso em volume.
 - Todos os pacotes de um pedido vão em um PDF; se algum documento não estiver pronto, nada desse pedido entra na fila ainda. Pedidos já na fila não são baixados de novo. Confirmação perdida retenta apenas a confirmação, não a impressão.
 - O estado "impresso" significa aceito pelo spooler, não prova de saída física. Preserve a revisão manual de resultado incerto.
