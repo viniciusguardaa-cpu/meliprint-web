@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
+import { claimAgentPrintJobs } from '../services/agentPrintJobs.js';
 import {
   getAutoPrintConfig,
   upsertAutoPrintConfig,
   getAutoPrintConfigByAgentToken,
-  claimPrintJobs,
   markPrintJobPrinted,
   markPrintJobFailed,
   retryFailedJob,
@@ -104,6 +104,7 @@ router.get('/status', requireActiveSubscription, async (req: Request, res: Respo
     enabled: config?.enabled ?? false,
     agentToken: config?.agent_token ?? null,
     printerName: config?.printer_name ?? null,
+    labelDpi: config?.label_dpi ?? 203,
     lastPolledAt: config?.last_polled_at ?? null,
     agentStatus: config?.agent_status ?? 'offline',
     lastHeartbeatAt: config?.last_heartbeat_at ?? null,
@@ -145,8 +146,12 @@ router.post('/printer', requireActiveSubscription, async (req: Request, res: Res
     return res.status(403).json({ error: 'subscription_required' });
   }
 
-  await upsertAutoPrintConfig(user.id, { printerName });
-  res.json({ printerName });
+  const labelDpi = req.body?.labelDpi;
+  if (labelDpi !== undefined && labelDpi !== 203 && labelDpi !== 300) {
+    return res.status(400).json({ error: 'labelDpi must be 203 or 300' });
+  }
+  await upsertAutoPrintConfig(user.id, { printerName, labelDpi });
+  res.json({ printerName, ...(labelDpi === undefined ? {} : { labelDpi }) });
 });
 
 // Manual retry of a failed job (browser session, owner-scoped)
@@ -267,8 +272,8 @@ router.post('/queue/claim', requireAgentToken, async (req: Request, res: Respons
   const config = (req as any).agentConfig;
   const limit = Math.min(Number(req.body?.limit) || 5, 20);
   const agentId = (req.body?.agentId as string | undefined)?.slice(0, 255) || `agent-${config.user_id}`;
-  const jobs = await claimPrintJobs(config.user_id, agentId, limit,
-    Array.isArray(req.body?.contentTypes) && req.body.contentTypes.includes('pdf') ? ['zpl', 'pdf'] : ['zpl']);
+  const jobs = await claimAgentPrintJobs(config.user_id, agentId, limit,
+    Array.isArray(req.body?.contentTypes) && req.body.contentTypes.includes('pdf') ? ['zpl', 'pdf'] : ['zpl'], config.label_dpi);
   res.json({ jobs });
 });
 
@@ -278,7 +283,7 @@ router.get('/queue', requireAgentToken, async (req: Request, res: Response) => {
   // Use claimPrintJobs with limit to ensure atomic claiming even on old agents
   const limit = Math.min(Number(req.query.limit) || 20, 20);
   const agentId = `legacy-${config.user_id}`;
-  const jobs = await claimPrintJobs(config.user_id, agentId, limit);
+  const jobs = await claimAgentPrintJobs(config.user_id, agentId, limit, ['zpl'], config.label_dpi);
   res.json({ jobs });
 });
 

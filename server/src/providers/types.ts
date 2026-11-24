@@ -85,8 +85,8 @@ export interface MarketplaceProvider {
 
   /**
    * Label formats this provider can produce. PDF auto-print requires the
-   * explicit listAutoPrintableShipmentIds capability below.
-   * but still work for browser printing via getLabelsPDF.
+   * explicit listAutoPrintableShipmentIds capability below. Browser printing
+   * uses getLabelsPDF independently of automatic printing.
    */
   labelFormats: LabelFormat[];
 
@@ -125,8 +125,11 @@ export interface MarketplaceProvider {
   /** External ids of shipments in printable state (used by auto-print). */
   listPrintableShipmentIds(ctx: AccountContext): Promise<string[]>;
 
+  /** Complete candidate snapshot before the first automatic print (no readiness filtering). */
+  listAutoPrintBaselineShipmentIds?(ctx: AccountContext): Promise<string[]>;
+
   /** Optional PDF auto-print discovery: only seller-arranged shipments. */
-  listAutoPrintableShipmentIds?(ctx: AccountContext): Promise<string[]>;
+  listAutoPrintableShipmentIds?(ctx: AccountContext, options?: { createdAfter: number }): Promise<string[]>;
 
   /** Raw ZPL for the given external shipment ids (ZPL-capable providers only). */
   getLabelsZPL?(ctx: AccountContext, externalIds: string[]): Promise<string>;
