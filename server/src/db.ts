@@ -757,7 +757,7 @@ export async function addPdfPrintQueueJob(userId: number, shipmentId: string, pd
   // not just before the potentially slow marketplace request.
   const result = await pool.query(
     `INSERT INTO "print_queue" ("user_id", "provider", "shipment_id", "zpl", "content_type", "status", "account_id", "auto_print_generation")
-     SELECT $1, $2, $3, $4, 'pdf', 'pending', a."id", c."shopee_generation"
+     SELECT $1::integer, $2::varchar(50), $3::text, $4::text, 'pdf', 'pending', a."id", c."shopee_generation"
      FROM "marketplace_accounts" a JOIN "auto_print_config" c ON c."user_id" = a."user_id"
      JOIN "shopee_auto_print_state" s ON s."account_id" = a."id" AND s."user_id" = a."user_id" AND s."generation" = c."shopee_generation"
      WHERE a."id" = $5 AND a."user_id" = $1 AND a."provider" = $2 AND a."status" = 'active'
