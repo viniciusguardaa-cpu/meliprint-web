@@ -25,3 +25,18 @@ describe('Shopee automatic labels', () => {
     await expect(shopeeProvider.getLabelsPDF(ctx, ['A'])).rejects.toThrow('timeout');
   });
 });
+
+it('snapshots pending and processed orders with strict pagination before readiness checks', async () => {
+  const { getShipmentList } = await import('../services/shopee.js');
+  vi.mocked(getShipmentList).mockResolvedValue([{ order_sn: 'WAITING_DOCUMENT' }]);
+  vi.mocked(getProcessedOrders).mockResolvedValue([{ order_sn: 'OLD' }, { order_sn: 'OLD' }]);
+  expect(await shopeeProvider.listAutoPrintBaselineShipmentIds!(ctx)).toEqual(['WAITING_DOCUMENT', 'OLD']);
+  expect(getShipmentList).toHaveBeenCalledWith({ accessToken: 'test', shopId: '123' }, 2000, true);
+  expect(getProcessedOrders).toHaveBeenLastCalledWith({ accessToken: 'test', shopId: '123' }, 2000, true);
+});
+it('excludes old/missing creation timestamps even if an old order newly appears in discovery', async () => {
+  vi.mocked(getProcessedOrders).mockResolvedValue([{ order_sn: 'OLD_OUTSIDE_SNAPSHOT' }, { order_sn: 'MISSING_TIME' }, { order_sn: 'NEW' }]);
+  vi.mocked(getOrderDetail).mockResolvedValue([{ order_sn: 'OLD_OUTSIDE_SNAPSHOT', create_time: 100 }, { order_sn: 'MISSING_TIME' }, { order_sn: 'NEW', create_time: 1001 }]);
+  vi.mocked(getReadyLabelPdfs).mockImplementation(async (_shop, orders) => new Map(orders.map(order => [order.order_sn, [Buffer.from('%PDF-test')]])));
+  expect(await shopeeProvider.listAutoPrintableShipmentIds!(ctx, { createdAfter: 1000 })).toEqual(['NEW']);
+});

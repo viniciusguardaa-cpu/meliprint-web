@@ -154,24 +154,24 @@ describe('print queue multi-tenant ownership (SQL verification)', () => {
   });
 });
 
-// Compatibility is load-bearing: an old agent must never claim PDF bytes.
-describe('PDF queue compatibility', () => {
+// Transport compatibility lives in agentPrintJobs: legacy responses contain rendered ZPL.
+describe('PDF queue storage and format negotiation', () => {
   beforeEach(() => mockQuery.mockReset());
-  it('claims PDF only when an upgraded agent advertises support', async () => {
+  it('retains the advertised native PDF format filter', async () => {
     const { claimPrintJobs } = await import('../db.js');
     mockQuery.mockResolvedValue({ rows: [] });
     await claimPrintJobs(42, 'new', 5, ['zpl', 'pdf']);
     expect(mockQuery.mock.calls[0][0]).toContain('ANY($4::text[])');
     expect(mockQuery.mock.calls[0][1]).toEqual([42, 5, 'new', ['zpl', 'pdf']]);
   });
-  it('stores base64 PDF with provider-scoped duplicate protection', async () => {
+  it('stores base64 PDF with owner, account and activation guards', async () => {
     const { addPdfPrintQueueJob } = await import('../db.js');
     mockQuery.mockResolvedValue({ rows: [{ id: 1 }] });
     const pdf = Buffer.from('%PDF-1.4');
-    await addPdfPrintQueueJob(42, 'SN1', pdf, 'shopee');
+    await addPdfPrintQueueJob(42, 'SN1', pdf, 'shopee', { accountId: 7, generation: 'epoch' });
     expect(mockQuery.mock.calls[0][0]).toContain("'pdf', 'pending'");
     expect(mockQuery.mock.calls[0][0]).toContain('ON CONFLICT');
-    expect(mockQuery.mock.calls[0][1]).toEqual([42, 'shopee', 'SN1', pdf.toString('base64')]);
+    expect(mockQuery.mock.calls[0][1]).toEqual([42, 'shopee', 'SN1', pdf.toString('base64'), 7, 'epoch']);
   });
 });
 
