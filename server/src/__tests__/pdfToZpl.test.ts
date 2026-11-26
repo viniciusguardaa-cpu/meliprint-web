@@ -1,9 +1,41 @@
-import { describe, it, expect } from 'vitest';
-import { fixturePdf } from './labelFixture.js';
+import { afterAll, beforeAll, describe, it, expect, vi } from 'vitest';
+import { fixturePdf, FONT_GRID, missingFontPdf } from './labelFixture.js';
 import { inflateSync } from 'node:zlib';
 import { pdfToZpl } from '../services/pdfToZpl.js';
 
 describe('backend PDF to RAW ZPL compatibility (real renderer)', () => {
+  beforeAll(() => vi.stubEnv('DISABLE_SYSTEM_FONTS_LOAD', '1'));
+  afterAll(() => vi.unstubAllEnvs());
+  it.each([203, 300] as const)('preserves repeated letters, digits and accents on white/black backgrounds at %i DPI', async dpi => {
+    const zpl = await pdfToZpl(await missingFontPdf(), dpi);
+    const rasters = [...zpl.matchAll(/\^GFA,(\d+),(\d+),(\d+),:Z64:([A-Za-z0-9+/=]+):/g)];
+    const reference = [...(await pdfToZpl(await missingFontPdf('Helvetica'), dpi))
+      .matchAll(/\^GFA,(\d+),(\d+),(\d+),:Z64:([A-Za-z0-9+/=]+):/g)];
+    expect(rasters).toHaveLength(2);
+    for (const [page, match] of rasters.entries()) {
+      const raster = inflateSync(Buffer.from(match[4], 'base64'));
+      const expectedRaster = inflateSync(Buffer.from(reference[page][4], 'base64'));
+      const stride = Number(match[3]);
+      [...FONT_GRID].forEach((character, i) => {
+        const x = 12 + (i % 16) * 16;
+        const y = 390 - Math.floor(i / 16) * 30;
+        let ink = 0;
+        let intersection = 0;
+        let union = 0;
+        for (let py = Math.floor((432 - y - 16) * dpi / 72); py < Math.ceil((432 - y + 4) * dpi / 72); py++) {
+          for (let px = Math.floor(x * dpi / 72); px < Math.floor((x + 14) * dpi / 72); px++) {
+            const black = !!(raster[py * stride + (px >> 3)] & (0x80 >> (px & 7)));
+            const expectedBlack = !!(expectedRaster[py * stride + (px >> 3)] & (0x80 >> (px & 7)));
+            if (black === (page === 0)) ink++;
+            if (black === (page === 0) || expectedBlack === (page === 0)) union++;
+            if (black === (page === 0) && expectedBlack === (page === 0)) intersection++;
+          }
+        }
+        expect(ink, `missing glyph ${character} on page at ${dpi} DPI`).toBeGreaterThan(3);
+        expect(intersection / union, `wrong glyph ${character} at ${dpi} DPI`).toBeGreaterThan(0.65);
+      });
+    }
+  });
   it.each([203, 300] as const)('renders a parseable monochrome 4x6 label at %i DPI', async dpi => {
     const zpl = await pdfToZpl(await fixturePdf(), dpi);
     expect(zpl).toContain(`^XA^PW${4 * dpi}^LL${6 * dpi}`);
