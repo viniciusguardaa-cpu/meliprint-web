@@ -20,19 +20,25 @@ describe('backend PDF to RAW ZPL compatibility (real renderer)', () => {
         const x = 12 + (i % 16) * 16;
         const y = 390 - Math.floor(i / 16) * 30;
         let ink = 0;
-        let intersection = 0;
-        let union = 0;
+        let matchingInk = 0;
         for (let py = Math.floor((432 - y - 16) * dpi / 72); py < Math.ceil((432 - y + 4) * dpi / 72); py++) {
           for (let px = Math.floor(x * dpi / 72); px < Math.floor((x + 14) * dpi / 72); px++) {
             const black = !!(raster[py * stride + (px >> 3)] & (0x80 >> (px & 7)));
-            const expectedBlack = !!(expectedRaster[py * stride + (px >> 3)] & (0x80 >> (px & 7)));
-            if (black === (page === 0)) ink++;
-            if (black === (page === 0) || expectedBlack === (page === 0)) union++;
-            if (black === (page === 0) && expectedBlack === (page === 0)) intersection++;
+            if (black === (page === 0)) {
+              ink++;
+              // Allow one dot of native-vs-outline hinting, but reject boxes.
+              let matches = false;
+              for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+                const ex = px + dx;
+                const expectedBlack = !!(expectedRaster[(py + dy) * stride + (ex >> 3)] & (0x80 >> (ex & 7)));
+                if (expectedBlack === (page === 0)) matches = true;
+              }
+              if (matches) matchingInk++;
+            }
           }
         }
         expect(ink, `missing glyph ${character} on page at ${dpi} DPI`).toBeGreaterThan(3);
-        expect(intersection / union, `wrong glyph ${character} at ${dpi} DPI`).toBeGreaterThan(0.65);
+        expect(matchingInk / ink, `wrong glyph ${character} at ${dpi} DPI`).toBeGreaterThan(0.9);
       });
     }
   });
