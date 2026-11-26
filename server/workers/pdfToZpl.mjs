@@ -3,6 +3,7 @@ import { deflateSync } from 'node:zlib';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { createCanvas, DOMMatrix, Path2D, ImageData, GlobalFonts } from '@napi-rs/canvas';
+import { thermalLabelPages } from './thermalLabelPages.mjs';
 
 // PDF.js' Node renderer needs these canvas primitives. Keep them worker-local.
 Object.assign(globalThis, { DOMMatrix, Path2D, ImageData });
@@ -75,9 +76,10 @@ async function render() {
   if (dpi !== 203 && dpi !== 300) throw new Error('Unsupported label DPI');
   const { getDocument, OPS } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const root = dirname(require.resolve('pdfjs-dist/package.json'));
+  const thermalPdf = await thermalLabelPages(pdf);
   const fonts = canvasFonts(root);
   const task = getDocument({
-    data: pdf, isEvalSupported: false, useSystemFonts: false,
+    data: thermalPdf, isEvalSupported: false, useSystemFonts: false,
     disableFontFace: false, ownerDocument: fonts.ownerDocument,
     standardFontDataUrl: join(root, 'standard_fonts') + '/',
     cMapUrl: join(root, 'cmaps') + '/', cMapPacked: true

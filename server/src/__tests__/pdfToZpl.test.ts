@@ -3,10 +3,38 @@ import { fixturePdf, FONT_GRID, missingFontPdf } from './labelFixture.js';
 import { inflateSync } from 'node:zlib';
 import { readFile } from 'node:fs/promises';
 import { pdfToZpl } from '../services/pdfToZpl.js';
+import { PDFDict, PDFDocument, PDFName } from 'pdf-lib';
+
+async function wrappedLabels(a4: boolean, extraContent = false) {
+  const source = await PDFDocument.load(await readFile(new URL('./shopee-cid-fonts.pdf', import.meta.url)));
+  const doc = await PDFDocument.create();
+  for (const original of source.getPages()) {
+    const label = await doc.embedPage(original);
+    const page = doc.addPage(a4 ? [595, 842] : [288, 432]);
+    page.drawPage(label, { x: a4 ? 0.19 : 0, y: a4 ? 410 : 0 });
+    if (a4) {
+      const formName = page.node.Resources()!.lookup(PDFName.of('XObject'), PDFDict).keys()[0].toString();
+      page.node.set(PDFName.of('Contents'), doc.context.register(doc.context.flateStream(`q 1.00 0.00 0.00 1.00 0.19 410 cm ${formName} Do Q${extraContent ? '\n0 0 20 20 re f' : ''}`)));
+    }
+  }
+  return Buffer.from(await doc.save());
+}
 
 describe('backend PDF to RAW ZPL compatibility (real renderer)', () => {
   beforeAll(() => vi.stubEnv('DISABLE_SYSTEM_FONTS_LOAD', '1'));
   afterAll(() => vi.unstubAllEnvs());
+  it.each([203, 300] as const)('preserves all pixels with nested Form XObject clips at %i DPI', async dpi => {
+    const direct = await readFile(new URL('./shopee-cid-fonts.pdf', import.meta.url));
+    const reference = await pdfToZpl(direct, dpi);
+    // Previously only the top-left strip survived when clips were intersected
+    // in the wrong coordinate system by @napi-rs/canvas 0.1.90.
+    expect(await pdfToZpl(await wrappedLabels(false), dpi)).toBe(reference);
+    // A4's blank margins must not shrink the thermal label to one quadrant.
+    expect(await pdfToZpl(await wrappedLabels(true), dpi)).toBe(reference);
+  });
+  it('refuses unfamiliar A4 layouts instead of dropping extra content', async () => {
+    await expect(pdfToZpl(await wrappedLabels(true, true))).rejects.toThrow('Unsupported A4 label layout');
+  });
   it.each([203, 300] as const)('preserves CID/TrueType text under nested transforms and clipping at %i DPI', async dpi => {
     const fixture = await readFile(new URL('./shopee-cid-fonts.pdf', import.meta.url));
     const { lines } = JSON.parse(await readFile(new URL('./shopee-cid-fonts.json', import.meta.url), 'utf8'));

@@ -128,3 +128,33 @@ Publicação autorizada pelo usuário. O acesso GitHub conectado recusou a cria�
 - Os 27 arquivos enviados foram comparados por hash com os arquivos locais; todos coincidiram antes desta atualização documental.
 - CI completo aprovado: 215 testes de servidor, 11 de agente, migrations, typechecks e build. Os 33 testes do client também haviam passado localmente.
 - A segunda etapa só será integrada após o Railway confirmar a primeira versão ativa. Nenhum agente local foi alterado.
+
+### 26/11/2026 — A4 Form XObject clipping incident
+
+Six newly generated Shopee PDFs used a 595×842 pt A4 wrapper around a single
+297.12×419.04 pt thermal Form XObject. Reproducing the queue payloads locally
+matched the photographed failure: only a roughly 96×136 pixel destination strip
+survived. This was an independent nested-clip defect in the pinned native canvas
+0.1.90, not a printer transport failure or a missing-font recurrence.
+
+- Pin canvas to 0.1.91, whose upstream fix #1202 intersects nested clips in device
+  space (https://github.com/Brooooooklyn/canvas/blob/main/CHANGELOG.md).
+- Inside the existing isolated renderer, recognize only an otherwise empty A4
+  wrapper with one translated thermal Form XObject and identity form matrix.
+  Preserve its resources and exact thermal bounding box. Unknown A4 layouts or
+  additional marks/annotations fail before delivery rather than losing content.
+- Serialize native font rendering per process and await worker termination;
+  concurrent native font registration/removal can otherwise change glyph output.
+  At most eight conversions can wait; overload enters the existing bounded retry
+  path. No changes to agent receipts, queue uniqueness, ML ZPL or printer settings.
+- Synthetic Form and A4 regression fixtures contain no customer content. Compare
+  every raster byte with the direct thermal fixture at both 203 and 300 DPI,
+  preserve both pages, and reject A4 with additional marks.
+- All six private production samples render completely after the fix, spanning
+  x=0..810 and y=36..1139 on the 812×1218 raster; payloads 11,983–13,255 chars,
+  below the existing legacy transport limit. No physical prints were triggered.
+- Local server suite: 216 passed, seven DB-gated tests skipped; agent: 11 passed.
+  CI supplies disposable PostgreSQL for the skipped database checks.
+
+No installed-agent update is required for this backend RAW compatibility fix.
+Already printed/acknowledged jobs are not automatically reset or reprinted.
