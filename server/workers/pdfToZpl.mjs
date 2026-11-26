@@ -1,4 +1,4 @@
-import { parentPort, workerData } from 'node:worker_threads';
+import { parentPort, workerData, threadId } from 'node:worker_threads';
 import { deflateSync } from 'node:zlib';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -8,34 +8,19 @@ import { createCanvas, DOMMatrix, Path2D, ImageData, GlobalFonts } from '@napi-r
 Object.assign(globalThis, { DOMMatrix, Path2D, ImageData });
 const require = createRequire(import.meta.url);
 
-// Node has no browser FontFace API. Bridge PDF.js' font loader to the same
-// native font registry used by its canvas, including fonts embedded in PDFs.
-// Path-only rendering silently drops nonstandard, unembedded fonts.
+// PDFs may reference nonstandard fonts without embedding their glyph paths.
+// Bundle an explicit native fallback for those fonts only. Keep PDF.js' original
+// vector rendering for embedded/standard fonts, symbols and barcode fonts.
 function canvasFonts(root) {
   const keys = [];
-  const failures = [];
+  const family = `LabelGoLabelFallback_${threadId}`;
   for (const style of ['Regular', 'Bold', 'Italic', 'BoldItalic']) {
-    const key = GlobalFonts.registerFromPath(join(root, 'standard_fonts', `LiberationSans-${style}.ttf`), 'LabelGoLabelFallback');
+    const key = GlobalFonts.registerFromPath(join(root, 'standard_fonts', `LiberationSans-${style}.ttf`), family);
     if (!key) throw new Error('Cannot load bundled label fallback font');
     keys.push(key);
   }
-  globalThis.FontFace = class {
-    constructor(family, source) {
-      this.family = family;
-      const key = GlobalFonts.register(Buffer.from(source), family);
-      if (key) {
-        keys.push(key);
-        this.loaded = Promise.resolve(this);
-      } else {
-        const error = new Error('Cannot load embedded label font');
-        failures.push(error);
-        this.loaded = Promise.reject(error);
-      }
-    }
-  };
   return {
-    ownerDocument: { fonts: { add() {}, delete() {} } },
-    check() { if (failures.length) throw failures[0]; },
+    family,
     dispose() { GlobalFonts.removeBatch(keys); }
   };
 }
@@ -57,7 +42,7 @@ async function render() {
   const fonts = canvasFonts(root);
   const task = getDocument({
     data: pdf, isEvalSupported: false, useSystemFonts: false,
-    disableFontFace: false, ownerDocument: fonts.ownerDocument,
+    disableFontFace: true,
     standardFontDataUrl: join(root, 'standard_fonts') + '/',
     cMapUrl: join(root, 'cmaps') + '/', cMapPacked: true
   });
@@ -79,7 +64,10 @@ async function render() {
       for (let i = 0; i < operators.fnArray.length; i++) {
         if (operators.fnArray[i] !== OPS.setFont) continue;
         const font = page.commonObjs.get(operators.argsArray[i][0]);
-        if (font.missingFile && !font.isType3Font) font.loadedName = 'LabelGoLabelFallback';
+        if (font.missingFile && !font.isType3Font) {
+          font.loadedName = fonts.family;
+          font.disableFontFace = false;
+        }
       }
       let viewport = page.getViewport({ scale: 1 });
       if (viewport.width > viewport.height) viewport = page.getViewport({ scale: 1, rotation: (page.rotate + 90) % 360 });
@@ -89,7 +77,6 @@ async function render() {
       const ctx = canvas.getContext('2d');
       await page.render({ canvasContext: ctx, viewport, background: 'rgb(255,255,255)',
         transform: [1, 0, 0, 1, Math.floor((width - viewport.width) / 2), Math.floor((height - viewport.height) / 2)] }).promise;
-      fonts.check();
       const rgba = ctx.getImageData(0, 0, width, height).data;
       const bitmap = Buffer.alloc(stride * height);
       for (let y = 0; y < height; y++) {
