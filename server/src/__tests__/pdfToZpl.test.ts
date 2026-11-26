@@ -1,11 +1,41 @@
 import { afterAll, beforeAll, describe, it, expect, vi } from 'vitest';
 import { fixturePdf, FONT_GRID, missingFontPdf } from './labelFixture.js';
 import { inflateSync } from 'node:zlib';
+import { readFile } from 'node:fs/promises';
 import { pdfToZpl } from '../services/pdfToZpl.js';
 
 describe('backend PDF to RAW ZPL compatibility (real renderer)', () => {
   beforeAll(() => vi.stubEnv('DISABLE_SYSTEM_FONTS_LOAD', '1'));
   afterAll(() => vi.unstubAllEnvs());
+  it.each([203, 300] as const)('preserves CID/TrueType text under nested transforms and clipping at %i DPI', async dpi => {
+    const fixture = await readFile(new URL('./shopee-cid-fonts.pdf', import.meta.url));
+    const { lines } = JSON.parse(await readFile(new URL('./shopee-cid-fonts.json', import.meta.url), 'utf8'));
+    const zpl = await pdfToZpl(fixture, dpi);
+    const rasters = [...zpl.matchAll(/\^GFA,(\d+),(\d+),(\d+),:Z64:([A-Za-z0-9+/=]+):/g)];
+    expect(rasters).toHaveLength(2);
+    for (const [page, match] of rasters.entries()) {
+      const raster = inflateSync(Buffer.from(match[4], 'base64'));
+      const stride = Number(match[3]);
+      for (const line of lines) [...line.text].forEach((character, i) => {
+        let ink = 0;
+        for (let py = Math.floor((432 - line.y - 16) * dpi / 72); py < Math.ceil((432 - line.y + 4) * dpi / 72); py++) {
+          for (let px = Math.floor((line.x + i * 16) * dpi / 72); px < Math.floor((line.x + i * 16 + 14) * dpi / 72); px++) {
+            const black = !!(raster[py * stride + (px >> 3)] & (0x80 >> (px & 7)));
+            if (black === (page === 0)) ink++;
+          }
+        }
+        expect(ink, `CID glyph ${character}, ${line.font}, page ${page}, ${dpi} DPI`).toBeGreaterThan(3);
+      });
+    }
+  });
+  it('isolates embedded font faces across simultaneous label conversions', async () => {
+    const cid = await readFile(new URL('./shopee-cid-fonts.pdf', import.meta.url));
+    const standard = await fixturePdf();
+    const expectedCid = await pdfToZpl(cid);
+    const expectedStandard = await pdfToZpl(standard);
+    const concurrent = await Promise.all([pdfToZpl(cid), pdfToZpl(standard), pdfToZpl(cid)]);
+    expect(concurrent).toEqual([expectedCid, expectedStandard, expectedCid]);
+  });
   it.each([203, 300] as const)('preserves repeated letters, digits and accents on white/black backgrounds at %i DPI', async dpi => {
     const zpl = await pdfToZpl(await missingFontPdf(), dpi);
     const rasters = [...zpl.matchAll(/\^GFA,(\d+),(\d+),(\d+),:Z64:([A-Za-z0-9+/=]+):/g)];

@@ -1,0 +1,41 @@
+{
+  "lines": [
+    {
+      "font": "F0",
+      "text": "12ABCDEFGILMNOPQ",
+      "x": 12,
+      "y": 390
+    },
+    {
+      "font": "F0",
+      "text": "RSTUadeghilmnopr",
+      "x": 12,
+      "y": 360
+    },
+    {
+      "font": "F0",
+      "text": "stuvzÁãçéí",
+      "x": 12,
+      "y": 330
+    },
+    {
+      "font": "F1",
+      "text": "0123456789ABEFGH",
+      "x": 12,
+      "y": 300
+    },
+    {
+      "font": "F1",
+      "text": "IJLMNPRSadefghij",
+      "x": 12,
+      "y": 270
+    },
+    {
+      "font": "F1",
+      "text": "lmnorstuyzáç",
+      "x": 12,
+      "y": 240
+    }
+  ],
+  "note": "Synthetic text only; new document containing Liberation Sans font tables, no source content, metadata or annotations."
+}

@@ -8,19 +8,55 @@ import { createCanvas, DOMMatrix, Path2D, ImageData, GlobalFonts } from '@napi-r
 Object.assign(globalThis, { DOMMatrix, Path2D, ImageData });
 const require = createRequire(import.meta.url);
 
-// PDFs may reference nonstandard fonts without embedding their glyph paths.
-// Bundle an explicit native fallback for those fonts only. Keep PDF.js' original
-// vector rendering for embedded/standard fonts, symbols and barcode fonts.
+// Render embedded font programs with the same native font engine as the canvas.
+// Some Shopee CID/TrueType subsets lose glyphs in PDF.js' outline-only renderer.
+// Fonts absent from the PDF use the bundled Liberation Sans, never host fonts.
 function canvasFonts(root) {
   const keys = [];
+  const failures = [];
+  const nativeNames = new Set();
+  const mapped = new WeakSet();
+  const prefix = `LabelGoEmbedded_${threadId}_`;
   const family = `LabelGoLabelFallback_${threadId}`;
   for (const style of ['Regular', 'Bold', 'Italic', 'BoldItalic']) {
     const key = GlobalFonts.registerFromPath(join(root, 'standard_fonts', `LiberationSans-${style}.ttf`), family);
     if (!key) throw new Error('Cannot load bundled label fallback font');
     keys.push(key);
   }
+  globalThis.FontFace = class {
+    constructor(name, source) {
+      this.family = name;
+      const key = GlobalFonts.register(Buffer.from(source), prefix + name);
+      if (key) {
+        nativeNames.add(name);
+        keys.push(key);
+        this.loaded = Promise.resolve(this);
+      } else {
+        const error = new Error('Cannot load embedded label font');
+        failures.push(error);
+        this.loaded = Promise.reject(error);
+      }
+    }
+  };
   return {
     family,
+    ownerDocument: { fonts: { add() {}, delete() {} } },
+    map(font) {
+      if (font.isType3Font || mapped.has(font)) return;
+      mapped.add(font);
+      if (font.missingFile) {
+        font.loadedName = family;
+        font.disableFontFace = false;
+      } else if (nativeNames.has(font.loadedName)) {
+        // Preserve original outline IDs for text clipping/pattern operations;
+        // native faces have per-worker aliases to avoid cross-label collisions.
+        const outlineFont = Object.create(font);
+        outlineFont.loadedName = font.loadedName;
+        font.getPathGenerator = font.getPathGenerator.bind(outlineFont);
+        font.loadedName = prefix + font.loadedName;
+      }
+    },
+    check() { if (failures.length) throw failures[0]; },
     dispose() { GlobalFonts.removeBatch(keys); }
   };
 }
@@ -42,7 +78,7 @@ async function render() {
   const fonts = canvasFonts(root);
   const task = getDocument({
     data: pdf, isEvalSupported: false, useSystemFonts: false,
-    disableFontFace: true,
+    disableFontFace: false, ownerDocument: fonts.ownerDocument,
     standardFontDataUrl: join(root, 'standard_fonts') + '/',
     cMapUrl: join(root, 'cmaps') + '/', cMapPacked: true
   });
@@ -56,19 +92,15 @@ async function render() {
     const output = [];
     for (let n = 1; n <= doc.numPages; n++) {
       const page = await doc.getPage(n);
-      // PDF.js exposes missing fonts as named system fallbacks. Point only
-      // those fonts at our bundled family, so a host's partial/different font
-      // cannot override it. Embedded fonts keep their own native face/mapping.
-      // This adapter is covered against the pinned PDF.js version's operators.
+      // Resolve and register all fonts before drawing. This adapter is covered
+      // against the pinned PDF.js version, including CID subsets and clipping.
       const operators = await page.getOperatorList();
       for (let i = 0; i < operators.fnArray.length; i++) {
         if (operators.fnArray[i] !== OPS.setFont) continue;
         const font = page.commonObjs.get(operators.argsArray[i][0]);
-        if (font.missingFile && !font.isType3Font) {
-          font.loadedName = fonts.family;
-          font.disableFontFace = false;
-        }
+        fonts.map(font);
       }
+      fonts.check();
       let viewport = page.getViewport({ scale: 1 });
       if (viewport.width > viewport.height) viewport = page.getViewport({ scale: 1, rotation: (page.rotate + 90) % 360 });
       const scale = Math.min(width / viewport.width, height / viewport.height);
@@ -77,6 +109,7 @@ async function render() {
       const ctx = canvas.getContext('2d');
       await page.render({ canvasContext: ctx, viewport, background: 'rgb(255,255,255)',
         transform: [1, 0, 0, 1, Math.floor((width - viewport.width) / 2), Math.floor((height - viewport.height) / 2)] }).promise;
+      fonts.check();
       const rgba = ctx.getImageData(0, 0, width, height).data;
       const bitmap = Buffer.alloc(stride * height);
       for (let y = 0; y < height; y++) {
