@@ -1,12 +1,29 @@
-import { parentPort, workerData } from 'node:worker_threads';
+import { parentPort, workerData, threadId } from 'node:worker_threads';
 import { deflateSync } from 'node:zlib';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { createCanvas, DOMMatrix, Path2D, ImageData } from '@napi-rs/canvas';
+import { createCanvas, DOMMatrix, Path2D, ImageData, GlobalFonts } from '@napi-rs/canvas';
 
 // PDF.js' Node renderer needs these canvas primitives. Keep them worker-local.
 Object.assign(globalThis, { DOMMatrix, Path2D, ImageData });
 const require = createRequire(import.meta.url);
+
+// PDFs may reference nonstandard fonts without embedding their glyph paths.
+// Bundle an explicit native fallback for those fonts only. Keep PDF.js' original
+// vector rendering for embedded/standard fonts, symbols and barcode fonts.
+function canvasFonts(root) {
+  const keys = [];
+  const family = `LabelGoLabelFallback_${threadId}`;
+  for (const style of ['Regular', 'Bold', 'Italic', 'BoldItalic']) {
+    const key = GlobalFonts.registerFromPath(join(root, 'standard_fonts', `LiberationSans-${style}.ttf`), family);
+    if (!key) throw new Error('Cannot load bundled label fallback font');
+    keys.push(key);
+  }
+  return {
+    family,
+    dispose() { GlobalFonts.removeBatch(keys); }
+  };
+}
 
 function crc16(text) {
   let crc = 0;
@@ -20,15 +37,18 @@ function crc16(text) {
 async function render() {
   const { pdf, dpi } = workerData;
   if (dpi !== 203 && dpi !== 300) throw new Error('Unsupported label DPI');
-  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const { getDocument, OPS } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const root = dirname(require.resolve('pdfjs-dist/package.json'));
+  const fonts = canvasFonts(root);
   const task = getDocument({
     data: pdf, isEvalSupported: false, useSystemFonts: false,
+    disableFontFace: true,
     standardFontDataUrl: join(root, 'standard_fonts') + '/',
     cMapUrl: join(root, 'cmaps') + '/', cMapPacked: true
   });
-  const doc = await task.promise;
+  let doc;
   try {
+    doc = await task.promise;
     if (!doc.numPages || doc.numPages > 10) throw new Error('Invalid label page count');
     const width = 4 * dpi;
     const height = 6 * dpi;
@@ -36,6 +56,19 @@ async function render() {
     const output = [];
     for (let n = 1; n <= doc.numPages; n++) {
       const page = await doc.getPage(n);
+      // PDF.js exposes missing fonts as named system fallbacks. Point only
+      // those fonts at our bundled family, so a host's partial/different font
+      // cannot override it. Embedded fonts keep their own native face/mapping.
+      // This adapter is covered against the pinned PDF.js version's operators.
+      const operators = await page.getOperatorList();
+      for (let i = 0; i < operators.fnArray.length; i++) {
+        if (operators.fnArray[i] !== OPS.setFont) continue;
+        const font = page.commonObjs.get(operators.argsArray[i][0]);
+        if (font.missingFile && !font.isType3Font) {
+          font.loadedName = fonts.family;
+          font.disableFontFace = false;
+        }
+      }
       let viewport = page.getViewport({ scale: 1 });
       if (viewport.width > viewport.height) viewport = page.getViewport({ scale: 1, rotation: (page.rotate + 90) % 360 });
       const scale = Math.min(width / viewport.width, height / viewport.height);
@@ -64,7 +97,7 @@ async function render() {
     }
     return output.join('\n');
   } finally {
-    await doc.destroy();
+    try { await task.destroy(); } finally { fonts.dispose(); }
   }
 }
 
