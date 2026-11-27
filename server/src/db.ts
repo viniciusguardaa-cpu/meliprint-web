@@ -258,6 +258,20 @@ export async function updateMarketplaceAccountTokens(
   );
 }
 
+/** Token rotation must not race between a dashboard request and a poller on
+ * another replica. A busy account is retried by its next request/sweep. */
+export async function withTikTokTokenRefreshLock<T>(accountId: number, run: () => Promise<T>): Promise<T | null> {
+  const connection = await pool.connect();
+  let locked = false;
+  try {
+    locked = (await connection.query('SELECT pg_try_advisory_lock(491005, $1) AS locked', [accountId])).rows[0]?.locked === true;
+    return locked ? await run() : null;
+  } finally {
+    try { if (locked) await connection.query('SELECT pg_advisory_unlock(491005, $1)', [accountId]); }
+    finally { connection.release(); }
+  }
+}
+
 /** Disconnect an account (owner-scoped). Rows are deleted, not tombstoned. */
 export async function deleteMarketplaceAccount(accountId: number, userId: number) {
   const result = await pool.query(
@@ -768,36 +782,61 @@ export async function addPdfPrintQueueJob(userId: number, shipmentId: string, pd
   return result.rows[0] || null;
 }
 
-export async function getShopeeAutoPrintState(userId: number, scope: AutoPrintScope): Promise<{ excluded_ids: string[]; created_after: number } | null> {
+// Reuse the existing activation storage. Historical SQL names are retained to
+// preserve deployed Shopee state and avoid copying the queue infrastructure.
+export async function getMarketplaceAutoPrintState(userId: number, scope: AutoPrintScope, provider: 'shopee' | 'tiktok'): Promise<{ excluded_ids: string[]; created_after: number } | null> {
   const result = await pool.query(
     `SELECT s."excluded_ids", FLOOR(EXTRACT(EPOCH FROM s."initialized_at"))::double precision AS "created_after" FROM "shopee_auto_print_state" s
      JOIN "marketplace_accounts" a ON a."id" = s."account_id" AND a."user_id" = s."user_id"
      JOIN "auto_print_config" c ON c."user_id" = s."user_id" AND c."shopee_generation" = s."generation"
      WHERE s."account_id" = $1 AND s."user_id" = $2 AND s."generation" = $3::uuid
-       AND a."provider" = 'shopee' AND a."status" = 'active' AND c."enabled" = true`,
-    [scope.accountId, userId, scope.generation]
+       AND a."provider" = $4 AND a."status" = 'active' AND c."enabled" = true`,
+    [scope.accountId, userId, scope.generation, provider]
   );
   return result.rows[0] || null;
 }
 
-export async function initializeShopeeAutoPrint(userId: number, scope: AutoPrintScope, excludedIds: string[]) {
+export async function initializeMarketplaceAutoPrint(userId: number, scope: AutoPrintScope, excludedIds: string[], provider: 'shopee' | 'tiktok') {
   await pool.query(
     `WITH initialized AS (
        INSERT INTO "shopee_auto_print_state" ("account_id", "user_id", "generation", "excluded_ids")
        SELECT a."id", a."user_id", c."shopee_generation", $4::text[]
        FROM "marketplace_accounts" a JOIN "auto_print_config" c ON c."user_id" = a."user_id"
-       WHERE a."id" = $1 AND a."user_id" = $2 AND a."provider" = 'shopee' AND a."status" = 'active'
+       WHERE a."id" = $1 AND a."user_id" = $2 AND a."provider" = $5 AND a."status" = 'active'
          AND c."enabled" = true AND c."shopee_generation" = $3::uuid
        ON CONFLICT ("account_id") DO UPDATE SET "user_id" = EXCLUDED."user_id", "generation" = EXCLUDED."generation",
          "excluded_ids" = EXCLUDED."excluded_ids", "initialized_at" = CURRENT_TIMESTAMP
        WHERE "shopee_auto_print_state"."generation" <> EXCLUDED."generation"
           OR "shopee_auto_print_state"."user_id" <> EXCLUDED."user_id"
        RETURNING "account_id"
-     ) UPDATE "print_queue" SET "status" = 'needs_review', "last_error" = 'shopee_previous_activation'
+     ) UPDATE "print_queue" SET "status" = 'needs_review', "last_error" = $5 || '_previous_activation'
        WHERE "user_id" = $2 AND "account_id" IN (SELECT "account_id" FROM initialized)
-         AND "provider" = 'shopee' AND "status" = 'pending' AND "auto_print_generation" IS DISTINCT FROM $3::uuid`,
-    [scope.accountId, userId, scope.generation, [...new Set(excludedIds)]]
+         AND "provider" = $5 AND "status" = 'pending' AND "auto_print_generation" IS DISTINCT FROM $3::uuid`,
+    [scope.accountId, userId, scope.generation, [...new Set(excludedIds)], provider]
   );
+}
+
+export const getShopeeAutoPrintState = (userId: number, scope: AutoPrintScope) => getMarketplaceAutoPrintState(userId, scope, 'shopee');
+export const initializeShopeeAutoPrint = (userId: number, scope: AutoPrintScope, ids: string[]) => initializeMarketplaceAutoPrint(userId, scope, ids, 'shopee');
+
+/** Atomic reservation BEFORE fetching bytes. Three attempts per package and
+ * activation, with persisted backoff; no infinite PDF requests on each sweep. */
+export async function reserveTikTokLabelAttempt(userId: number, scope: AutoPrintScope, shipmentId: string): Promise<boolean> {
+  const result = await pool.query(
+    `INSERT INTO "tiktok_label_attempts" ("account_id", "user_id", "generation", "shipment_id", "attempts", "next_attempt_at")
+     SELECT a."id", $1, $3::uuid, $4, 1, CURRENT_TIMESTAMP + INTERVAL '2 minutes'
+     FROM "marketplace_accounts" a JOIN "auto_print_config" c ON c."user_id" = a."user_id"
+     JOIN "shopee_auto_print_state" s ON s."account_id" = a."id" AND s."user_id" = a."user_id" AND s."generation" = c."shopee_generation"
+     WHERE a."id" = $2 AND a."user_id" = $1 AND a."provider" = 'tiktok' AND a."status" = 'active'
+       AND c."enabled" = true AND c."shopee_generation" = $3::uuid AND NOT ($4 = ANY(s."excluded_ids"))
+     ON CONFLICT ("account_id", "user_id", "generation", "shipment_id") DO UPDATE
+       SET "attempts" = "tiktok_label_attempts"."attempts" + 1,
+           "next_attempt_at" = CURRENT_TIMESTAMP + INTERVAL '2 minutes' * POWER(2, "tiktok_label_attempts"."attempts")
+       WHERE "tiktok_label_attempts"."attempts" < 3 AND "tiktok_label_attempts"."next_attempt_at" <= CURRENT_TIMESTAMP
+     RETURNING "attempts"`,
+    [userId, scope.accountId, scope.generation, shipmentId]
+  );
+  return result.rows.length > 0;
 }
 
 export async function getQueuedShipmentIds(userId: number, provider: string, accountId?: number): Promise<Set<string>> {
@@ -807,6 +846,15 @@ export async function getQueuedShipmentIds(userId: number, provider: string, acc
     accountId === undefined ? [userId, provider] : [userId, provider, accountId]
   );
   return new Set(result.rows.map((r: any) => String(r.shipment_id)));
+}
+
+export async function getPrintedShipmentIdsForAccount(userId: number, accountId: number, provider: string): Promise<Set<string>> {
+  const result = await pool.query(
+    `SELECT q."shipment_id" FROM "print_queue" q JOIN "marketplace_accounts" a ON a."id" = q."account_id" AND a."user_id" = q."user_id"
+     WHERE q."user_id" = $1 AND q."account_id" = $2 AND q."provider" = $3 AND a."provider" = $3 AND q."status" = 'printed'`,
+    [userId, accountId, provider]
+  );
+  return new Set(result.rows.map(r => String(r.shipment_id)));
 }
 
 export async function getPendingPrintJobs(userId: number, limit = 20) {
@@ -833,12 +881,13 @@ export async function claimPrintJobs(userId: number, agentId: string, limit = 5,
        "updated_at" = CURRENT_TIMESTAMP
      WHERE "id" IN (
        SELECT "id" FROM "print_queue"
-       WHERE "user_id" = $1 AND "status" = 'pending' AND ("content_type" = ANY($4::text[]) OR ("provider" = 'shopee' AND "content_type" = 'pdf'))
-         AND ("provider" <> 'shopee' OR (
+       WHERE "user_id" = $1 AND "status" = 'pending' AND ("content_type" = ANY($4::text[]) OR ("provider" IN ('shopee', 'tiktok') AND "content_type" = 'pdf'))
+         AND ("provider" <> 'tiktok' OR $5::boolean)
+         AND ("provider" NOT IN ('shopee', 'tiktok') OR (
            "next_attempt_at" <= CURRENT_TIMESTAMP AND EXISTS (
              SELECT 1 FROM "marketplace_accounts" a JOIN "auto_print_config" c ON c."user_id" = a."user_id"
              JOIN "shopee_auto_print_state" s ON s."account_id" = a."id" AND s."user_id" = a."user_id" AND s."generation" = c."shopee_generation"
-             WHERE a."id" = "print_queue"."account_id" AND a."user_id" = $1 AND a."provider" = 'shopee'
+             WHERE a."id" = "print_queue"."account_id" AND a."user_id" = $1 AND a."provider" = "print_queue"."provider"
                AND a."status" = 'active' AND c."enabled" = true AND c."shopee_generation" = "print_queue"."auto_print_generation"
            )
          ))
@@ -847,7 +896,7 @@ export async function claimPrintJobs(userId: number, agentId: string, limit = 5,
        FOR UPDATE SKIP LOCKED
      )
      RETURNING *`,
-    [userId, limit, agentId, contentTypes]
+    [userId, limit, agentId, contentTypes, process.env.TIKTOK_ENABLED === '1']
   );
   return result.rows;
 }
@@ -894,7 +943,7 @@ export async function resolveJobReview(userId: number, jobId: number, action: 'r
     ? `UPDATE "print_queue" SET
          "status" = 'pending',
          "next_attempt_at" = CURRENT_TIMESTAMP,
-         "auto_print_generation" = CASE WHEN "provider" = 'shopee'
+         "auto_print_generation" = CASE WHEN "provider" IN ('shopee', 'tiktok')
            THEN (SELECT "shopee_generation" FROM "auto_print_config" WHERE "user_id" = $2) ELSE "auto_print_generation" END,
          "claimed_at" = NULL, "claimed_by" = NULL,
          "error" = NULL,
@@ -918,7 +967,7 @@ export async function retryFailedJob(userId: number, jobId: number) {
     `UPDATE "print_queue" SET
        "status" = 'pending',
        "next_attempt_at" = CURRENT_TIMESTAMP,
-       "auto_print_generation" = CASE WHEN "provider" = 'shopee'
+       "auto_print_generation" = CASE WHEN "provider" IN ('shopee', 'tiktok')
          THEN (SELECT "shopee_generation" FROM "auto_print_config" WHERE "user_id" = $2) ELSE "auto_print_generation" END,
        "error" = NULL,
        "claimed_at" = NULL,
@@ -966,16 +1015,16 @@ export async function markPrintJobPrinted(userId: number, jobId: number, sentToP
 export async function markPrintJobFailed(userId: number, jobId: number, error: string) {
   const result = await pool.query(
     `UPDATE "print_queue" SET
-       "status" = CASE WHEN "provider" = 'shopee' THEN 'needs_review' WHEN "attempts" + 1 >= 3 THEN 'failed' ELSE 'pending' END,
+       "status" = CASE WHEN "provider" IN ('shopee', 'tiktok') THEN 'needs_review' WHEN "attempts" + 1 >= 3 THEN 'failed' ELSE 'pending' END,
        "attempts" = "attempts" + 1,
-       "next_attempt_at" = CASE WHEN "provider" = 'shopee'
+       "next_attempt_at" = CASE WHEN "provider" IN ('shopee', 'tiktok')
          THEN CURRENT_TIMESTAMP + (INTERVAL '15 seconds' * POWER(2, LEAST("attempts", 2))) ELSE CURRENT_TIMESTAMP END,
        "error" = $3,
        "last_error" = $3,
        "claimed_at" = NULL,
        "claimed_by" = NULL,
        "updated_at" = CURRENT_TIMESTAMP
-     WHERE "id" = $1 AND "user_id" = $2 AND ("provider" <> 'shopee' OR "status" = 'processing')`,
+     WHERE "id" = $1 AND "user_id" = $2 AND ("provider" NOT IN ('shopee', 'tiktok') OR "status" = 'processing')`,
     [jobId, userId, error]
   );
   return (result.rowCount ?? 0) > 0;
@@ -989,7 +1038,7 @@ export async function markShopeeConversionFailed(userId: number, jobId: number, 
        "attempts" = "attempts" + 1, "error" = $3, "last_error" = $3,
        "next_attempt_at" = CURRENT_TIMESTAMP + (INTERVAL '15 seconds' * POWER(2, LEAST("attempts", 2))),
        "claimed_at" = NULL, "claimed_by" = NULL, "updated_at" = CURRENT_TIMESTAMP
-     WHERE "id" = $1 AND "user_id" = $2 AND "provider" = 'shopee' AND "status" = 'processing'`,
+     WHERE "id" = $1 AND "user_id" = $2 AND "provider" IN ('shopee', 'tiktok') AND "status" = 'processing'`,
     [jobId, userId, error.slice(0, 500)]
   );
 }

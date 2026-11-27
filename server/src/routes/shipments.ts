@@ -4,7 +4,7 @@ import type { NormalizedShipment } from '../providers/types.js';
 import { getFreshAccountContext } from '../services/accounts.js';
 import { requireActiveSubscription } from '../middleware/subscription.js';
 import { getPlan } from '../services/pricing.js';
-import { getMarketplaceAccountsForUser, getPrintEvents } from '../db.js';
+import { getMarketplaceAccountsForUser, getPrintEvents, getPrintedShipmentIdsForAccount } from '../db.js';
 
 const router = Router();
 router.use(requireActiveSubscription);
@@ -63,7 +63,10 @@ router.get('/', async (req: Request, res: Response) => {
           includeSla: showSla,
           includePacking: showPacking
         });
-        rows.push(...accountRows);
+        if (account.provider === 'tiktok') {
+          const printed = await getPrintedShipmentIdsForAccount(userId, account.id, 'tiktok');
+          rows.push(...accountRows.map(row => printed.has(row.shipmentId) ? { ...row, substatus: 'printed' } : row));
+        } else rows.push(...accountRows);
       } catch (error) {
         console.error(`[shipments] ${account.provider} account ${account.id} failed:`, error);
       }

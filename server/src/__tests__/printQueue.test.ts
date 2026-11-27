@@ -91,7 +91,7 @@ describe('print queue multi-tenant ownership (SQL verification)', () => {
     expect(sql).toContain('FOR UPDATE SKIP LOCKED');
     expect(sql).toContain('"user_id" = $1');
     expect(sql).toContain("'processing'");
-    expect(params).toEqual([42, 5, 'agent-1', ['zpl']]);
+    expect(params).toEqual([42, 5, 'agent-1', ['zpl'], process.env.TIKTOK_ENABLED === '1']);
   });
 
   it('retryFailedJob only retries failed jobs for the tenant', async () => {
@@ -162,7 +162,7 @@ describe('PDF queue storage and format negotiation', () => {
     mockQuery.mockResolvedValue({ rows: [] });
     await claimPrintJobs(42, 'new', 5, ['zpl', 'pdf']);
     expect(mockQuery.mock.calls[0][0]).toContain('ANY($4::text[])');
-    expect(mockQuery.mock.calls[0][1]).toEqual([42, 5, 'new', ['zpl', 'pdf']]);
+    expect(mockQuery.mock.calls[0][1]).toEqual([42, 5, 'new', ['zpl', 'pdf'], process.env.TIKTOK_ENABLED === '1']);
   });
   it('stores base64 PDF with owner, account and activation guards', async () => {
     const { addPdfPrintQueueJob } = await import('../db.js');

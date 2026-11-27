@@ -8,6 +8,15 @@ const pdfJob = { id: 1, user_id: 42, account_id: 7, provider: 'shopee', shipment
 const mlJob = { id: 2, provider: 'mercadolivre', content_type: 'zpl', zpl: '^XA^FDML^FS^XZ' };
 beforeEach(() => vi.resetAllMocks());
 describe('agent format negotiation', () => {
+  it('delivers TikTok PDFs as ZPL using the existing printer DPI and receipt id', async () => {
+    const tiktokJob = { ...pdfJob, id: 9, provider: 'tiktok' };
+    vi.mocked(claimPrintJobs).mockResolvedValue([tiktokJob, mlJob]);
+    vi.mocked(pdfToZpl).mockResolvedValue('TIKTOK_RASTER');
+    expect(await claimAgentPrintJobs(42, 'existing', 5, ['zpl'], 203)).toEqual([
+      { ...tiktokJob, content_type: 'zpl', zpl: 'TIKTOK_RASTER' }, mlJob
+    ]);
+    expect(pdfToZpl).toHaveBeenCalledWith(Buffer.from('%PDF-test'), 203);
+  });
   it('converts only Shopee PDFs for legacy agents, preserves job id and original stored bytes', async () => {
     vi.mocked(claimPrintJobs).mockResolvedValue([pdfJob, mlJob]);
     vi.mocked(pdfToZpl).mockResolvedValue('RASTER_ZPL');

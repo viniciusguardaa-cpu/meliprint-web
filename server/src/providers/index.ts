@@ -3,6 +3,7 @@ import { shopeeProvider } from './shopee.js';
 import { blingProvider } from './bling.js';
 import { magaluProvider } from './magalu.js';
 import { amazonProvider } from './amazon.js';
+import { tiktokProvider } from './tiktok.js';
 import type { MarketplaceProvider } from './types.js';
 
 /**
@@ -16,7 +17,8 @@ const providers = new Map<string, MarketplaceProvider>([
   [shopeeProvider.id, shopeeProvider],
   [blingProvider.id, blingProvider],
   [magaluProvider.id, magaluProvider],
-  [amazonProvider.id, amazonProvider]
+  [amazonProvider.id, amazonProvider],
+  [tiktokProvider.id, tiktokProvider]
 ]);
 
 export function getProvider(id: string): MarketplaceProvider | undefined {

@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { LogOut, CreditCard, Zap, Settings } from 'lucide-react';
 import { Button } from './ui/button';
 import Logo from './Logo';
+import MarketplaceLogo from './MarketplaceLogo';
 
 // Brand artwork; filter buttons do not indicate account connection status.
 const marketplaceMarks = [
@@ -40,7 +41,7 @@ export default function Header({ showSubscription = false, showDashboard = false
                 className={`h-8 px-3 rounded-lg text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${!marketplaceFilter ? 'bg-surface shadow-sm text-foreground' : 'text-muted-foreground hover:bg-border'}`}>
                 Todos
               </button>
-              {marketplaceMarks.map((marketplace) => (
+              {[...marketplaceMarks, { id: 'tiktok', name: 'TikTok Shop', src: '' }].filter(m => m.id !== 'tiktok' || user?.accounts?.some(a => a.provider === 'tiktok')).map((marketplace) => (
                 <button
                   key={marketplace.id}
                   type="button"
@@ -50,7 +51,7 @@ export default function Header({ showSubscription = false, showDashboard = false
                   aria-pressed={marketplaceFilter === marketplace.id}
                   className={`flex h-8 w-10 items-center justify-center rounded-lg transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${marketplaceFilter === marketplace.id ? 'bg-surface shadow-sm border border-border' : 'border border-transparent opacity-75 hover:opacity-100'}`}
                 >
-                  <img src={marketplace.src} alt="" aria-hidden="true" className="h-6 w-7 object-contain" />
+                  {marketplace.src ? <img src={marketplace.src} alt="" aria-hidden="true" className="h-6 w-7 object-contain" /> : <MarketplaceLogo provider={marketplace.id} size={24} />}
                 </button>
               ))}
             </div>
