@@ -51,6 +51,7 @@ interface ReauthAccount {
 const MARKETPLACE_LABELS: Record<string, string> = {
   mercadolivre: 'Mercado Livre',
   shopee: 'Shopee',
+  tiktok: 'TikTok Shop',
   amazon: 'Amazon',
   magalu: 'Magalu',
   bling: 'Bling'
@@ -85,7 +86,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const filterParam = searchParams.get('marketplace') || '';
-  const marketplaceFilter = ['mercadolivre', 'shopee'].includes(filterParam) ? filterParam : '';
+  const marketplaceFilter = ['mercadolivre', 'shopee', 'tiktok'].includes(filterParam) ? filterParam : '';
   const changeMarketplaceFilter = (provider: string) => {
     setSelected(new Set());
     setPackingShipment(null);
@@ -450,7 +451,7 @@ export default function Dashboard() {
               O LabelGo busca os envios prontos para impressão nas suas contas conectadas.
             </p>
             <div className="flex items-center justify-center gap-2 flex-wrap">
-              {providers.filter((p) => p.id === 'mercadolivre' || p.id === 'shopee').map((p) => (
+              {providers.filter((p) => p.id === 'mercadolivre' || p.id === 'shopee' || (p.id === 'tiktok' && p.configured)).map((p) => (
                 <Button
                   key={p.id}
                   onClick={() => handleConnectAccount(p.id)}

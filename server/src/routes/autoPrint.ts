@@ -52,7 +52,7 @@ router.post('/enable', requirePlanFeature('auto_print'), async (req: Request, re
   if (!supported) {
     return res.status(400).json({
       error: 'account_not_connected',
-      message: 'Conecte Mercado Livre, Amazon ou Shopee antes de ativar a impressão automática.'
+      message: 'Conecte Mercado Livre, Amazon, Shopee ou TikTok Shop antes de ativar a impressão automática.'
     });
   }
 

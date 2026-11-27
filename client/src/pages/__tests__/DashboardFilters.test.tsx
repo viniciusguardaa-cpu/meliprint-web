@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Dashboard from '../Dashboard';
-vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { nickname: 'Demo', accounts: [] }, checkAuth: vi.fn(), connectAccount: vi.fn(), logout: vi.fn() }) }));
+vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { nickname: 'Demo', accounts: [{ id: 3, provider: 'tiktok' }] }, checkAuth: vi.fn(), connectAccount: vi.fn(), logout: vi.fn() }) }));
 vi.mock('../../hooks/useSubscription', () => ({ useSubscription: () => ({ subscription: { printHistory: true } }) }));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const row = (id: string, provider: string, accountId: number) => ({ accountId, shipmentId: id, marketplace: provider, buyerNickname: id, items: 'Item', canPrint: true, status: 'ready_to_ship', substatus: 'ready_to_print' });
@@ -30,4 +30,17 @@ it('applies URL filter to ready, reprint and history', async () => {
   expect(screen.getAllByText('SH-R').length).toBeGreaterThan(0); expect(screen.queryAllByText('ML-R')).toHaveLength(0);
   fireEvent.click(screen.getByText('Histórico'));
   await screen.findByText('#SH-HISTORY'); expect(screen.queryByText('#ML-HISTORY')).toBeNull();
+});
+it('filters TikTok orders using the same dashboard and clears selections from other marketplaces', async () => {
+  page(); await screen.findAllByText('ML-1');
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ ready: [row('TT-1', 'tiktok', 3), row('ML-1', 'mercadolivre', 1)], reprint: [row('TT-R', 'tiktok', 3)] }) })));
+  fireEvent.click(screen.getByRole('button', { name: 'Atualizar' }));
+  await screen.findAllByText('TT-1');
+  fireEvent.click(screen.getByRole('button', { name: 'Selecionar Todos' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Mostrar pedidos TikTok Shop' }));
+  expect(screen.queryAllByText('ML-1')).toHaveLength(0);
+  expect(screen.getByRole('button', { name: 'Imprimir (0)' })).toBeTruthy();
+  expect(screen.getByText('Pronto (1)')).toBeTruthy();
+  fireEvent.click(screen.getByText('Reimpressão (1)'));
+  expect(screen.getAllByText('TT-R').length).toBeGreaterThan(0);
 });

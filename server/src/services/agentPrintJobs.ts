@@ -12,7 +12,7 @@ export async function claimAgentPrintJobs(userId: number, agentId: string, limit
       continue;
     }
     try {
-      if (job.provider !== 'shopee') throw new Error('Unsupported PDF compatibility provider');
+      if (!['shopee', 'tiktok'].includes(job.provider)) throw new Error('Unsupported PDF compatibility provider');
       const zpl = await pdfToZpl(Buffer.from(job.zpl, 'base64'), dpi);
       deliverable.push({ ...job, content_type: 'zpl', zpl });
     } catch (err) {

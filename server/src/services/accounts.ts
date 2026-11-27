@@ -1,6 +1,6 @@
 import { getProvider } from '../providers/index.js';
 import type { AccountContext } from '../providers/types.js';
-import { markAccountReauthRequired, updateMarketplaceAccountTokens } from '../db.js';
+import { getMarketplaceAccountById, markAccountReauthRequired, updateMarketplaceAccountTokens, withTikTokTokenRefreshLock } from '../db.js';
 
 /**
  * Central token lifecycle for connected marketplace accounts.
@@ -40,6 +40,19 @@ function isDefinitiveAuthFailure(error: unknown): boolean {
  * Returns null when the token cannot be obtained (e.g. revoked grant).
  */
 export async function getFreshAccountContext(account: any): Promise<AccountContext | null> {
+  if (account?.provider === 'tiktok' && (!account.access_token || Date.now() > (account.token_expires_at ?? 0) - REFRESH_WINDOW_MS)) {
+    return withTikTokTokenRefreshLock(account.id, async () => {
+      // Another replica may already have rotated the tokens since the caller
+      // read this account. Never exchange the stale refresh token twice.
+      const current = await getMarketplaceAccountById(account.id);
+      if (!current || current.user_id !== account.user_id || current.provider !== 'tiktok' || current.status !== 'active') return null;
+      return freshAccountContext(current);
+    });
+  }
+  return freshAccountContext(account);
+}
+
+async function freshAccountContext(account: any): Promise<AccountContext | null> {
   if (!account) return null;
   // Flagged accounts can't be refreshed — only a user reconnect clears it.
   if (account.status === 'reauth_required') return null;

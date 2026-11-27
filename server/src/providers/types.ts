@@ -135,7 +135,7 @@ export interface MarketplaceProvider {
   getLabelsZPL?(ctx: AccountContext, externalIds: string[]): Promise<string>;
 
   /** Merged PDF for the given external shipment ids. */
-  getLabelsPDF(ctx: AccountContext, externalIds: string[]): Promise<Buffer>;
+  getLabelsPDF(ctx: AccountContext, externalIds: string[], options?: { createdAfter: number }): Promise<Buffer>;
 
   /** Invoice/fiscal data for one shipment, when the provider exposes it. */
   getInvoice?(ctx: AccountContext, externalId: string): Promise<any>;

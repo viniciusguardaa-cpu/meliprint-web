@@ -6,6 +6,9 @@ import {
   getQueuedShipmentIds,
   getShopeeAutoPrintState,
   initializeShopeeAutoPrint,
+  getMarketplaceAutoPrintState,
+  initializeMarketplaceAutoPrint,
+  reserveTikTokLabelAttempt,
   releaseStaleJobs,
   markStaleAgentsOffline,
   getUnprocessedMLNotifications,
@@ -23,6 +26,7 @@ const POLL_INTERVAL_MS = 1 * 60_000; // 1 minute — reconciliation fallback.
 const BATCH_SIZE = 20;
 const AUTO_PRINT_LOCK = 491001;
 const SHOPEE_PRINT_LOCK = 491004;
+const TIKTOK_PRINT_LOCK = 491006;
 const SHOPEE_POLL_INTERVAL_MS = 60_000;
 
 function sleep(ms: number) {
@@ -34,7 +38,7 @@ function sleep(ms: number) {
  * through its provider — new providers are picked up automatically once the
  * user connects an account.
  */
-async function pollUser(config: any, shopeeOnly = false) {
+export async function pollAutoPrintUser(config: any, mode: 'default' | 'shopee' | 'tiktok' = 'default') {
   const accounts = await getMarketplaceAccountsForUser(config.user_id);
   if (accounts.length === 0) {
     console.warn(`[autoPrintPoller] No marketplace accounts for user ${config.user_id}, skipping`);
@@ -42,10 +46,11 @@ async function pollUser(config: any, shopeeOnly = false) {
   }
 
   for (const account of accounts) {
-    if ((account.provider === 'shopee') !== shopeeOnly) continue;
+    if (mode === 'tiktok' ? account.provider !== 'tiktok' :
+        mode === 'shopee' ? account.provider !== 'shopee' : ['shopee', 'tiktok'].includes(account.provider)) continue;
     // Reconnect-needed accounts can't refresh — skip quietly (UI shows the
     // reconnect banner; no point hammering the provider every cycle).
-    if (account.provider === 'shopee' ? account.status !== 'active' : account.status === 'reauth_required') {
+    if (['shopee', 'tiktok'].includes(account.provider) ? account.status !== 'active' : account.status === 'reauth_required') {
       console.warn(`[autoPrintPoller] Account ${account.id} (${account.provider}) is not available for printing — skipping`);
       continue;
     }
@@ -54,6 +59,7 @@ async function pollUser(config: any, shopeeOnly = false) {
       console.error(`[autoPrintPoller] Unknown provider: ${account.provider}`);
       continue;
     }
+    if (account.provider === 'tiktok' && !provider.isConfigured()) continue;
 
     // PDF auto-print is opt-in per provider; Shopee only discovers orders
     // already arranged by the seller. Other PDF providers remain unchanged.
@@ -94,17 +100,20 @@ async function pollUser(config: any, shopeeOnly = false) {
     if (!config.enabled) continue; // Arrange-only opt-in does not enable printing.
 
     try {
-      const scope = account.provider === 'shopee'
+      const scope = ['shopee', 'tiktok'].includes(account.provider)
         ? { accountId: account.id, generation: config.shopee_generation } : undefined;
       let excluded = new Set<string>();
       let createdAfter: number | undefined;
       if (scope) {
-        const state = await getShopeeAutoPrintState(config.user_id, scope);
+        const state = account.provider === 'tiktok'
+          ? await getMarketplaceAutoPrintState(config.user_id, scope, 'tiktok')
+          : await getShopeeAutoPrintState(config.user_id, scope);
         if (!state) {
           if (!provider.listAutoPrintBaselineShipmentIds) throw new Error('Missing safe auto-print baseline capability');
           const baseline = await provider.listAutoPrintBaselineShipmentIds(ctx);
-          await initializeShopeeAutoPrint(config.user_id, scope, baseline);
-          console.log(`[autoPrintPoller] Shopee account ${account.id}: activation snapshot saved; ${baseline.length} existing orders excluded`);
+          if (account.provider === 'tiktok') await initializeMarketplaceAutoPrint(config.user_id, scope, baseline, 'tiktok');
+          else await initializeShopeeAutoPrint(config.user_id, scope, baseline);
+          console.log(`[autoPrintPoller] ${account.provider} account ${account.id}: activation snapshot saved; ${baseline.length} existing shipments excluded`);
           continue;
         }
         excluded = new Set(state.excluded_ids);
@@ -126,9 +135,12 @@ async function pollUser(config: any, shopeeOnly = false) {
         const batch = shipmentIds.slice(i, i + BATCH_SIZE);
         for (const shipmentId of batch) {
           try {
+            if (account.provider === 'tiktok' && !await reserveTikTokLabelAttempt(config.user_id, scope!, shipmentId)) continue;
             let job;
             if (pdfAutoPrint) {
-              const pdf = await provider.getLabelsPDF(ctx, [shipmentId]);
+              const pdf = account.provider === 'tiktok'
+                ? await provider.getLabelsPDF(ctx, [shipmentId], { createdAfter: createdAfter! })
+                : await provider.getLabelsPDF(ctx, [shipmentId]);
               if (!pdf.length || pdf.subarray(0, 5).toString() !== '%PDF-') throw new Error('Invalid PDF label');
               job = await addPdfPrintQueueJob(config.user_id, shipmentId, pdf, account.provider, scope!);
             } else {
@@ -159,7 +171,7 @@ async function pollUser(config: any, shopeeOnly = false) {
 }
 
 export function startAutoPrintPoller() {
-  console.log('🔄 Auto-print poller started (ML 60s reconciliation, Shopee 60s discovery)');
+  console.log('🔄 Auto-print poller started (ML 60s reconciliation, independent Shopee/TikTok 60s discovery)');
 
   const run = async () => {
     try {
@@ -189,7 +201,7 @@ export function startAutoPrintPoller() {
       console.log(`[autoPrintPoller] Polling ${configs.length} user(s) with auto-print enabled`);
       // Poll users sequentially to avoid hammering provider APIs
       for (const config of configs) {
-        await pollUser(config);
+        await pollAutoPrintUser(config);
       }
       });
     } catch (error) {
@@ -201,7 +213,7 @@ export function startAutoPrintPoller() {
     try {
       await withJobLock(SHOPEE_PRINT_LOCK, async () => {
         const configs = await getAutoPrintEnabledConfigs(true);
-        for (const config of configs) await pollUser(config, true);
+        for (const config of configs) await pollAutoPrintUser(config, 'shopee');
       });
     } catch (error) {
       console.error('[autoPrintPoller] Shopee sweep failed:', error);
@@ -209,6 +221,17 @@ export function startAutoPrintPoller() {
   };
   runShopee();
   setInterval(runShopee, SHOPEE_POLL_INTERVAL_MS);
+
+  const runTikTok = async () => {
+    if (process.env.TIKTOK_ENABLED !== '1') return;
+    try {
+      await withJobLock(TIKTOK_PRINT_LOCK, async () => {
+        for (const config of await getAutoPrintEnabledConfigs()) await pollAutoPrintUser(config, 'tiktok');
+      });
+    } catch (error) { console.error('[autoPrintPoller] TikTok sweep failed:', error); }
+  };
+  runTikTok();
+  setInterval(runTikTok, POLL_INTERVAL_MS);
 
   // Run immediately, then on interval
   run();
