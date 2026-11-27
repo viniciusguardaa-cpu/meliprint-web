@@ -89,10 +89,10 @@ já coletados/cancelados; essa restrição do marketplace é respeitada.
 | Fila, ativação, tentativas e locks | `server/src/db.ts`, `server/migrations/0018_tiktok_label_attempts.sql` |
 | Polling e compatibilidade do agente | `server/src/jobs/autoPrintPoller.ts`, `server/src/services/agentPrintJobs.ts` |
 | Renovação de tokens e dashboard | `server/src/services/accounts.ts`, `server/src/routes/shipments.ts`, `server/src/routes/autoPrint.ts` |
-| Interface | `client/src/pages/Dashboard.tsx`, `client/src/components/Header.tsx`, `client/src/components/MarketplaceLogo.tsx` |
+| Interface | `client/src/pages/Settings.tsx`, `client/src/pages/Dashboard.tsx`, `client/src/components/Header.tsx`, `client/src/components/MarketplaceLogo.tsx` |
 | Configuração | `.env.example` |
 | Testes TikTok | `server/src/__tests__/tiktok.test.ts`, `tiktok-poller.test.ts`, `tiktokQueue.integration.test.ts` |
-| Regressões/compatibilidade | `server/src/__tests__/agentPrintJobs.test.ts`, `printQueue.test.ts`, `client/src/pages/__tests__/DashboardFilters.test.tsx` |
+| Regressões/compatibilidade | `server/src/__tests__/agentPrintJobs.test.ts`, `printQueue.test.ts`, `client/src/pages/__tests__/DashboardFilters.test.tsx`, `SettingsTikTok.test.tsx` |
 
 ## Ativação após aprovação e validação real
 
@@ -129,8 +129,15 @@ já coletados/cancelados; essa restrição do marketplace é respeitada.
 
 ## Validação automatizada
 
-Resultado final: **273 testes backend, 34 testes frontend e 11 testes do agente
+Resultado: **273 testes backend, 38 testes frontend e 11 testes do agente
 aprovados, sem testes ignorados nessas execuções; build completo aprovado.**
+
+O cartão TikTok Shop aparece após Shopee em Configurações → Marketplaces, com
+botão explícito **Conectar TikTok Shop**. O botão inicia o OAuth existente e
+retorna a `/configuracoes`. Enquanto a integração não estiver configurada e
+habilitada, o cartão permanece visível com o botão desabilitado e explicação.
+Os testes da tela cobrem início da autorização, indisponibilidade, conta conectada
+e falha do OAuth. Esta interface ainda precisa ser publicada para aparecer no site.
 
 - Backend: suíte completa com PostgreSQL local em banco descartável exclusivo;
   inclui isolamento por schema, claims concorrentes, escopo por usuário/loja,

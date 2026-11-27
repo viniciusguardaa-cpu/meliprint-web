@@ -207,7 +207,7 @@ export default function Settings() {
               const connected = accounts.filter((a) => a.provider === p.id);
               const available = p.configured !== false;
               return (
-                <div key={p.id} className="py-4 first:pt-0 last:pb-0">
+                <div key={p.id} role="group" aria-label={p.displayName} className="py-4 first:pt-0 last:pb-0">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
                       <MarketplaceLogo provider={p.id} size={36} />
@@ -229,18 +229,27 @@ export default function Settings() {
                       size="sm"
                       onClick={() => handleConnect(p.id)}
                       disabled={connecting === p.id || !available}
-                      title={!available ? 'Disponível em breve' : undefined}
+                      title={!available ? (p.id === 'tiktok' ? 'A conexão TikTok Shop ainda não foi liberada.' : 'Disponível em breve') : undefined}
                     >
                       {connecting === p.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <Link2 className="w-4 h-4" />
                       )}
-                      {!available
+                      {p.id === 'tiktok'
+                        ? connected.length ? 'Conectar outra conta TikTok Shop' : 'Conectar TikTok Shop'
+                        : !available
                         ? 'Em breve'
                         : connected.length ? 'Conectar outra conta' : 'Conectar'}
                     </Button>
                   </div>
+                  {p.id === 'tiktok' && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {available
+                        ? 'Autorize sua loja no TikTok Shop. As etiquetas usarão a impressora já configurada no LabelGo.'
+                        : 'A conexão estará disponível após a liberação da integração com o TikTok Shop.'}
+                    </p>
+                  )}
                   {connected.length > 0 && (
                     <ul className="mt-3 space-y-2">
                       {connected.map((a) => (
