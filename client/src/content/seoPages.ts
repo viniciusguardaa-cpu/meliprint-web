@@ -567,6 +567,144 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
     ],
   },
 
+  '/imprimir-etiqueta-shopee': {
+    h1: 'Imprimir etiqueta do Shopee: passo a passo',
+    lead: 'Do login à etiqueta impressa: o caminho completo para imprimir uma etiqueta ou o dia inteiro de vendas, pelo navegador ou em térmica.',
+    crumb: 'Imprimir etiqueta ML',
+    sections: [
+      {
+        heading: 'Antes de começar: o que você precisa',
+        body: 'Para imprimir a etiqueta você precisa de três coisas: uma conta de vendedor no Shopee com o envio disponível, uma impressora (comum ou térmica) e o arquivo da etiqueta — PDF ou ZPL. Não é obrigatório instalar nada para imprimir pelo navegador.',
+        table: {
+          headers: ['Você tem', 'Como imprimir', 'Observação'],
+          rows: [
+            ['Impressora comum (jato/laser)', 'PDF em A4 ou papel adesivo', 'Escala 100%, sem ajustar à página'],
+            ['Térmica com driver', 'PDF ou ZPL', 'Mídia de 100 mm'],
+            ['Térmica ZPL2 + agente', 'ZPL automático', 'Plano Completo, Windows'],
+            ['Só celular', 'PDF pelo navegador', 'Depende da impressão do sistema'],
+          ],
+        },
+      },
+      {
+        heading: 'Passo 1 — encontre a etiqueta no Shopee',
+        body: [
+          'Acesse Minhas vendas > Envios e procure o pedido com status "pronto para envio". A etiqueta fica disponível nesse envio; se o pedido ainda estiver em análise ou sem estoque, ela não aparece.',
+          'No LabelGo, a lista de envios prontos aparece automaticamente depois que você conecta a conta via OAuth. Você não precisa abrir pedido por pedido nem exportar arquivo.',
+        ],
+      },
+      {
+        heading: 'Passo 2 — escolha o formato',
+        body: 'PDF é o formato universal: imprime em qualquer impressora e abre em qualquer dispositivo. ZPL é para térmicas compatíveis e permite impressão direta/automática. Se você tem dúvida, comece pelo PDF.',
+        table: {
+          headers: ['Formato', 'Onde imprime', 'Melhor para'],
+          rows: [
+            ['PDF', 'Comum, laser, jato ou térmica com driver', 'Poucas etiquetas, qualquer impressora'],
+            ['ZPL', 'Térmica ZPL2', 'Volume alto, automação'],
+          ],
+        },
+      },
+      {
+        heading: 'Passo 3 — imprima no tamanho certo',
+        body: 'A etiqueta é 10x15 cm (100x150 mm). Na janela de impressão, escolha a impressora, o tamanho do papel 10x15 e a escala 100%. Nunca use "ajustar à página" ou "fit to page": isso deforma o código de barras e a transportadora pode recusar o pacote.',
+        bullets: [
+          'Margens: mínimo ou zero, se a impressora permitir.',
+          'Qualidade: normal ou alta; evite rascunho.',
+          'Papel: A4 comum/adesivo na impressora comum; rolo 10x15 na térmica.',
+          'Térmica: confira a calibração e a densidade antes de imprimir o lote.',
+        ],
+        links: [
+          { href: 'https://seller.shopee.com.br/nota/como-imprimir-as-etiquetas-de-envios', label: 'Fonte: como imprimir as etiquetas (Shopee)', external: true },
+        ],
+      },
+      {
+        heading: 'Passo 4 — imprima pelo LabelGo em lote',
+        body: [
+          'Com a conta conectada, selecione todos os envios prontos e clique em imprimir. O LabelGo gera um PDF único com todas as etiquetas — ideal para dias de muitas vendas. No plano Completo, o agente para Windows envia o ZPL automaticamente para a térmica USB.',
+          'A impressão em lote evita o vai e vem de abrir pedido, baixar arquivo e imprimir um por um. Se um envio não estiver pronto, ele não entra na seleção.',
+        ],
+        links: [
+          { href: '/imprimir-etiquetas-em-lote/', label: 'Como funciona a impressão em lote' },
+          { href: '/pricing/', label: 'Comparar planos' },
+        ],
+      },
+      {
+        heading: 'Passo 5 — confira e cole',
+        body: 'Antes de fechar o pacote, confira se o código de barras e o QR code estão nítidos e se o endereço é o do pedido. Cole a etiqueta lisa, sem dobras e sem fita adesiva sobre o código. Cada pacote recebe a etiqueta do seu próprio envio.',
+        bullets: [
+          'Não cubra o código de barras/QR com fita ou plástico.',
+          'Não escreva, rasure ou corte a etiqueta.',
+          'Não cole o canhoto nem a folha de controle no pacote.',
+          'Se a etiqueta saiu errada, reimprima antes de despachar.',
+        ],
+        links: [{ href: '/reimprimir-etiqueta-mercado-livre/', label: 'Como reimprimir' }],
+      },
+      {
+        heading: 'Erros comuns e como resolver',
+        table: {
+          headers: ['Problema', 'Causa provável', 'Solução'],
+          rows: [
+            ['Etiqueta não aparece', 'Envio ainda não está pronto', 'Confira o status em Minhas vendas > Envios'],
+            ['Código de barras ilegível', 'Escala errada, pouca tinta ou cabeçote sujo', 'Imprima em 100%, aumente a qualidade e limpe o cabeçote'],
+            ['Etiqueta cortada', 'Papel/mídia no tamanho errado', 'Use 10x15 cm e recalibre a térmica'],
+            ['Etiqueta vencida', 'Prazo de despacho passou', 'Reimprima pelo fluxo do Shopee'],
+            ['Transportadora recusou', 'Etiqueta dobrada, rasurada ou coberta', 'Reimprima e cole novamente, sem fita sobre o código'],
+          ],
+        },
+        links: [
+          { href: 'https://seller.shopee.com.br/aprender/nota/como-gerar-as-etiquetas-dos-pacotes-corretamente', label: 'Fonte: erros mais comuns (Shopee)', external: true },
+        ],
+      },
+      {
+        heading: 'Reimpressão: o que fazer quando a etiqueta falha',
+        body: 'Enquanto o envio estiver dentro do prazo, a reimpressão emite a mesma etiqueta sem custo adicional. No Shopee, abra a venda, clique nos três pontinhos, escolha "Preciso de ajuda" e depois "Gerar minha etiqueta novamente". No LabelGo, use a aba "Reimpressão" para reemitir sem procurar no histórico.',
+        links: [{ href: '/reimprimir-etiqueta-mercado-livre/', label: 'Guia de reimpressão' }],
+      },
+      {
+        heading: 'Checklist final',
+        bullets: [
+          'Conta conectada é a mesma que fez a venda.',
+          'Etiqueta impressa em 100%, no tamanho 10x15.',
+          'Código de barras e QR nítidos.',
+          'Etiqueta colada lisa, sem fita sobre o código.',
+          'Pacote correto para cada etiqueta.',
+          'Etiqueta dentro do prazo de despacho.',
+        ],
+      },
+    ],
+    faqs: [
+      {
+        q: 'Preciso instalar algum programa?',
+        a: 'Para imprimir em PDF pelo navegador, não. Só é preciso instalar o agente do LabelGo (Windows) se quiser a impressão automática em térmica do plano Completo.',
+      },
+      {
+        q: 'Funciona no celular?',
+        a: 'O painel do LabelGo funciona no navegador do celular. A impressão depende de a impressora estar acessível pelo aparelho (impressão do sistema ou app do fabricante).',
+      },
+      {
+        q: 'Quantas etiquetas posso imprimir de uma vez?',
+        a: 'Quantas estiverem prontas: selecione todas e elas saem juntas em um único PDF.',
+      },
+      {
+        q: 'O que faço se a etiqueta sair borrada?',
+        a: 'Confira a tinta (impressora comum) ou a densidade e a limpeza do cabeçote (térmica). Reimprima em qualidade maior e confira o código de barras com um leitor antes de colar.',
+      },
+      {
+        q: 'Posso imprimir a etiqueta de um pedido já postado?',
+        a: 'Depois de postado, a etiqueta já cumpriu o papel. Se precisar do comprovante, use o histórico do envio; para um novo despacho, é preciso um novo envio/etiqueta.',
+      },
+      {
+        q: 'A etiqueta precisa de canhoto?',
+        a: 'Não para o pacote. O canhoto é opcional e serve para controle do vendedor; com térmica e rolo 10x15, a etiqueta sem canhoto é o formato mais comum.',
+      },
+    ],
+    related: [
+      { href: '/etiqueta-mercado-livre/', title: 'Etiqueta Shopee', desc: 'Onde gerar e formatos' },
+      { href: '/imprimir-etiquetas-em-lote/', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
+      { href: '/etiqueta-10x15/', title: 'Etiqueta 10x15', desc: 'Formato, materiais e configuração' },
+      { href: '/imprimir-zpl/', title: 'Imprimir ZPL', desc: 'Guia para vendedores' },
+    ],
+  },
+
   '/etiqueta-10x15': {
     h1: 'Etiqueta 10x15: o formato padrão do Mercado Livre',
     lead: '100x150 mm, uma etiqueta por envio. Veja os materiais, a configuração de impressão e como imprimir 10x15 sem impressora térmica.',
@@ -829,6 +967,140 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
     ],
   },
 
+  '/impressora-termica-shopee': {
+    h1: 'Impressora térmica para Shopee: o que verificar',
+    lead: 'Antes de comprar uma térmica para etiquetas de envio, confira largura, linguagem e conexão — e saiba quando ela nem é necessária.',
+    crumb: 'Impressora térmica',
+    sections: [
+      {
+        heading: 'Térmica é obrigatória para vender no Shopee?',
+        body: [
+          'Não. A etiqueta do Shopee pode ser impressa em PDF em qualquer impressora comum — jato de tinta, laser ou até uma térmica com driver. A térmica não é uma exigência do Shopee; ela é uma escolha de operação.',
+          'A vantagem aparece no volume: uma térmica de etiquetas imprime mais rápido, não usa tinta e produz um código de barras mais nítido. Para quem despacha poucas etiquetas por semana, a impressora comum que já está na mesa resolve.',
+        ],
+        links: [{ href: '/calculadora-custo-etiqueta/', label: 'Calcular o custo por etiqueta' }],
+      },
+      {
+        heading: 'Checklist antes de comprar',
+        bullets: [
+          'Largura de impressão de pelo menos 100 mm — a etiqueta do Shopee é 10x15 cm.',
+          'Suporte a ZPL/ZPL2 se você quer envio direto/automático; sem isso, a térmica imprime o PDF pelo driver.',
+          'Conexão USB é suficiente e é o que o agente do LabelGo utiliza.',
+          'Térmica direta (sem ribbon) é o tipo mais comum para etiquetas de envio.',
+          'Resolução de 203 dpi é o padrão do mercado; 300 dpi dá mais nitidez, mas custa mais.',
+          'Confirme o tipo de mídia: rolo/refil de 100 mm, etiqueta 10x15, com ou sem adesivo.',
+          'Verifique se há driver para o seu sistema operacional (Windows, macOS ou Linux).',
+        ],
+      },
+      {
+        heading: 'Compare os tipos de impressora',
+        table: {
+          headers: ['Impressora', 'Imprime etiqueta?', 'Custo por etiqueta', 'Melhor para'],
+          rows: [
+            ['Jato de tinta/laser', 'Sim, via PDF', 'Tinta/papel', 'Baixo volume'],
+            ['Térmica 80 mm (cupom)', 'Não recomendada', 'Baixo', 'Cupom fiscal, não etiqueta 10x15'],
+            ['Térmica 100 mm (PDF)', 'Sim, com driver', 'Baixo', 'Volume médio'],
+            ['Térmica 100 mm ZPL2', 'Sim, direto/automático', 'Baixo', 'Volume alto e automação'],
+          ],
+        },
+      },
+      {
+        heading: 'Modelos populares entre vendedores',
+        body: [
+          'Zebra GC420 e ZD220/ZD421, Elgin L-42 e Bixolon XD5/SLP estão entre as térmicas de etiquetas mais vendidas no Brasil. A lista é só uma referência — antes de comprar, confirme no fabricante se o modelo aceita mídia de 100 mm e, para impressão automática, se entende ZPL2.',
+          'Não compre uma térmica de cupom de 80 mm esperando imprimir a etiqueta 10x15: a largura não bate e o código de barras sai cortado ou reduzido demais.',
+        ],
+      },
+      {
+        heading: 'Como configurar a térmica',
+        body: 'O roteiro é parecido entre os modelos: instale o driver, cadastre a etiqueta 10x15 (100x150 mm), selecione a mídia correta e calibre a impressora. Na Zebra, a central de vendedores do Shopee indica um arquivo de calibração; nas demais, use o utilitário do fabricante.',
+        bullets: [
+          'Driver instalado e impressora selecionada no sistema.',
+          'Tamanho da etiqueta: 100x150 mm (10x15 cm).',
+          'Orientação: retrato, sem escala/ajuste.',
+          'Densidade (darkness) e velocidade: comece no padrão e ajuste se o código sair fraco.',
+          'Faça um teste com uma etiqueta real e passe o leitor de código de barras.',
+        ],
+        links: [
+          { href: 'https://seller.shopee.com.br/nota/como-imprimir-as-etiquetas-de-envios', label: 'Fonte: como imprimir as etiquetas (Shopee)', external: true },
+        ],
+      },
+      {
+        heading: 'ZPL ou PDF na térmica?',
+        body: 'A térmica aceita os dois caminhos, mas eles não são equivalentes. O PDF passa pelo driver e pelo diálogo de impressão; o ZPL vai direto ao equipamento e é o que permite a automação.',
+        table: {
+          headers: ['Caminho', 'Como funciona', 'Vantagem', 'Limitação'],
+          rows: [
+            ['PDF + driver', 'O sistema renderiza e envia a imagem', 'Funciona em qualquer térmica com driver', 'Passa pelo diálogo e pelo spooler'],
+            ['ZPL direto', 'O código vai direto à impressora', 'Rápido, nítido e automatizável', 'Exige térmica ZPL2'],
+          ],
+        },
+      },
+      {
+        heading: 'Impressão automática com o LabelGo Completo',
+        body: 'Com o agente LabelGo instalado em um computador Windows, a impressora térmica USB recebe a etiqueta em ZPL automaticamente quando uma venda é confirmada — sem cliques e sem diálogo de impressão. Sem o agente, a impressão em PDF pelo navegador continua disponível em todos os planos.',
+        links: [{ href: '/pricing/', label: 'Conhecer o LabelGo Completo' }],
+      },
+      {
+        heading: 'Quando não vale comprar',
+        bullets: [
+          'Você imprime menos de 10 etiquetas por dia: a impressora comum resolve.',
+          'Você já tem uma jato de tinta/laser e o volume é baixo.',
+          'O orçamento é curto: comece no PDF e invista na térmica quando o volume justificar.',
+          'Você precisa de cupom fiscal, não de etiqueta: a térmica de 80 mm é outro equipamento.',
+        ],
+      },
+      {
+        heading: 'Cuidados com a mídia e a conservação',
+        bullets: [
+          'Guarde os rolos longe de calor, umidade e sol direto: o papel térmico escurece e perde contraste com o tempo.',
+          'Use mídia de 100 mm com adesivo de qualidade; etiqueta descolando ou dobrada pode ser recusada na coleta.',
+          'Limpe o cabeçote com álcool isopropílico e pano que não solte fios, seguindo o manual do fabricante.',
+          'Se a impressão começar a falhar no mesmo rolo, troque a mídia antes de mexer na densidade.',
+        ],
+      },
+      {
+        heading: 'Fontes oficiais',
+        links: [
+          { href: 'https://seller.shopee.com.br/nota/como-imprimir-as-etiquetas-de-envios', label: 'Shopee: como imprimir as etiquetas', external: true },
+          { href: 'https://seller.shopee.com.br/nota/como-etiquetar-pacotes-para-nao-serem-recusados', label: 'Shopee: como etiquetar pacotes', external: true },
+        ],
+      },
+    ],
+    faqs: [
+      {
+        q: 'Impressora térmica de cupom (80 mm) serve?',
+        a: 'Não é recomendada: a etiqueta 10x15 fica cortada ou pequena demais para o código de barras. Use o PDF em uma impressora comum ou uma térmica de 100 mm.',
+      },
+      {
+        q: 'Precisa ser Zebra?',
+        a: 'Não. Qualquer térmica que aceite mídia de 100 mm imprime a etiqueta via PDF com driver. ZPL2 só é exigida para o envio direto/automático do LabelGo.',
+      },
+      {
+        q: 'USB ou Wi-Fi?',
+        a: 'USB resolve e é o que o agente do LabelGo Completo usa. Wi-Fi só ajuda se a impressora ficar longe do computador.',
+      },
+      {
+        q: 'Dá para testar sem comprar impressora?',
+        a: 'Sim — o plano tem 7 dias grátis e a impressão em PDF pelo navegador funciona em qualquer impressora instalada.',
+      },
+      {
+        q: 'Qual a diferença entre térmica direta e térmica com ribbon?',
+        a: 'A térmica direta imprime no papel térmico sem fita e é o tipo mais comum para etiquetas de envio. A de transferência térmica usa ribbon e é mais durável, mas custa mais por etiqueta.',
+      },
+      {
+        q: 'Preciso de 300 dpi?',
+        a: 'Não para a etiqueta 10x15 do Shopee. 203 dpi é o padrão do mercado e suficiente para o código de barras; 300 dpi ajuda em textos muito pequenos ou logotipos finos.',
+      },
+    ],
+    related: [
+      { href: '/etiqueta-10x15/', title: 'Etiqueta 10x15', desc: 'O formato padrão do Shopee' },
+      { href: '/imprimir-zpl/', title: 'Imprimir ZPL', desc: 'Guia para vendedores' },
+      { href: '/converter-zpl-pdf/', title: 'Conversor ZPL → PDF', desc: 'Ferramenta gratuita, sem cadastro' },
+      { href: '/imprimir-etiquetas-em-lote/', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
+    ],
+  },
+
   '/reimprimir-etiqueta-mercado-livre': {
     h1: 'Reimprimir etiqueta do Mercado Livre: quando e como',
     lead: 'Etiqueta rasgou, colou torto ou sumiu? A reimpressão emite a mesma etiqueta de novo — sem custo de frete adicional.',
@@ -970,6 +1242,152 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
     ],
     related: [
       { href: '/etiqueta-mercado-livre/', title: 'Etiqueta Mercado Livre', desc: 'Onde gerar e formatos' },
+      { href: '/imprimir-etiqueta-mercado-livre/', title: 'Imprimir etiqueta ML', desc: 'Passo a passo completo' },
+      { href: '/imprimir-etiquetas-em-lote/', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
+    ],
+  },
+
+  '/reimprimir-etiqueta-shopee': {
+    h1: 'Reimprimir etiqueta do Shopee: quando e como',
+    lead: 'Etiqueta rasgou, colou torto ou sumiu? A reimpressão emite a mesma etiqueta de novo — sem custo de frete adicional.',
+    crumb: 'Reimprimir etiqueta',
+    sections: [
+      {
+        heading: 'Quando é possível reimprimir',
+        body: [
+          'Enquanto o envio estiver dentro do prazo de despacho e a etiqueta já tiver sido emitida, você pode imprimi-la de novo quantas vezes precisar. A etiqueta tem data de validade; se o prazo passou, ela pode não estar mais disponível.',
+          'Depois que o pacote é postado, a etiqueta já cumpriu seu papel — reimprimir não é mais necessário para aquele envio. Se você precisa de um comprovante, use o histórico do envio.',
+        ],
+      },
+      {
+        heading: 'Por que a etiqueta precisa ser reimpressa',
+        bullets: [
+          'A etiqueta rasgou, dobrou ou colou torto no pacote.',
+          'A impressão saiu borrada, cortada ou sem o código de barras.',
+          'A impressora falhou no meio do lote.',
+          'O comprador corrigiu o endereço ou o CEP.',
+          'A transportadora recusou o pacote por causa da etiqueta.',
+          'A etiqueta venceu antes do despacho.',
+        ],
+      },
+      {
+        heading: 'Pelo painel do Shopee',
+        body: 'O caminho oficial é: abra a venda em Minhas vendas, clique nos três pontinhos, escolha "Preciso de ajuda" e selecione a opção correspondente (etiqueta com erros, recusada pela transportadora ou alteração de endereço). Depois clique em "Gerar minha etiqueta novamente". A etiqueta volta idêntica — mesmo código de rastreio e mesmos dados.',
+        links: [
+          { href: 'https://seller.shopee.com.br/aprender/nota/como-gerar-as-etiquetas-dos-pacotes-corretamente', label: 'Fonte: erros mais comuns (Shopee)', external: true },
+        ],
+      },
+      {
+        heading: 'Pelo LabelGo',
+        body: [
+          'Os envios já impressos ficam separados na aba "Reimpressão" do painel — sem misturar com os envios novos. Selecione e imprima de novo em PDF pelo navegador, sem precisar procurar o pedido no histórico do Shopee.',
+          'Se você imprime em lote, a reimpressão também pode ser feita em lote: selecione os envios que precisam de segunda via e gere um único PDF.',
+        ],
+        links: [{ href: '/imprimir-etiqueta-mercado-livre/', label: 'Ver o passo a passo de impressão' }],
+      },
+      {
+        heading: 'Reimpressão no LabelGo: passo a passo',
+        bullets: [
+          'Abra o painel e vá até a aba "Reimpressão".',
+          'Localize o envio pelo código de rastreio ou pelo nome do comprador.',
+          'Selecione uma ou várias etiquetas que precisam de segunda via.',
+          'Clique em imprimir e confira o PDF antes de enviar para a impressora.',
+          'Descarte a via antiga e cole a nova no pacote correto.',
+        ],
+      },
+      {
+        heading: 'O que fazer se a reimpressão não resolver',
+        body: [
+          'Se a etiqueta venceu, o envio foi cancelado ou a transportadora recusou o pacote, a reimpressão pode não ser suficiente. Nesse caso, abra o atendimento no Shopee e descreva o problema: em alguns cenários é preciso cancelar o envio e gerar uma nova etiqueta, com novo prazo.',
+          'Não tente reaproveitar a etiqueta de outro pedido nem criar uma etiqueta por fora do Shopee: o código de rastreio precisa estar vinculado ao envio original para a transportadora aceitar o pacote.',
+        ],
+      },
+      {
+        heading: 'Reimpressão x nova etiqueta',
+        table: {
+          headers: ['Situação', 'Reimpressão resolve?', 'O que fazer'],
+          rows: [
+            ['Etiqueta rasgou/colou torto', 'Sim', 'Reimprima a mesma etiqueta'],
+            ['Impressão borrada', 'Sim', 'Reimprima com qualidade maior'],
+            ['Endereço/CEP corrigido', 'Sim', 'Reimprima após a correção'],
+            ['Etiqueta vencida', 'Depende', 'Use o fluxo do ML; pode ser preciso novo envio'],
+            ['Pacote já postado', 'Não', 'Use o histórico/comprovante'],
+          ],
+        },
+      },
+      {
+        heading: 'Cuidados ao reimprimir',
+        bullets: [
+          'Use sempre a via mais recente e descarte a etiqueta danificada.',
+          'Não cole uma etiqueta por cima da outra — o código de barras pode falhar na leitura.',
+          'Confira se o código de rastreio da nova etiqueta é o mesmo do envio.',
+          'Não reaproveite a etiqueta de um envio em outro pacote.',
+          'Se a etiqueta sair errada de novo, verifique a calibração da impressora antes de colar.',
+        ],
+      },
+      {
+        heading: 'Erros comuns na reimpressão',
+        table: {
+          headers: ['Problema', 'Causa provável', 'Solução'],
+          rows: [
+            ['Não encontro a opção', 'O envio não está no status certo', 'Confira Minhas vendas > Envios e o prazo de despacho'],
+            ['Etiqueta vencida', 'Prazo passou', 'Use o fluxo de ajuda do ML; pode ser preciso novo envio'],
+            ['Endereço mudou', 'Dados do comprador', 'Peça a atualização em "Meus dados" e reimprima'],
+            ['Transportadora recusou', 'Etiqueta danificada/coberta', 'Reimprima e cole sem fita sobre o código'],
+            ['Etiqueta não aparece', 'Envio ainda não está pronto', 'Aguarde o status "pronto para envio"'],
+          ],
+        },
+      },
+      {
+        heading: 'Checklist antes de reimprimir',
+        bullets: [
+          'O envio está dentro do prazo de despacho?',
+          'A etiqueta antiga será descartada?',
+          'A impressora está calibrada e com mídia suficiente?',
+          'O código de rastreio confere com o pedido?',
+          'A etiqueta nova será colada sem fita sobre o código?',
+        ],
+      },
+      {
+        heading: 'Fontes oficiais',
+        links: [
+          { href: 'https://seller.shopee.com.br/aprender/nota/como-gerar-as-etiquetas-dos-pacotes-corretamente', label: 'Shopee: erros mais comuns ao imprimir', external: true },
+          { href: 'https://seller.shopee.com.br/nota/como-etiquetar-pacotes-para-nao-serem-recusados', label: 'Shopee: como etiquetar pacotes', external: true },
+        ],
+      },
+    ],
+    faqs: [
+      {
+        q: 'Reimprimir a etiqueta gera custo?',
+        a: 'Não. Reimprimir emite a mesma etiqueta já paga — o frete não é cobrado de novo.',
+      },
+      {
+        q: 'O código de rastreio muda na reimpressão?',
+        a: 'Não. É a mesma etiqueta: mesmo rastreio, mesmos dados do destinatário e do envio.',
+      },
+      {
+        q: 'E se o prazo de despacho venceu?',
+        a: 'A etiqueta pode não estar mais disponível. Nesse caso, fale com o suporte do Shopee — pode ser preciso cancelar o envio e gerar nova etiqueta.',
+      },
+      {
+        q: 'Posso reimprimir depois de postar o pacote?',
+        a: 'A reimpressão serve para o despacho. Depois de postado, a etiqueta já cumpriu o papel; se precisar de comprovante, use o histórico do envio.',
+      },
+      {
+        q: 'A reimpressão mantém o mesmo endereço?',
+        a: 'Sim, a etiqueta é a mesma. Se o comprador corrigiu o endereço, o Shopee gera uma nova versão com os dados atualizados antes da reimpressão.',
+      },
+      {
+        q: 'Posso reimprimir várias etiquetas de uma vez?',
+        a: 'Sim. No LabelGo, a aba "Reimpressão" permite selecionar vários envios e gerar um único PDF; no Shopee, o fluxo é por venda.',
+      },
+      {
+        q: 'A reimpressão pode ser feita pelo celular?',
+        a: 'O painel do LabelGo funciona no navegador do celular e a reimpressão em PDF depende da impressão do sistema. Para imprimir em térmica, o computador com o driver instalado é o caminho mais simples.',
+      },
+    ],
+    related: [
+      { href: '/etiqueta-mercado-livre/', title: 'Etiqueta Shopee', desc: 'Onde gerar e formatos' },
       { href: '/imprimir-etiqueta-mercado-livre/', title: 'Imprimir etiqueta ML', desc: 'Passo a passo completo' },
       { href: '/imprimir-etiquetas-em-lote/', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
     ],

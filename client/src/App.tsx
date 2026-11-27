@@ -150,6 +150,9 @@ function App() {
         <Route path="/imprimir-zpl" element={<SeoPage {...SEO_PAGES['/imprimir-zpl']} />} />
         <Route path="/etiqueta-mercado-livre" element={<SeoPage {...SEO_PAGES['/etiqueta-mercado-livre']} />} />
 <Route path="/etiqueta-shopee" element={<SeoPage {...SEO_PAGES['/etiqueta-shopee']} />} />
+<Route path="/imprimir-etiqueta-shopee" element={<SeoPage {...SEO_PAGES['/imprimir-etiqueta-shopee']} />} />
+<Route path="/reimprimir-etiqueta-shopee" element={<SeoPage {...SEO_PAGES['/reimprimir-etiqueta-shopee']} />} />
+<Route path="/impressora-termica-shopee" element={<SeoPage {...SEO_PAGES['/impressora-termica-shopee']} />} />
         <Route path="/imprimir-etiqueta-mercado-livre" element={<SeoPage {...SEO_PAGES['/imprimir-etiqueta-mercado-livre']} />} />
         <Route path="/etiqueta-10x15" element={<SeoPage {...SEO_PAGES['/etiqueta-10x15']} />} />
         <Route path="/impressora-termica-mercado-livre" element={<SeoPage {...SEO_PAGES['/impressora-termica-mercado-livre']} />} />
