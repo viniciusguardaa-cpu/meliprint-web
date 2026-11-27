@@ -29,6 +29,14 @@ export default function MarketplaceLogo({ provider, size = 40 }: MarketplaceLogo
           <text x="24" y="31" textAnchor="middle" fontSize="13" fontWeight="800" fill="#EE4D2D" fontFamily="system-ui, sans-serif">S</text>
         </svg>
       );
+    case 'tiktok':
+      return (
+        <svg viewBox="0 0 48 48" {...common} aria-label="TikTok Shop">
+          <rect width="48" height="48" fill="#000000" rx={rx} />
+          <text x="24" y="24" textAnchor="middle" fontSize="15" fontWeight="800" fill="#25F4EE" fontFamily="system-ui, sans-serif">T</text>
+          <text x="26" y="26" textAnchor="middle" fontSize="15" fontWeight="800" fill="#FE2C55" fontFamily="system-ui, sans-serif" opacity="0.9">T</text>
+        </svg>
+      );
     case 'amazon':
       return (
         <svg viewBox="0 0 48 48" {...common} aria-label="Amazon">

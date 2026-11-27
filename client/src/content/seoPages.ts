@@ -307,6 +307,128 @@ export const SEO_PAGES: Record<string, SeoPageContent> = {
     ],
   },
 
+  '/etiqueta-shopee': {
+    h1: 'Etiqueta da Shopee: como gerar e imprimir',
+    lead: 'O que é a etiqueta de envio, onde ela fica disponível, quais formatos existem e como imprimir várias de uma vez sem abrir pedido por pedido.',
+    crumb: 'Etiqueta Shopee',
+    sections: [
+      {
+        heading: 'O que é a etiqueta de envio',
+        body: [
+          'A etiqueta de envio é o documento que identifica o pacote no trajeto até o comprador. No Shopee ela usa o formato 10x15 cm (100x150 mm) e reúne, em uma única etiqueta adesiva, o endereço do destinatário, o código de rastreio e o código de barras ou QR code que a transportadora lê na coleta.',
+          'Ela é emitida pelo Shopee depois que a venda é confirmada e o envio fica disponível para despacho. O vendedor não precisa criar a etiqueta em outro sistema: basta imprimir o arquivo gerado pelo próprio Shopee ou por uma integração autorizada, como o LabelGo.',
+        ],
+      },
+      {
+        heading: 'Onde a etiqueta fica disponível',
+        body: [
+          'No painel do vendedor, a etiqueta aparece na seção de envios (Minhas vendas > Envios) quando o pedido está com status "pronto para envio". A partir daí ela pode ser emitida pelo painel do Shopee ou por uma integração conectada via OAuth.',
+          'Se a etiqueta ainda não aparece, geralmente o envio não está pronto: pagamento em análise, estoque pendente ou dados de envio incompletos seguram a liberação. Confira o status do pedido antes de tentar imprimir de novo.',
+        ],
+      },
+      {
+        heading: 'PDF ou ZPL: qual formato escolher',
+        body: 'A etiqueta do Shopee é a mesma nos dois formatos; o que muda é a forma de imprimir. Se você não tem térmica, o PDF resolve. Se tem uma térmica ZPL2, o arquivo .zpl evita o diálogo de impressão e permite a automação do LabelGo Completo.',
+        table: {
+          headers: ['Formato', 'Impressora', 'Vantagem', 'Quando usar'],
+          rows: [
+            ['PDF', 'Comum (jato de tinta/laser) ou térmica com driver', 'Abre em qualquer lugar e imprime em qualquer impressora', 'Poucas etiquetas, sem térmica'],
+            ['ZPL/ZPL2', 'Térmica compatível com ZPL', 'Sai direto, sem conversão e com alta nitidez', 'Volume alto, térmica e impressão automática'],
+          ],
+        },
+        links: [{ href: '/etiqueta-10x15/', label: 'Tudo sobre a etiqueta 10x15' }],
+      },
+      {
+        heading: 'Como imprimir pelo painel do Shopee',
+        body: [
+          'O caminho oficial é: acesse Minhas vendas, abra o envio com etiqueta disponível e clique em imprimir. O Shopee gera o arquivo conforme a impressora selecionada. Nas preferências de venda você define se quer imprimir também o canhoto e a folha de controle.',
+          'Se você usa impressora comum, o Shopee pode gerar folha de controle, lista de produtos e canhoto — documentos de uso do vendedor, que não devem ser colados no pacote. Com térmica, é possível imprimir a etiqueta sem canhoto, usando rolos de 10x15 cm.',
+        ],
+        links: [
+          { href: 'https://seller.shopee.com.br/nota/como-imprimir-as-etiquetas-de-envios', label: 'Fonte: como imprimir as etiquetas (Shopee)', external: true },
+        ],
+      },
+      {
+        heading: 'Como imprimir pelo LabelGo',
+        body: [
+          'Ao conectar sua conta via OAuth oficial do Shopee, os envios prontos aparecem automaticamente em uma única tela — sem exportar arquivos nem abrir pedido por pedido. Selecione um ou vários e imprima em um único PDF pelo navegador.',
+          'No plano Completo, o agente para Windows envia o ZPL direto para a térmica assim que a venda é confirmada. A impressão em PDF pelo navegador continua disponível em todos os planos.',
+        ],
+        links: [
+          { href: '/imprimir-etiquetas-em-lote/', label: 'Impressão em lote' },
+          { href: '/pricing/', label: 'Comparar planos' },
+        ],
+      },
+      {
+        heading: 'Erros comuns que fazem a etiqueta ser recusada',
+        body: 'A maior parte das recusas vem de impressão ou colagem fora do padrão. A central de vendedores do Shopee lista os erros mais frequentes:',
+        bullets: [
+          'Fita adesiva sobre o código de barras ou QR code — a transportadora não consegue ler.',
+          'Etiqueta dobrada, com bolhas ou colada sobre a dobra do pacote.',
+          'Tamanho alterado na impressão (escala diferente de 100%).',
+          'Impressão borrada, com tinta insuficiente ou cabeçote sujo.',
+          'Etiqueta rasurada, cortada ou com informação escrita à mão.',
+          'Uma etiqueta usada em mais de um pacote — cada envio tem a sua.',
+        ],
+        links: [
+          { href: 'https://seller.shopee.com.br/nota/como-etiquetar-pacotes-para-nao-serem-recusados', label: 'Fonte: como etiquetar pacotes', external: true },
+          { href: 'https://seller.shopee.com.br/aprender/nota/como-gerar-as-etiquetas-dos-pacotes-corretamente', label: 'Fonte: erros mais comuns ao imprimir', external: true },
+        ],
+      },
+      {
+        heading: 'Reimpressão: quando e como emitir de novo',
+        body: [
+          'A etiqueta tem prazo de validade e pode ser reimpressa enquanto o envio está dentro do prazo de despacho. Se ela rasgou, colou torto ou a impressora falhou, é possível emitir a mesma etiqueta novamente sem custo adicional de frete.',
+          'No Shopee, o caminho é: abra a venda, clique nos três pontinhos, escolha "Preciso de ajuda" e selecione a opção correspondente (etiqueta com erros, recusada pela transportadora ou alteração de endereço). Depois clique em "Gerar minha etiqueta novamente". No LabelGo, envios já impressos ficam separados na aba "Reimpressão".',
+        ],
+        links: [{ href: '/reimprimir-etiqueta-mercado-livre/', label: 'Guia de reimpressão' }],
+      },
+      {
+        heading: 'Checklist antes de despachar',
+        bullets: [
+          'Etiqueta impressa em 100%, sem "ajustar à página".',
+          'Código de barras e QR code nítidos e livres de fita adesiva.',
+          'Etiqueta colada lisa, sem dobras, no pacote correto.',
+          'Canhoto e folha de controle guardados com você, não colados no pacote.',
+          'Dados do destinatário conferidos antes de fechar o pacote.',
+          'Etiqueta dentro do prazo de despacho.',
+        ],
+      },
+    ],
+    faqs: [
+      {
+        q: 'A etiqueta do Shopee tem custo?',
+        a: 'Não. Emitir a etiqueta é gratuito — o frete já foi pago na venda (por você ou pelo comprador, conforme a campanha).',
+      },
+      {
+        q: 'Posso imprimir a etiqueta depois?',
+        a: 'Sim, enquanto o envio estiver dentro do prazo de despacho. Depois de postado, a etiqueta já cumpriu seu papel.',
+      },
+      {
+        q: 'Por que minha etiqueta não aparece?',
+        a: 'Confira se o envio está com status "pronto para envio" e, no LabelGo, se a conta conectada é a mesma que realizou a venda. Pagamento em análise ou estoque pendente também seguram a liberação.',
+      },
+      {
+        q: 'Preciso de impressora térmica?',
+        a: 'Não. O PDF da etiqueta imprime em qualquer impressora comum; a térmica só é necessária para o envio direto em ZPL ou para a impressão automática do LabelGo.',
+      },
+      {
+        q: 'Posso imprimir a etiqueta sem canhoto?',
+        a: 'Sim. Com térmica e rolos de 10x15 cm, a etiqueta sem canhoto é o formato mais comum. O canhoto é apenas para controle do vendedor e não deve ser colado no pacote.',
+      },
+      {
+        q: 'A etiqueta vale para qualquer transportadora?',
+        a: 'A etiqueta é gerada pelo Shopee para o envio específico daquela venda, com a transportadora definida no pedido. Não reaproveite a etiqueta de um envio em outro.',
+      },
+    ],
+    related: [
+      { href: '/imprimir-etiqueta-mercado-livre/', title: 'Imprimir etiqueta Shopee', desc: 'Passo a passo completo' },
+      { href: '/reimprimir-etiqueta-mercado-livre/', title: 'Reimprimir etiqueta', desc: 'Quando e como emitir de novo' },
+      { href: '/imprimir-etiquetas-em-lote/', title: 'Impressão em lote', desc: 'Várias etiquetas de uma vez' },
+      { href: '/converter-zpl-pdf/', title: 'Conversor ZPL → PDF', desc: 'Ferramenta gratuita, sem cadastro' },
+    ],
+  },
+
   '/imprimir-etiqueta-mercado-livre': {
     h1: 'Imprimir etiqueta do Mercado Livre: passo a passo',
     lead: 'Do login à etiqueta impressa: o caminho completo para imprimir uma etiqueta ou o dia inteiro de vendas, pelo navegador ou em térmica.',

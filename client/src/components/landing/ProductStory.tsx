@@ -62,15 +62,15 @@ export default function ProductStory() {
             <Reveal delay={120}>
               <p className="mt-5 text-base sm:text-lg text-muted-foreground leading-relaxed">
                 O LabelGo reduz o tempo gasto no processamento de etiquetas e
-                simplifica a rotina operacional: os envios do Mercado Livre
-                aparecem prontos para imprimir, você seleciona, gera e despacha —
-                tudo no mesmo painel.
+                simplifica a rotina operacional: os envios de todos os
+                marketplaces conectados aparecem prontos para imprimir, você
+                seleciona, gera e despacha — tudo no mesmo painel.
               </p>
             </Reveal>
             <Reveal delay={200}>
               <ul className="mt-7 space-y-4">
                 {[
-                  'Envios prontos para impressão organizados em uma única tela',
+                  'Envios de Mercado Livre, Shopee e TikTok Shop numa única tela',
                   'Separação entre novos envios e reimpressões',
                   'Funciona no navegador, no computador ou no celular',
                 ].map((item) => (

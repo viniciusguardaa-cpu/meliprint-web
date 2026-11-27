@@ -6,8 +6,12 @@ import type { SeoFaq } from './seoPages';
 
 export const LANDING_FAQS: SeoFaq[] = [
   {
-    q: 'É seguro conectar minha conta do Mercado Livre?',
-    a: 'Sim. A conexão usa o acesso oficial do Mercado Livre: você autoriza o acesso no site deles e o LabelGo nunca vê nem armazena sua senha. Você pode revogar o acesso a qualquer momento.',
+    q: 'Quais marketplaces são suportados?',
+    a: 'Mercado Livre e Shopee já estão disponíveis para conexão e impressão em lote. TikTok Shop está em fase de implementação e chega em breve. Você pode conectar mais de um marketplace ao mesmo tempo e imprimir tudo junto.',
+  },
+  {
+    q: 'É seguro conectar minha conta do marketplace?',
+    a: 'Sim. A conexão usa o acesso oficial de cada marketplace: você autoriza o acesso no site deles e o LabelGo nunca vê nem armazena sua senha. Você pode revogar o acesso a qualquer momento.',
   },
   {
     q: 'Preciso instalar algum programa?',
