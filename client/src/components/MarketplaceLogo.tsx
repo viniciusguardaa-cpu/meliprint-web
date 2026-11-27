@@ -13,13 +13,6 @@ export default function MarketplaceLogo({ provider, size = 40 }: MarketplaceLogo
   const common = { width: size, height: size, style: { width: size, height: size } };
 
   switch (provider) {
-    case 'tiktok':
-      return (
-        <svg viewBox="0 0 48 48" {...common} aria-label="TikTok Shop">
-          <rect width="48" height="48" fill="#161823" rx={rx} />
-          <text x="24" y="31" textAnchor="middle" fontSize="19" fontWeight="800" fill="#25F4EE" fontFamily="system-ui, sans-serif">TT</text>
-        </svg>
-      );
     case 'mercadolivre':
       return (
         <svg viewBox="0 0 48 48" {...common} aria-label="Mercado Livre">
