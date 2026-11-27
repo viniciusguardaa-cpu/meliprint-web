@@ -1,10 +1,14 @@
 # TikTok Shop no LabelGo — escopo e preparação
 
 Status em 27/11/2026: inspeção concluída; integração ainda não implementada nem
-publicada. A loja da Companhia do Papel já vende, mas o usuário confirmou que
-não criou o aplicativo no TikTok Shop Partner Center. O cadastro de parceiro
-está aberto no navegador e requer e-mail, verificação, criação de senha e aceite
-dos termos pelo titular. Nenhuma credencial foi criada ou enviada.
+publicada. A loja da Companhia do Papel já vende e o aplicativo ainda não foi
+criado. A pedido do usuário, foi localizado o cadastro já iniciado no Safari.
+A conta de parceiro já existe, mas App developer está desabilitado com região e
+mercado Brasil. Os perfis de parceiro e vendedor exibem o mesmo e-mail mascarado.
+A documentação de Developer onboarding alerta que o e-mail da loja restringe o
+cadastro a seller developer e orienta usar outro e-mail para ISV ou solicitar
+allowlisting da conta ao TikTok. Não foi criada senha, submetido cadastro nem
+aceito qualquer termo pelo agente. Nenhuma credencial foi criada ou enviada.
 
 ## Distribuição
 
@@ -12,7 +16,9 @@ O objetivo é atender outros vendedores do TikTok Shop, começando pelo Brasil.
 Criar um aplicativo público do LabelGo como desenvolvedor/ISV, com a categoria
 correspondente às funções reais de impressão/logística. Evitar um aplicativo de
 seller developer restrito à própria loja. Cada cliente autoriza a própria loja
-por OAuth; não precisa criar aplicativo nem fornecer a senha ao LabelGo.
+por OAuth; não precisa criar aplicativo nem fornecer a senha ao LabelGo. A pedido
+do usuário, TikTok reutilizará o agente, a impressora e a configuração de impressão
+automática já usados pelo cliente no LabelGo, sem nova escolha de impressora.
 A distribuição pública depende das revisões e dos mercados aprovados pelo TikTok.
 A Companhia do Papel pode ser piloto após a autorização permitida pelo portal.
 Não presumir que um aplicativo não publicado pode acessar a loja real: seguir
@@ -58,3 +64,14 @@ os limites de teste/Development Shop apresentados pelo Partner Center.
 - https://partner.tiktokshop.com/docv2/page/get-package-shipping-document-202309
 - https://partner.tiktokshop.com/docv2/page/6507ead7b99d5302be949ba9
 - https://partner.tiktokshop.com/docv2/page/br-market-updated-api-workflow-to-support-order-invoice-and-warehouse
+
+## Bloqueio do cadastro no Safari
+
+O formulário existente foi preservado com Brasil como região e mercado, sem
+selecionar uma categoria incompatível. O cadastro público depende de um e-mail
+de desenvolvedor diferente do da loja ou da liberação da conta pelo TikTok.
+A coincidência dos e-mails mascarados e o aviso oficial indicam uma possível
+causa; não foi possível confirmar o e-mail completo nem um motivo específico de
+bloqueio emitido pela plataforma. Aguardando a escolha do usuário antes de criar
+outra conta. Fonte: https://partner.tiktokshop.com/docv2/page/developer-onboarding
+Prova: `docs/evidence/tiktok-safari-isv-category-20261127.jpg`.
