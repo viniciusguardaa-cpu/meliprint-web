@@ -31,7 +31,7 @@ export default function TrustBar() {
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <p className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground/80 bg-white border border-black/[0.05] rounded-full px-4 py-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-success" />
-              Conexão autorizada pelo Mercado Livre
+              Conexões autorizadas por Mercado Livre e Shopee
             </p>
             <a
               href="https://apps.microsoft.com/detail/9NJGXJJTR1FP"

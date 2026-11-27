@@ -13,7 +13,7 @@ const TESTIMONIALS = [
     quote:
       'Uso impressora térmica e o arquivo ZPL funcionou de primeira. A expedição ficou muito mais organizada.',
     name: 'Diego R.',
-    role: 'Eletrônicos e acessórios · Mercado Livre',
+    role: 'Eletrônicos e acessórios · Shopee',
     initials: 'DR',
   },
   {

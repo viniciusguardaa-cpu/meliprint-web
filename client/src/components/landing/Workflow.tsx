@@ -3,7 +3,7 @@ import Reveal from './Reveal';
 const STEPS = [
   {
     title: 'Conecte sua conta',
-    desc: 'Faça login e autorize sua conta do Mercado Livre.',
+    desc: 'Faça login e autorize suas contas do Mercado Livre, Shopee ou TikTok Shop.',
   },
   {
     title: 'Selecione os envios',

@@ -329,11 +329,23 @@ export const PAGE_SEO: Record<string, RouteSeo> = {
       'Onde encontrar a etiqueta de envio no Mercado Livre, os formatos disponíveis (PDF e ZPL) e como imprimir várias etiquetas de uma vez.',
     jsonLd: guideLd('/etiqueta-mercado-livre'),
   },
+  '/etiqueta-shopee': {
+    title: 'Etiqueta da Shopee: como gerar e imprimir — LabelGo',
+    description:
+      'Onde encontrar a etiqueta de envio na Shopee, os formatos disponíveis (PDF) e como imprimir várias etiquetas de uma vez pelo LabelGo.',
+    jsonLd: guideLd('/etiqueta-shopee'),
+  },
   '/imprimir-etiqueta-mercado-livre': {
     title: 'Imprimir etiqueta do Mercado Livre: passo a passo — LabelGo',
     description:
       'Passo a passo para imprimir etiquetas do Mercado Livre: conectar a conta, selecionar envios e imprimir em PDF pelo navegador ou em impressora térmica.',
     jsonLd: guideLd('/imprimir-etiqueta-mercado-livre'),
+  },
+  '/imprimir-etiqueta-shopee': {
+    title: 'Imprimir etiqueta da Shopee: passo a passo — LabelGo',
+    description:
+      'Passo a passo para imprimir etiquetas da Shopee: conectar a conta, selecionar envios e imprimir em PDF pelo navegador.',
+    jsonLd: guideLd('/imprimir-etiqueta-shopee'),
   },
   '/etiqueta-10x15': {
     title: 'Etiqueta 10x15: formato e impressão — LabelGo',
@@ -347,11 +359,23 @@ export const PAGE_SEO: Record<string, RouteSeo> = {
       'Como escolher uma impressora térmica para etiquetas 10x15 do Mercado Livre: largura de bobina, compatibilidade com ZPL e alternativa em PDF.',
     jsonLd: guideLd('/impressora-termica-mercado-livre'),
   },
+  '/impressora-termica-shopee': {
+    title: 'Impressora térmica Shopee: checklist — LabelGo',
+    description:
+      'Como escolher uma impressora térmica para etiquetas 10x15 da Shopee: largura de bobina, compatibilidade e alternativa em PDF.',
+    jsonLd: guideLd('/impressora-termica-shopee'),
+  },
   '/reimprimir-etiqueta-mercado-livre': {
     title: 'Reimprimir etiqueta do Mercado Livre — LabelGo',
     description:
       'Etiqueta rasgou ou colou errado? Veja como reimprimir a mesma etiqueta do Mercado Livre sem custo adicional, pelo painel ou pelo LabelGo.',
     jsonLd: guideLd('/reimprimir-etiqueta-mercado-livre'),
+  },
+  '/reimprimir-etiqueta-shopee': {
+    title: 'Reimprimir etiqueta da Shopee — LabelGo',
+    description:
+      'Etiqueta rasgou ou colou errado? Veja como reimprimir a mesma etiqueta da Shopee sem custo adicional, pelo LabelGo.',
+    jsonLd: guideLd('/reimprimir-etiqueta-shopee'),
   },
   '/imprimir-etiquetas-em-lote': {
     title: 'Imprimir etiquetas em lote no Mercado Livre — LabelGo',

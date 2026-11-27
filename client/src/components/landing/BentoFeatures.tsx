@@ -124,7 +124,7 @@ export default function BentoFeatures() {
               </div>
               <CardTitle
                 title="Sincronização automática"
-                desc="Seus envios chegam do Mercado Livre sem você precisar atualizar."
+                desc="Seus envios chegam dos marketplaces conectados sem você precisar atualizar."
               />
               <p className="mt-4 inline-flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
                 <span className="w-2 h-2 rounded-full bg-success animate-pulse-dot" />
@@ -146,7 +146,7 @@ export default function BentoFeatures() {
               </div>
               <CardTitle
                 title="Conexão segura"
-                desc="Você autoriza no site do Mercado Livre pela conexão oficial. Sua senha nunca passa pelo LabelGo."
+                desc="Você autoriza no site do marketplace pela conexão oficial. Sua senha nunca passa pelo LabelGo."
               />
             </Card>
           </Reveal>

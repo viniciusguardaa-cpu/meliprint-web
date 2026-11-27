@@ -15,7 +15,7 @@ import MotionHeroDemo from './MotionHeroDemo';
 const BENEFITS = [
   'Selecione todos os envios prontos',
   'Imprima as etiquetas em lote',
-  'Conexão com Mercado Livre',
+  'Conexão com Mercado Livre, Shopee e TikTok Shop',
   'Sem instalar nada para imprimir pelo navegador',
 ];
 
@@ -130,7 +130,7 @@ export default function Hero({ pricesReady = true, priceLabel, founderPriceLabel
                 <span className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
                   <Printer className="w-3.5 h-3.5 text-foreground" />
                 </span>
-                Para vendedores do Mercado Livre
+                Para vendedores de marketplace
               </span>
             </Reveal>
 
@@ -139,13 +139,13 @@ export default function Hero({ pricesReady = true, priceLabel, founderPriceLabel
                 id="hero-title"
                 className="mt-5 text-[34px] sm:text-6xl lg:text-[64px] xl:text-[76px] font-extrabold text-foreground leading-[0.98] tracking-tight"
               >
-                {motionAlternative ? (<>O dia de etiquetas do Mercado Livre, <span className="text-primary">numa impressão só.</span></>) : (<>Etiquetas do <span className="text-primary">Mercado&nbsp;Livre</span> em lote, sem abrir cada pedido.</>)}
+                {motionAlternative ? (<>As etiquetas de todos os seus marketplaces, <span className="text-primary">numa impressão só.</span></>) : (<>Etiquetas do <span className="text-primary">Mercado&nbsp;Livre, Shopee e TikTok Shop</span> em lote, sem abrir cada pedido.</>)}
               </h1>
             </Reveal>
 
             <Reveal delay={180}>
               <p className="mt-6 text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto lg:mx-0">
-                Selecione os envios prontos e clique em Imprimir.
+                Selecione os envios prontos de todos os marketplaces e clique em Imprimir.
                 O LabelGo reúne as etiquetas para impressão pelo navegador.
               </p>
             </Reveal>
