@@ -10,7 +10,7 @@ export default function Privacy() {
         </Link>
 
         <h1 className="text-2xl font-bold text-foreground mb-2">Política de Privacidade</h1>
-        <p className="text-sm text-muted-foreground mb-8">Última atualização: 8 de outubro de 2026</p>
+        <p className="text-sm text-muted-foreground mb-8">Última atualização: 28 de novembro de 2026</p>
 
         <div className="prose prose-sm max-w-none text-foreground space-y-6">
           <section>
@@ -26,8 +26,8 @@ export default function Privacy() {
           <section>
             <h2 className="text-lg font-semibold text-foreground">2. Dados que coletamos</h2>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Dados da sua conta do Mercado Livre (ID, nickname e email), obtidos via login OAuth.</li>
-              <li>Dados de envios e pedidos necessários para gerar as etiquetas (via API do Mercado Livre).</li>
+              <li>Identificadores e informações das contas e lojas que você autoriza por OAuth no Mercado Livre, Shopee e TikTok Shop, conforme as integrações habilitadas.</li>
+              <li>Dados de pedidos, pacotes, destinatários e etiquetas, incluindo nome e endereço presentes nos documentos de envio, necessários à exibição e impressão.</li>
               <li>Dados de pagamento e status de assinatura, processados pelo Mercado Pago (não armazenamos dados de cartão).</li>
               <li>Dados técnicos de uso (logs de erro, endereço IP) para segurança e diagnóstico.</li>
             </ul>
@@ -46,9 +46,15 @@ export default function Privacy() {
             <h2 className="text-lg font-semibold text-foreground">4. Compartilhamento com terceiros</h2>
             <p>
               Compartilhamos dados com os provedores necessários para o funcionamento
-              do serviço: Mercado Livre (autenticação e dados de envio), Mercado Pago
+              do serviço: Mercado Livre, Shopee e TikTok Shop, conforme as contas autorizadas e integrações habilitadas (autenticação e dados de envio), Mercado Pago
               (processamento de pagamento), Labelary (conversão de etiquetas ZPL em PDF) e
               provedores de infraestrutura (hospedagem e banco de dados).
+            </p>
+            <p>
+              A aplicação e o banco de dados são hospedados no Railway, na região US East
+              (Virgínia, Estados Unidos). A impressão é realizada pelo agente local no
+              computador do cliente. O uso do Tiny ERP pelo vendedor não elimina o
+              tratamento de dados realizado pelo LabelGo.
             </p>
           </section>
 
@@ -85,6 +91,11 @@ export default function Privacy() {
               Adotamos medidas técnicas razoáveis para proteger seus dados, incluindo
               conexões criptografadas (HTTPS), armazenamento de sessão seguro e controle de
               acesso por chave a áreas administrativas.
+            </p>
+            <p>
+              Consulte a <a href="/politica-seguranca-informacao.pdf" className="underline" target="_blank" rel="noreferrer">Política de Segurança da Informação (PDF, português e inglês)</a>,
+              versão 1.0, aprovada em 28 de novembro de 2026, para conhecer as diretrizes
+              de controle de acesso, criptografia, resposta a incidentes e exclusão.
             </p>
           </section>
 
